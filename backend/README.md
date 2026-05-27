@@ -55,6 +55,7 @@ Multiple keys are rotated round-robin. API responses expose only key index and f
 ```bash
 python backend\scripts\import_cc_cedict.py path\to\cedict_ts.u8
 python backend\scripts\import_hsk_vocab.py path\to\hsk_folder
+python backend\scripts\bootstrap_data.py
 ```
 
 ## Tests

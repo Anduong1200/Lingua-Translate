@@ -10,9 +10,11 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test:backend": "python -m pytest backend\\tests",
+    "test:e2e": "playwright test",
     "verify": "npm run build && npm run test:backend"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "typescript": "~6.0.2",

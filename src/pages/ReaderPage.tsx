@@ -8,6 +8,7 @@ import {
     Layers,
     Loader2,
     Plus,
+    Sparkles,
     Volume2,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
@@ -25,7 +26,7 @@ type PdfSelection = {
     pageContext: string
 }
 
-type PanelTab = 'quick' | 'context' | 'grammar' | 'examples' | 'note' | 'review'
+type PanelTab = 'quick' | 'context' | 'ai' | 'grammar' | 'examples' | 'note' | 'review'
 
 function isSelectableToken(token: ChineseToken) {
     return token.definitions.length > 0 && token.pos !== 'punctuation' && token.surface.trim().length > 0
@@ -55,10 +56,14 @@ export default function ReaderPage() {
         setCurrentDocument,
         chineseAnalysis,
         contextualAnalysis,
+        aiContext,
         isAnalyzing,
+        isGeneratingAIContext,
         analyzeChineseText,
+        generateAIContextReading,
         saveChineseAnnotation,
         saveUserCorrection,
+        markKnownWord,
         savedWords,
         annotations,
         updateReadingProgress,
@@ -186,9 +191,30 @@ export default function ReaderPage() {
         })
     }
 
+    const handleMarkKnown = async () => {
+        if (!selectedSurface) return
+        await markKnownWord(selectedSurface, 0.9)
+        setSavedNotice(`Đã đánh dấu đã biết: ${selectedSurface}`)
+    }
+
+    const handleRunAIContext = async () => {
+        if (!selectedSurface && !sourceSentence) return
+        setSavedNotice('')
+        setActiveTab('ai')
+        await generateAIContextReading({
+            selected_text: selectedSurface || sourceSentence,
+            source_sentence: sourceSentence || selectedSurface,
+            paragraph_context: currentDocument?.content || sourceSentence || selectedSurface,
+            page_context: pdfSelection?.pageContext || currentDocument?.content || sourceSentence || selectedSurface,
+            domain_mode: activeAnalysis?.context?.domain || settings.domainMode || 'auto',
+            user_level: settings.targetHskLevel || 'HSK4',
+        })
+    }
+
     const panelTabs: { id: PanelTab; label: string }[] = [
         { id: 'quick', label: 'Quick Meaning' },
         { id: 'context', label: 'Context' },
+        { id: 'ai', label: 'AI Context' },
         { id: 'grammar', label: 'Grammar' },
         { id: 'examples', label: 'Examples' },
         { id: 'note', label: 'Personal Note' },
@@ -320,13 +346,24 @@ export default function ReaderPage() {
                                 <h2 className="font-black text-slate-900">Context Reader Panel</h2>
                             </div>
                             {selectedSurface && (
-                                <button
-                                    onClick={() => speak(selectedSurface)}
-                                    className="rounded-lg border border-teal-100 p-2 text-teal-700 hover:bg-teal-50"
-                                    title="Nghe phát âm"
-                                >
-                                    <Volume2 className="h-4 w-4" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={handleRunAIContext}
+                                        disabled={isGeneratingAIContext}
+                                        className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
+                                        title="Gọi AI context reading"
+                                    >
+                                        {isGeneratingAIContext ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                                        AI
+                                    </button>
+                                    <button
+                                        onClick={() => speak(selectedSurface)}
+                                        className="rounded-lg border border-teal-100 p-2 text-teal-700 hover:bg-teal-50"
+                                        title="Nghe phát âm"
+                                    >
+                                        <Volume2 className="h-4 w-4" />
+                                    </button>
+                                </div>
                             )}
                         </div>
 
@@ -440,6 +477,86 @@ export default function ReaderPage() {
                                     </div>
                                 )}
 
+                                {activeTab === 'ai' && (
+                                    <div className="space-y-3">
+                                        <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+                                            <div className="mb-2 flex items-center justify-between gap-3">
+                                                <h3 className="text-xs font-black uppercase tracking-wider text-amber-700">
+                                                    Google AI context layer
+                                                </h3>
+                                                {aiContext?.status && (
+                                                    <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                                                        {aiContext.status}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {isGeneratingAIContext ? (
+                                                <div className="flex items-center gap-2 text-sm font-bold text-amber-700">
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    Đang gọi AI context reading...
+                                                </div>
+                                            ) : aiContext?.status === 'ok' && aiContext.response ? (
+                                                <div className="space-y-3">
+                                                    <p className="text-sm font-semibold leading-relaxed text-slate-700">
+                                                        {aiContext.response.context_explanation_vi || aiContext.response.raw_text}
+                                                    </p>
+                                                    <div className="grid gap-3 md:grid-cols-2">
+                                                        <div className="rounded-lg bg-white p-3">
+                                                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                                Dịch tự nhiên
+                                                            </p>
+                                                            <p className="mt-1 text-sm font-bold text-slate-800">
+                                                                {aiContext.response.natural_vi || 'Không có'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="rounded-lg bg-white p-3">
+                                                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                                Sát cấu trúc
+                                                            </p>
+                                                            <p className="mt-1 text-sm font-bold text-slate-800">
+                                                                {aiContext.response.literal_vi || 'Không có'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    {aiContext.response.nuance_vi && (
+                                                        <div className="rounded-lg bg-white p-3 text-sm font-semibold text-slate-700">
+                                                            {aiContext.response.nuance_vi}
+                                                        </div>
+                                                    )}
+                                                    {aiContext.response.grammar_notes?.length ? (
+                                                        <div className="space-y-2">
+                                                            {aiContext.response.grammar_notes.map((note, index) => (
+                                                                <div key={`${note.pattern}-${index}`} className="rounded-lg bg-white p-3">
+                                                                    <p className="text-sm font-black text-amber-800">{note.pattern}</p>
+                                                                    <p className="mt-1 text-sm font-semibold text-slate-700">{note.meaning_vi}</p>
+                                                                    {note.evidence && <p className="mt-1 text-xs font-semibold text-slate-500">{note.evidence}</p>}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : null}
+                                                    {typeof aiContext.response.confidence === 'number' && (
+                                                        <p className="text-xs font-bold text-slate-500">
+                                                            Confidence: {Math.round(aiContext.response.confidence * 100)}%
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    <p className="text-sm font-semibold leading-relaxed text-slate-700">
+                                                        {aiContext?.message ||
+                                                            'Bấm nút AI ở góc panel để gọi Google Gemini. Nếu chưa cấu hình key, app vẫn dùng phân tích offline.'}
+                                                    </p>
+                                                    {aiContext?.errors?.map((error) => (
+                                                        <p key={`${error.key_index}-${error.status_code}`} className="rounded-lg bg-white p-2 text-xs font-semibold text-red-600">
+                                                            Key {error.key_index}: {error.status_code} - {error.message}
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {activeTab === 'grammar' && (
                                     <div className="space-y-3">
                                         {grammarPatterns.length > 0 ? (
@@ -520,6 +637,13 @@ export default function ReaderPage() {
                                                 </button>
                                             </div>
                                         </div>
+                                        <button
+                                            onClick={handleMarkKnown}
+                                            disabled={!selectedSurface}
+                                            className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-400"
+                                        >
+                                            Mark as known
+                                        </button>
                                     </div>
                                 )}
 

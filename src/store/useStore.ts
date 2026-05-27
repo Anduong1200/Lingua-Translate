@@ -2,15 +2,19 @@ import { create } from 'zustand'
 import {
     AnnotationRecord,
     AppSettings,
+    AIContextPayload,
+    AIContextReadingResult,
     ChineseAnalysis,
     ChineseToken,
     DocumentContent,
     FlashCard,
+    KnownWord,
     LearningProgress,
     ReviewItem,
     SavedWord,
     TranslationHistory,
     TranslationResult,
+    UserCorrection,
 } from '@/types'
 import { detectLanguage, generateId } from '@/lib/utils'
 import { analyzeChineseText as analyzeOffline, getVietnameseDefinition } from '@/lib/chinese'
@@ -44,6 +48,7 @@ type AnalyzeChineseInput =
           page_context?: string
           domain_mode?: string
           user_level?: string
+          ai_enabled?: boolean
       }
 
 type AnalyzeChinesePayload = {
@@ -55,6 +60,7 @@ type AnalyzeChinesePayload = {
     page_context?: string
     domain_mode?: string
     user_level?: string
+    ai_enabled?: boolean
 }
 
 interface AppState {
@@ -72,9 +78,13 @@ interface AppState {
     isTranslatingFile: boolean
     chineseAnalysis: ChineseAnalysis | null
     contextualAnalysis: ChineseAnalysis | null
+    aiContext: AIContextPayload | null
     isAnalyzing: boolean
+    isGeneratingAIContext: boolean
     annotations: AnnotationRecord[]
     reviewItems: ReviewItem[]
+    userCorrections: UserCorrection[]
+    knownWords: KnownWord[]
     isHydrating: boolean
 
     // Learning
@@ -90,8 +100,10 @@ interface AppState {
     setFloatingPopup: (popup: { visible: boolean; x: number; y: number; text: string }) => void
     translateText: (text: string, sourceLang?: string, targetLang?: string) => Promise<void>
     analyzeChineseText: (input: AnalyzeChineseInput) => Promise<ChineseAnalysis>
+    generateAIContextReading: (input: Exclude<AnalyzeChineseInput, string>) => Promise<AIContextReadingResult | null>
     saveChineseAnnotation: (input: ReaderAnnotationInput) => Promise<AnnotationRecord>
     saveUserCorrection: (input: UserCorrectionInput) => Promise<void>
+    markKnownWord: (word: string, confidence?: number) => Promise<void>
     submitReview: (reviewItemId: string, rating: number, responseTimeMs?: number) => Promise<void>
     saveWord: (word: SavedWord) => void
     removeSavedWord: (id: string) => void
@@ -248,9 +260,13 @@ export const useStore = create<AppState>((set, get) => ({
     isTranslatingFile: false,
     chineseAnalysis: null,
     contextualAnalysis: null,
+    aiContext: null,
     isAnalyzing: false,
+    isGeneratingAIContext: false,
     annotations: storedAnnotations,
     reviewItems: storedReviewItems,
+    userCorrections: [],
+    knownWords: [],
     isHydrating: false,
     learningProgress: {
         wordsLearned: storedSavedWords.filter((word) => word.learned).length,
@@ -267,11 +283,13 @@ export const useStore = create<AppState>((set, get) => ({
     hydrateFromBackend: async () => {
         set({ isHydrating: true })
         try {
-            const [documentsResponse, annotationsResponse, reviewResponse, profileResponse] = await Promise.all([
+            const [documentsResponse, annotationsResponse, reviewResponse, profileResponse, correctionsResponse, knownWordsResponse] = await Promise.all([
                 getJson<{ documents: any[] }>(`${API_BASE_URL}/documents`),
                 getJson<AnnotationRecord[]>(`${API_BASE_URL}/annotations`),
                 getJson<{ items: ReviewItem[] }>(`${API_BASE_URL}/review-items`),
                 getJson<{ profile: any }>(`${API_BASE_URL}/user/profile`),
+                getJson<{ corrections: UserCorrection[] }>(`${API_BASE_URL}/user/corrections`),
+                getJson<{ words: KnownWord[] }>(`${API_BASE_URL}/known-words`),
             ])
 
             const documents = documentsResponse.documents.map(normalizeDocumentFromApi)
@@ -289,6 +307,8 @@ export const useStore = create<AppState>((set, get) => ({
                     null,
                 annotations,
                 reviewItems,
+                userCorrections: correctionsResponse.corrections,
+                knownWords: knownWordsResponse.words,
                 flashCards,
                 savedWords,
                 settings: {
@@ -409,6 +429,7 @@ export const useStore = create<AppState>((set, get) => ({
             set({
                 chineseAnalysis: isContextual ? get().chineseAnalysis : analysis,
                 contextualAnalysis: isContextual ? analysis : null,
+                aiContext: analysis.ai_context || (isContextual ? get().aiContext : null),
                 isAnalyzing: false,
             })
             return analysis
@@ -417,9 +438,43 @@ export const useStore = create<AppState>((set, get) => ({
             set({
                 chineseAnalysis: analysis,
                 contextualAnalysis: null,
+                aiContext: null,
                 isAnalyzing: false,
             })
             return analysis
+        }
+    },
+
+    generateAIContextReading: async (input) => {
+        set({ isGeneratingAIContext: true })
+        const settings = get().settings
+        const payload: AnalyzeChinesePayload = {
+            ...input,
+            text: input.text || input.source_sentence || input.selected_text || '',
+            domain_mode: input.domain_mode || settings.domainMode || 'auto',
+            user_level: input.user_level || settings.targetHskLevel || 'HSK4',
+        }
+
+        try {
+            const result = await postJson<AIContextReadingResult>(`${API_BASE_URL}/ai/context-reading`, payload)
+            set({
+                contextualAnalysis: result.rule_based,
+                aiContext: result.ai,
+                isGeneratingAIContext: false,
+            })
+            return result
+        } catch {
+            set({
+                aiContext: {
+                    enabled: false,
+                    provider: 'google_gemini',
+                    model: 'unknown',
+                    status: 'request_failed',
+                    message: 'Không gọi được AI context endpoint.',
+                },
+                isGeneratingAIContext: false,
+            })
+            return null
         }
     },
 
@@ -550,6 +605,14 @@ export const useStore = create<AppState>((set, get) => ({
 
     saveUserCorrection: async (input) => {
         await postJson(`${API_BASE_URL}/user/corrections`, input)
+        const correctionsResponse = await getJson<{ corrections: UserCorrection[] }>(`${API_BASE_URL}/user/corrections`)
+        set({ userCorrections: correctionsResponse.corrections })
+    },
+
+    markKnownWord: async (word, confidence = 0.85) => {
+        await postJson(`${API_BASE_URL}/known-words`, { word, confidence })
+        const knownWordsResponse = await getJson<{ words: KnownWord[] }>(`${API_BASE_URL}/known-words`)
+        set({ knownWords: knownWordsResponse.words })
     },
 
     submitReview: async (reviewItemId, rating, responseTimeMs = 1200) => {

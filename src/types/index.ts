@@ -169,6 +169,7 @@ export interface ChineseAnalysis {
     examples?: string[]
     review_suggestion?: ContextualReviewSuggestion
     personalization?: ContextualPersonalization
+    ai_context?: AIContextPayload
 }
 
 export type ReadingMode = 'character' | 'word' | 'phrase' | 'sentence' | 'paragraph' | 'page'
@@ -225,6 +226,53 @@ export interface ContextualPersonalization {
     user_level: string
 }
 
+export interface AIGrammarNote {
+    pattern: string
+    meaning_vi: string
+    evidence?: string
+}
+
+export interface AIReviewSuggestion {
+    type: 'cloze' | 'flashcard'
+    front: string
+    back: string
+    reason_vi?: string
+}
+
+export interface AIContextStructuredResponse {
+    natural_vi?: string
+    literal_vi?: string
+    context_explanation_vi?: string
+    grammar_notes?: AIGrammarNote[]
+    nuance_vi?: string
+    domain?: string
+    review_suggestions?: AIReviewSuggestion[]
+    personalization?: {
+        level_adjustment_vi?: string
+        show_pinyin?: boolean
+    }
+    confidence?: number
+    raw_text?: string
+}
+
+export interface AIContextPayload {
+    enabled: boolean
+    provider: string
+    model: string
+    status: 'ok' | 'missing_api_key' | 'all_keys_failed' | string
+    key_index?: number
+    key_fingerprint?: string
+    response?: AIContextStructuredResponse
+    usage?: Record<string, unknown>
+    message?: string
+    errors?: Array<{ key_index: number; status_code: number; message: string }>
+}
+
+export interface AIContextReadingResult {
+    rule_based: ChineseAnalysis
+    ai: AIContextPayload
+}
+
 export interface AnnotationRecord {
     id: string
     document_id: string
@@ -263,5 +311,25 @@ export interface ReviewItem {
     interval_days: number
     ease: number
     reviewed?: boolean
+    created_at: string
+}
+
+export interface UserCorrection {
+    id: string
+    original_term: string
+    system_translation: string
+    user_translation: string
+    context: string
+    domain: string
+    created_at: string
+}
+
+export interface KnownWord {
+    id: string
+    word: string
+    confidence: number
+    last_seen: string
+    times_seen: number
+    times_looked_up: number
     created_at: string
 }

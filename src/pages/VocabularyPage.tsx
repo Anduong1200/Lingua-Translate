@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { BookMarked, Check, FileText, Search, Trash2, Volume2 } from 'lucide-react'
+import { BookMarked, Check, FileText, PencilLine, Search, Trash2, Volume2 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 
 function speak(text: string) {
@@ -9,7 +9,7 @@ function speak(text: string) {
 }
 
 export default function VocabularyPage() {
-    const { savedWords, removeSavedWord, toggleFavorite } = useStore()
+    const { savedWords, userCorrections, knownWords, removeSavedWord, toggleFavorite } = useStore()
     const [search, setSearch] = useState('')
     const [filter, setFilter] = useState<'all' | 'learned' | 'due'>('all')
 
@@ -56,7 +56,8 @@ export default function VocabularyPage() {
                 </div>
             </section>
 
-            <section className="custom-shadow overflow-hidden rounded-2xl border border-teal-100 bg-white">
+            <section className="grid gap-6 xl:grid-cols-[1.5fr_0.9fr]">
+                <div className="custom-shadow overflow-hidden rounded-2xl border border-teal-100 bg-white">
                 <div className="flex flex-col justify-between gap-3 border-b border-teal-100 bg-teal-50/40 p-4 md:flex-row md:items-center">
                     <div className="flex flex-wrap items-center gap-2">
                         {(['all', 'due', 'learned'] as const).map((item) => (
@@ -168,6 +169,57 @@ export default function VocabularyPage() {
                         Chưa có từ phù hợp. Vào Reader, chọn một từ và lưu annotation.
                     </div>
                 )}
+                </div>
+
+                <aside className="flex flex-col gap-6">
+                    <div className="custom-shadow rounded-2xl border border-teal-100 bg-white p-5">
+                        <div className="mb-4 flex items-center justify-between">
+                            <div>
+                                <h2 className="font-black text-slate-900">User corrections</h2>
+                                <p className="text-xs font-semibold text-slate-500">Nghĩa Việt bạn đã sửa sẽ được ưu tiên khi lookup.</p>
+                            </div>
+                            <PencilLine className="h-5 w-5 text-teal-700" />
+                        </div>
+                        <div className="space-y-3">
+                            {userCorrections.slice(0, 8).map((correction) => (
+                                <div key={correction.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="chinese-text text-xl font-black text-teal-700">{correction.original_term}</p>
+                                        <span className="rounded-md bg-cyan-100 px-2 py-1 text-[10px] font-black text-cyan-700">
+                                            {correction.domain}
+                                        </span>
+                                    </div>
+                                    <p className="mt-1 text-sm font-bold text-slate-800">{correction.user_translation}</p>
+                                    {correction.context && <p className="mt-1 line-clamp-2 text-xs font-semibold text-slate-500">{correction.context}</p>}
+                                </div>
+                            ))}
+                            {userCorrections.length === 0 && (
+                                <p className="rounded-xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                                    Chưa có correction. Vào Reader, tab Personal Note để thêm nghĩa Việt ưu tiên.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="custom-shadow rounded-2xl border border-emerald-100 bg-white p-5">
+                        <div className="mb-4">
+                            <h2 className="font-black text-slate-900">Known words</h2>
+                            <p className="text-xs font-semibold text-slate-500">Từ đã đánh dấu biết để sau này ẩn pinyin/giảm giải thích.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {knownWords.slice(0, 24).map((word) => (
+                                <span key={word.id} className="rounded-lg bg-emerald-50 px-2 py-1 text-sm font-black text-emerald-700">
+                                    {word.word}
+                                </span>
+                            ))}
+                            {knownWords.length === 0 && (
+                                <p className="rounded-xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                                    Chưa có known word. Reader có nút Mark as known trong tab Personal Note.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </aside>
             </section>
         </div>
     )

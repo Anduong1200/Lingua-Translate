@@ -1747,6 +1747,25 @@ def create_known_word(payload: KnownWordCreateRequest, session: Session = Depend
     return {"status": "saved", "word": payload.word}
 
 
+@app.get("/api/known-words")
+def list_known_words(session: Session = Depends(db_session)) -> dict[str, Any]:
+    words = session.execute(select(KnownWordRecord).order_by(KnownWordRecord.last_seen.desc())).scalars()
+    return {
+        "words": [
+            {
+                "id": word.id,
+                "word": word.word,
+                "confidence": word.confidence,
+                "last_seen": word.last_seen.isoformat(),
+                "times_seen": word.times_seen,
+                "times_looked_up": word.times_looked_up,
+                "created_at": word.created_at.isoformat(),
+            }
+            for word in words
+        ]
+    }
+
+
 @app.get("/api/debug/db-stats")
 def debug_db_stats(session: Session = Depends(db_session)) -> dict[str, Any]:
     dictionary_total = session.scalar(select(func.count(DictionaryEntryRecord.id))) or 0
@@ -1847,4 +1866,3 @@ def extract_file_text(file_name: str, data: bytes) -> str:
         document = docx.Document(BytesIO(data))
         return "\n".join(paragraph.text for paragraph in document.paragraphs)
     return data.decode("utf-8", errors="ignore")
-

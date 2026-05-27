@@ -27,6 +27,7 @@ from main import (  # noqa: E402
     due_review_items,
     get_document_file,
     health,
+    list_known_words,
     list_documents,
     nlp_analyze,
     NlpAnalyzeRequest,
@@ -166,6 +167,15 @@ def test_user_correction_takes_priority_in_analyze_and_search(session) -> None:
     search = dictionary_search(q="系统", session=session)
     assert search["results"][0]["source"] == "user_corrections"
     assert search["results"][0]["definitions_vi"] == ["hệ thống nghiệp vụ"]
+
+
+def test_known_words_can_be_marked_and_listed(session) -> None:
+    response = backend_main.create_known_word(backend_main.KnownWordCreateRequest(word="市场需求", confidence=0.9), session)
+    listed = list_known_words(session)
+
+    assert response["status"] == "saved"
+    assert listed["words"][0]["word"] == "市场需求"
+    assert listed["words"][0]["confidence"] == 0.9
 
 
 def test_document_upload_persists_file_and_metadata(session) -> None:

@@ -167,6 +167,18 @@ Import HSK vocabulary PDFs:
 python backend\scripts\import_hsk_vocab.py D:\exe\hsk
 ```
 
+Or run the bootstrap helper, which auto-detects the local `D:\exe` data layout when available:
+
+```bash
+python backend\scripts\bootstrap_data.py
+```
+
+Explicit paths:
+
+```bash
+python backend\scripts\bootstrap_data.py --cedict path\to\cedict_ts.u8 --hsk path\to\hsk_folder
+```
+
 Current local imported counts:
 
 ```text
@@ -262,6 +274,7 @@ GET   /api/user/profile
 PATCH /api/user/profile
 GET   /api/user/corrections
 POST  /api/user/corrections
+GET   /api/known-words
 POST  /api/known-words
 ```
 
@@ -291,6 +304,13 @@ Run both:
 
 ```bash
 npm run verify
+```
+
+Optional browser golden path:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
 ```
 
 Known warning:
