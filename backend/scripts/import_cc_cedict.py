@@ -13,8 +13,9 @@ def import_cc_cedict(path: Path, source: str) -> tuple[int, int, int]:
     imported = skipped = errors = 0
     with SessionLocal() as session:
         for line in path.read_text(encoding="utf-8").splitlines():
+            stripped_line = line.strip()
             try:
-                entry = parse_cedict_line(line.strip(), source)
+                entry = parse_cedict_line(stripped_line, source)
                 if not entry:
                     skipped += 1
                     continue
@@ -32,6 +33,9 @@ def import_cc_cedict(path: Path, source: str) -> tuple[int, int, int]:
                 existing.vi = ""
                 existing.en = entry["en"]
                 existing.confidence = 0.7
+                existing.source_version = path.name
+                existing.license = "CC-CEDICT" if source == "cc-cedict" else ""
+                existing.raw_line = stripped_line
                 imported += 1
             except Exception:
                 errors += 1

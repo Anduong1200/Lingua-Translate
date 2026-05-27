@@ -4,6 +4,7 @@ import json
 import hashlib
 import os
 import re
+import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
@@ -36,11 +37,13 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 DB_PATH = DATA_DIR / "hanora.sqlite3"
 UPLOAD_DIR = DATA_DIR / "uploads"
+BACKUP_DIR = DATA_DIR / "backups"
 GOOGLE_KEY_FILE = DATA_DIR / "google_api_keys.txt"
 LOCAL_ENV_FILES = [BASE_DIR / ".env", BASE_DIR.parent / ".env"]
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -64,6 +67,9 @@ class DictionaryEntryRecord(Base):
     hsk_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
     domain_tags_json: Mapped[str] = mapped_column(Text, default="[]")
     source: Mapped[str] = mapped_column(String(64), default="custom_vi")
+    source_version: Mapped[str] = mapped_column(String(64), default="")
+    license: Mapped[str] = mapped_column(String(128), default="")
+    raw_line: Mapped[str] = mapped_column(Text, default="")
     confidence: Mapped[float] = mapped_column(Float, default=0.8)
     note: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -279,6 +285,98 @@ def app_config(name: str, default: str = "") -> str:
     if os.environ.get(name):
         return os.environ[name]
     return read_local_env_files().get(name, default)
+
+
+def app_env() -> str:
+    return app_config("APP_ENV", app_config("ENV", "development")).strip().lower() or "development"
+
+
+def config_int(name: str, default: int, minimum: int | None = None, maximum: int | None = None) -> int:
+    raw_value = app_config(name, str(default))
+    try:
+        value = int(raw_value)
+    except ValueError:
+        value = default
+    if minimum is not None:
+        value = max(value, minimum)
+    if maximum is not None:
+        value = min(value, maximum)
+    return value
+
+
+def config_float(name: str, default: float, minimum: float | None = None, maximum: float | None = None) -> float:
+    raw_value = app_config(name, str(default))
+    try:
+        value = float(raw_value)
+    except ValueError:
+        value = default
+    if minimum is not None:
+        value = max(value, minimum)
+    if maximum is not None:
+        value = min(value, maximum)
+    return value
+
+
+def configured_cors_origins() -> list[str]:
+    configured = parse_key_list(app_config("FRONTEND_ORIGINS"))
+    if configured:
+        return configured
+    return ["http://127.0.0.1:3000", "http://localhost:3000"]
+
+
+def max_upload_bytes() -> int:
+    return config_int("MAX_UPLOAD_BYTES", 50 * 1024 * 1024, minimum=1024 * 1024, maximum=500 * 1024 * 1024)
+
+
+def allowed_upload_extensions() -> set[str]:
+    configured = parse_key_list(app_config("ALLOWED_UPLOAD_EXTENSIONS"))
+    extensions = configured or [".pdf", ".txt", ".md", ".docx"]
+    return {item.lower() if item.startswith(".") else f".{item.lower()}" for item in extensions}
+
+
+def safe_filename(value: str | None, fallback: str = "document.pdf") -> str:
+    name = Path(value or fallback).name.strip()
+    name = re.sub(r"[^A-Za-z0-9._() \-\u3400-\u9fff]+", "_", name).strip(" .")
+    return name or fallback
+
+
+def path_is_under(child: Path, parent: Path) -> bool:
+    try:
+        child.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+async def read_upload_file_limited(file: UploadFile) -> bytes:
+    limit = max_upload_bytes()
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > limit:
+            raise HTTPException(status_code=413, detail=f"Uploaded file exceeds limit of {limit} bytes.")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def runtime_config_warnings() -> list[str]:
+    warnings: list[str] = []
+    origins = configured_cors_origins()
+    if "*" in origins:
+        warnings.append("FRONTEND_ORIGINS contains wildcard '*'; set explicit origins for production.")
+    if app_env() in {"prod", "production"} and not app_config("FRONTEND_ORIGINS"):
+        warnings.append("APP_ENV is production but FRONTEND_ORIGINS is not configured.")
+    if GOOGLE_KEY_FILE.exists():
+        warnings.append("Google API keys are loaded from backend/data/google_api_keys.txt; keep this file local and ignored.")
+    if not DB_PATH.exists():
+        warnings.append("SQLite database file does not exist yet.")
+    if max_upload_bytes() > 100 * 1024 * 1024:
+        warnings.append("MAX_UPLOAD_BYTES is high; large local uploads can slow PDF parsing.")
+    return warnings
 
 
 def load_google_api_keys() -> list[str]:
@@ -693,9 +791,20 @@ def get_profile(session: Session) -> UserProfileRecord:
     return profile
 
 
+def profile_to_dict(profile: UserProfileRecord) -> dict[str, Any]:
+    return {
+        "target_level": profile.target_level,
+        "native_language": profile.native_language,
+        "preferred_domains": json_loads(profile.preferred_domains_json, ["general"]),
+        "show_pinyin": profile.show_pinyin,
+        "translation_style": profile.translation_style,
+    }
+
+
 def ensure_runtime_schema() -> None:
     with engine.connect() as connection:
-        columns = {row[1] for row in connection.execute(sql_text("PRAGMA table_info(documents)")).fetchall()}
+        document_columns = {row[1] for row in connection.execute(sql_text("PRAGMA table_info(documents)")).fetchall()}
+        dictionary_columns = {row[1] for row in connection.execute(sql_text("PRAGMA table_info(dictionary_entries)")).fetchall()}
     required_document_columns = {
         "original_filename": "VARCHAR(256) DEFAULT ''",
         "stored_filename": "VARCHAR(256) DEFAULT ''",
@@ -703,10 +812,22 @@ def ensure_runtime_schema() -> None:
         "sha256": "VARCHAR(64) DEFAULT ''",
         "mime_type": "VARCHAR(128) DEFAULT ''",
     }
+    required_dictionary_columns = {
+        "source_version": "VARCHAR(64) DEFAULT ''",
+        "license": "VARCHAR(128) DEFAULT ''",
+        "raw_line": "TEXT DEFAULT ''",
+    }
     with engine.begin() as connection:
         for column_name, column_type in required_document_columns.items():
-            if column_name not in columns:
+            if column_name not in document_columns:
                 connection.execute(sql_text(f"ALTER TABLE documents ADD COLUMN {column_name} {column_type}"))
+        for column_name, column_type in required_dictionary_columns.items():
+            if column_name not in dictionary_columns:
+                connection.execute(sql_text(f"ALTER TABLE dictionary_entries ADD COLUMN {column_name} {column_type}"))
+        connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_dictionary_entries_source ON dictionary_entries (source)"))
+        connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_pages_document_page ON pages (document_id, page_number)"))
+        connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_annotations_document_page ON annotations (document_id, page_number)"))
+        connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_review_items_due_at ON review_items (due_at)"))
 
 
 def review_suggestion(selected_text: str, source_sentence: str, translation: str, selected_tokens: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1003,7 +1124,7 @@ def post_google_generate_content(api_key: str, model: str, prompt: str, temperat
             url,
             headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
             json=body,
-            timeout=30,
+            timeout=config_float("GOOGLE_AI_TIMEOUT_SECONDS", 30, minimum=3, maximum=120),
         )
     except httpx.HTTPError as exc:
         raise GoogleAIError(0, str(exc)) from exc
@@ -1068,7 +1189,7 @@ if os.environ.get("HANORA_SKIP_CREATE_ALL") != "1":
 app = FastAPI(title="Chinese Context Reader Local API", version=APP_VERSION)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=configured_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1078,6 +1199,39 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "version": APP_VERSION}
+
+
+@app.get("/api/health/deep")
+def health_deep(session: Session = Depends(db_session)) -> dict[str, Any]:
+    checks: dict[str, Any] = {
+        "database": {"ok": False, "path": str(DB_PATH), "size_bytes": DB_PATH.stat().st_size if DB_PATH.exists() else 0},
+        "uploads": {"ok": UPLOAD_DIR.exists(), "path": str(UPLOAD_DIR)},
+        "backups": {"ok": BACKUP_DIR.exists(), "path": str(BACKUP_DIR)},
+        "dictionary": {"ok": False, "entries": 0, "cc_cedict_entries": 0, "hsk_vocab_entries": 0},
+        "ai": ai_status_payload(),
+    }
+    try:
+        session.execute(sql_text("SELECT 1")).scalar_one()
+        dictionary_total = session.scalar(select(func.count(DictionaryEntryRecord.id))) or 0
+        all_dictionary_entries = len(SEED_DICTIONARY) + dictionary_total
+        checks["database"]["ok"] = True
+        checks["dictionary"] = {
+            "ok": all_dictionary_entries > 0,
+            "entries": all_dictionary_entries,
+            "cc_cedict_entries": session.scalar(select(func.count(DictionaryEntryRecord.id)).where(DictionaryEntryRecord.source == "cc-cedict")) or 0,
+            "hsk_vocab_entries": session.scalar(select(func.count(DictionaryEntryRecord.id)).where(DictionaryEntryRecord.source == "hsk_vocab")) or 0,
+        }
+    except Exception as exc:
+        checks["database"]["error"] = str(exc)
+
+    hard_failures = [name for name, payload in checks.items() if isinstance(payload, dict) and payload.get("ok") is False and name != "ai"]
+    return {
+        "status": "error" if hard_failures else "ok",
+        "version": APP_VERSION,
+        "environment": app_env(),
+        "checks": checks,
+        "warnings": runtime_config_warnings(),
+    }
 
 
 @app.get("/api/system/info")
@@ -1091,6 +1245,23 @@ def system_info(session: Session = Depends(db_session)) -> dict[str, Any]:
         "database": "sqlite",
         "orm": "sqlalchemy",
         "offline_first": True,
+    }
+
+
+@app.get("/api/system/config")
+def system_config() -> dict[str, Any]:
+    return {
+        "environment": app_env(),
+        "frontend_origins": configured_cors_origins(),
+        "data_dir": str(DATA_DIR),
+        "upload": {
+            "dir": str(UPLOAD_DIR),
+            "max_bytes": max_upload_bytes(),
+            "allowed_extensions": sorted(allowed_upload_extensions()),
+        },
+        "backup_dir": str(BACKUP_DIR),
+        "ai": ai_status_payload(),
+        "warnings": runtime_config_warnings(),
     }
 
 
@@ -1166,8 +1337,9 @@ def dictionary_import(payload: DictionaryImportRequest, session: Session = Depen
 
     imported = skipped = errors = 0
     for line in resolved.read_text(encoding="utf-8").splitlines():
+        stripped_line = line.strip()
         try:
-            entry = parse_cedict_line(line.strip(), payload.source)
+            entry = parse_cedict_line(stripped_line, payload.source)
             if not entry:
                 skipped += 1
                 continue
@@ -1185,6 +1357,9 @@ def dictionary_import(payload: DictionaryImportRequest, session: Session = Depen
             existing.vi = entry["vi"]
             existing.en = entry["en"]
             existing.source = entry["source"]
+            existing.source_version = resolved.name
+            existing.license = "CC-CEDICT" if payload.source == "cc-cedict" else ""
+            existing.raw_line = stripped_line
             existing.confidence = entry["confidence"]
             imported += 1
         except Exception:
@@ -1289,17 +1464,25 @@ async def upload_document(
     language: str = Form("zh-CN"),
     session: Session = Depends(db_session),
 ) -> dict[str, Any]:
-    data = await file.read()
+    original_name = safe_filename(file.filename or "document.pdf")
+    suffix = Path(original_name).suffix.lower() or ".bin"
+    if suffix not in allowed_upload_extensions():
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type '{suffix}'. Allowed: {', '.join(sorted(allowed_upload_extensions()))}.",
+        )
+
+    data = await read_upload_file_limited(file)
     if not data:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    original_name = file.filename or "document.pdf"
-    suffix = Path(original_name).suffix.lower() or ".bin"
     source_type = suffix.lstrip(".") or "file"
     doc_id = make_id("doc")
     checksum = hashlib.sha256(data).hexdigest()
     stored_filename = f"{doc_id}_{checksum[:12]}{suffix}"
-    stored_path = UPLOAD_DIR / stored_filename
+    stored_path = (UPLOAD_DIR / stored_filename).resolve()
+    if not path_is_under(stored_path, UPLOAD_DIR):
+        raise HTTPException(status_code=400, detail="Invalid upload storage path.")
     stored_path.write_bytes(data)
 
     try:
@@ -1366,7 +1549,9 @@ def get_document_file(document_id: str, session: Session = Depends(db_session)) 
     document = session.get(DocumentRecord, document_id)
     if not document or not document.file_path:
         raise HTTPException(status_code=404, detail="Document file not found.")
-    file_path = Path(document.file_path)
+    file_path = Path(document.file_path).resolve()
+    if not path_is_under(file_path, UPLOAD_DIR):
+        raise HTTPException(status_code=400, detail="Stored file path is outside upload storage.")
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Stored file is missing.")
     return FileResponse(
@@ -1677,15 +1862,7 @@ def domain_distribution(session: Session = Depends(db_session)) -> dict[str, int
 @app.get("/api/user/profile")
 def user_profile(session: Session = Depends(db_session)) -> dict[str, Any]:
     profile = get_profile(session)
-    return {
-        "profile": {
-            "target_level": profile.target_level,
-            "native_language": profile.native_language,
-            "preferred_domains": json_loads(profile.preferred_domains_json, ["general"]),
-            "show_pinyin": profile.show_pinyin,
-            "translation_style": profile.translation_style,
-        }
-    }
+    return {"profile": profile_to_dict(profile)}
 
 
 @app.patch("/api/user/profile")
@@ -1764,6 +1941,113 @@ def list_known_words(session: Session = Depends(db_session)) -> dict[str, Any]:
             for word in words
         ]
     }
+
+
+def create_database_backup() -> dict[str, Any]:
+    if not DB_PATH.exists():
+        raise HTTPException(status_code=404, detail="SQLite database does not exist yet.")
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = now_utc().strftime("%Y%m%dT%H%M%SZ")
+    target = (BACKUP_DIR / f"hanora_{timestamp}.sqlite3").resolve()
+    if not path_is_under(target, BACKUP_DIR):
+        raise HTTPException(status_code=400, detail="Invalid backup path.")
+
+    source = sqlite3.connect(str(DB_PATH))
+    destination = sqlite3.connect(str(target))
+    try:
+        source.backup(destination)
+    finally:
+        destination.close()
+        source.close()
+
+    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    return {
+        "status": "created",
+        "file_name": target.name,
+        "path": str(target),
+        "size_bytes": target.stat().st_size,
+        "sha256": digest,
+        "created_at": now_utc().isoformat(),
+    }
+
+
+@app.post("/api/admin/backup")
+def admin_backup_database() -> dict[str, Any]:
+    return create_database_backup()
+
+
+@app.get("/api/admin/backups")
+def admin_list_backups() -> dict[str, Any]:
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    backups = []
+    for path in sorted(BACKUP_DIR.glob("hanora_*.sqlite3"), reverse=True):
+        if not path_is_under(path, BACKUP_DIR):
+            continue
+        backups.append(
+            {
+                "file_name": path.name,
+                "path": str(path),
+                "size_bytes": path.stat().st_size,
+                "created_at": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
+            }
+        )
+    return {"backups": backups}
+
+
+@app.get("/api/admin/export")
+def admin_export_data(
+    include_dictionary: bool = False,
+    dictionary_limit: int = Query(5000, ge=0, le=200000),
+    session: Session = Depends(db_session),
+) -> dict[str, Any]:
+    profile = get_profile(session)
+    documents = list_documents(session)["documents"]
+    pages = session.execute(select(PageRecord).order_by(PageRecord.document_id, PageRecord.page_number)).scalars()
+    review_events = session.execute(select(ReviewEventRecord).order_by(ReviewEventRecord.reviewed_at.desc())).scalars()
+    known_words = list_known_words(session)["words"]
+    corrections = list_user_corrections(session)["corrections"]
+
+    payload: dict[str, Any] = {
+        "exported_at": now_utc().isoformat(),
+        "version": APP_VERSION,
+        "profile": profile_to_dict(profile),
+        "documents": documents,
+        "pages": [
+            {
+                "document_id": page.document_id,
+                "page_number": page.page_number,
+                "text": page.text,
+                "width": page.width,
+                "height": page.height,
+                "created_at": page.created_at.isoformat(),
+            }
+            for page in pages
+        ],
+        "annotations": list_annotations(session=session),
+        "review_items": review_items(session=session)["items"],
+        "review_events": [
+            {
+                "id": event.id,
+                "review_item_id": event.review_item_id,
+                "rating": event.rating,
+                "response_time_ms": event.response_time_ms,
+                "reviewed_at": event.reviewed_at.isoformat(),
+            }
+            for event in review_events
+        ],
+        "known_words": known_words,
+        "user_corrections": corrections,
+    }
+
+    if include_dictionary:
+        dictionary_rows = (
+            session.execute(select(DictionaryEntryRecord).order_by(DictionaryEntryRecord.source, DictionaryEntryRecord.simplified).limit(dictionary_limit))
+            .scalars()
+            .all()
+        )
+        payload["dictionary"] = [to_dictionary_result(row) for row in dictionary_rows]
+        payload["dictionary_truncated"] = len(dictionary_rows) >= dictionary_limit
+    return payload
 
 
 @app.get("/api/debug/db-stats")

@@ -153,6 +153,9 @@ def import_hsk(paths: list[Path], default_level: int | None) -> int:
                 existing.hsk_level = int(row.get("hsk_level") or row.get("level") or path_level or 0) or None
                 existing.domain_tags_json = json_dumps(["hsk"])
                 existing.confidence = 0.82
+                existing.source_version = path.name
+                existing.license = "HSK vocabulary source"
+                existing.raw_line = str(row)
                 imported += 1
         session.commit()
         configure_jieba(session)

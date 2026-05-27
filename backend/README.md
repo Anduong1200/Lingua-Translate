@@ -30,6 +30,7 @@ Ignored by git:
 backend/.env
 backend/data/
 backend/data/uploads/
+backend/data/backups/
 backend/data/google_api_keys.txt
 ```
 
@@ -44,11 +45,35 @@ copy backend\.env.example backend\.env
 Supported variables:
 
 ```text
+APP_ENV=development
+FRONTEND_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
+MAX_UPLOAD_BYTES=52428800
+ALLOWED_UPLOAD_EXTENSIONS=.pdf,.txt,.md,.docx
 GOOGLE_API_KEYS=key1,key2,key3
 GOOGLE_AI_MODEL=gemini-3.5-flash
+GOOGLE_AI_TIMEOUT_SECONDS=30
 ```
 
 Multiple keys are rotated round-robin. API responses expose only key index and fingerprint.
+
+For production, set `APP_ENV=production` and explicit `FRONTEND_ORIGINS`. Do not use wildcard CORS.
+
+## Migrations
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+The app still performs small runtime schema checks for local upgrades, but production deployments should use Alembic as the source of schema lifecycle.
+
+For CI/staging, point Alembic at a separate SQLite database:
+
+```bash
+set DATABASE_URL=sqlite:///D:/tmp/hanora_migration_check.sqlite3
+cd backend
+alembic upgrade head
+```
 
 ## Import Data
 
@@ -56,6 +81,23 @@ Multiple keys are rotated round-robin. API responses expose only key index and f
 python backend\scripts\import_cc_cedict.py path\to\cedict_ts.u8
 python backend\scripts\import_hsk_vocab.py path\to\hsk_folder
 python backend\scripts\bootstrap_data.py
+```
+
+## Operations
+
+Deep health and sanitized config:
+
+```bash
+curl http://127.0.0.1:3001/api/health/deep
+curl http://127.0.0.1:3001/api/system/config
+```
+
+Local backup/export:
+
+```bash
+python backend\scripts\backup_database.py
+curl -X POST http://127.0.0.1:3001/api/admin/backup
+curl http://127.0.0.1:3001/api/admin/export
 ```
 
 ## Tests
@@ -74,5 +116,7 @@ HSK import priority vs Vietnamese seed
 annotation/review/review-event flow
 user correction priority
 document upload persistence
+upload type/size safety
+admin backup/export without secret leakage
 Google AI key rotation without secret leakage
 ```

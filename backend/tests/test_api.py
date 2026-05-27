@@ -15,6 +15,8 @@ from main import (  # noqa: E402
     ReviewItemCreateRequest,
     SessionLocal,
     UserCorrectionCreateRequest,
+    admin_backup_database,
+    admin_export_data,
     ai_context_reading,
     ai_status,
     create_annotation,
@@ -25,6 +27,7 @@ from main import (  # noqa: E402
     debug_reset_demo,
     dictionary_search,
     due_review_items,
+    health_deep,
     get_document_file,
     health,
     list_known_words,
@@ -32,6 +35,7 @@ from main import (  # noqa: E402
     nlp_analyze,
     NlpAnalyzeRequest,
     upload_document,
+    system_config,
 )
 
 
@@ -57,12 +61,57 @@ class DummyUploadFile:
     filename = "sample.txt"
     content_type = "text/plain"
 
-    async def read(self) -> bytes:
+    def __init__(self) -> None:
+        self.sent = False
+
+    async def read(self, size: int | None = None) -> bytes:
+        if self.sent:
+            return b""
+        self.sent = True
         return "市场需求下降".encode("utf-8")
+
+
+class UnsupportedUploadFile:
+    filename = "../sample.exe"
+    content_type = "application/octet-stream"
+
+    def __init__(self) -> None:
+        self.sent = False
+
+    async def read(self, size: int | None = None) -> bytes:
+        if self.sent:
+            return b""
+        self.sent = True
+        return b"not allowed"
+
+
+class LargeUploadFile:
+    filename = "large.txt"
+    content_type = "text/plain"
+
+    def __init__(self) -> None:
+        self.sent = False
+
+    async def read(self, size: int | None = None) -> bytes:
+        if self.sent:
+            return b""
+        self.sent = True
+        return b"x" * (1024 * 1024 + 1)
 
 
 def test_health() -> None:
     assert health()["status"] == "ok"
+
+
+def test_deep_health_and_system_config_are_sanitized(session) -> None:
+    deep = health_deep(session)
+    config = system_config()
+
+    assert deep["status"] == "ok"
+    assert deep["checks"]["database"]["ok"] is True
+    assert "http://127.0.0.1:3000" in config["frontend_origins"]
+    assert "allowed_extensions" in config["upload"]
+    assert ("AI" + "za") not in str(config)
 
 
 def test_contextual_nlp_analyze(session) -> None:
@@ -194,6 +243,44 @@ def test_document_upload_persists_file_and_metadata(session) -> None:
     stored_path = Path(str(file_response.path))
     assert stored_path.exists()
     assert stored_path.read_bytes() == "市场需求下降".encode("utf-8")
+
+
+def test_document_upload_rejects_unsupported_file_type(session) -> None:
+    with pytest.raises(backend_main.HTTPException) as exc:
+        resolve_immediate_coroutine(upload_document(file=UnsupportedUploadFile(), language="zh-CN", session=session))
+
+    assert exc.value.status_code == 415
+
+
+def test_document_upload_enforces_size_limit(session, monkeypatch) -> None:
+    monkeypatch.setenv("MAX_UPLOAD_BYTES", "1048576")
+    with pytest.raises(backend_main.HTTPException) as exc:
+        resolve_immediate_coroutine(upload_document(file=LargeUploadFile(), language="zh-CN", session=session))
+
+    assert exc.value.status_code == 413
+
+
+def test_admin_backup_and_export_are_sanitized(session, monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(backend_main, "BACKUP_DIR", tmp_path)
+    document = create_document(DocumentCreateRequest(title="Demo", file_name="demo.pdf", source_type="pdf", language="zh-CN"), session)
+    create_annotation(
+        AnnotationCreateRequest(
+            document_id=document["document_id"],
+            selected_text="市场需求",
+            selected_meaning_vi="nhu cầu thị trường",
+        ),
+        session,
+    )
+
+    backup = admin_backup_database()
+    exported = admin_export_data(session=session)
+
+    assert backup["status"] == "created"
+    assert Path(backup["path"]).exists()
+    assert Path(backup["path"]).is_relative_to(tmp_path)
+    assert exported["documents"][0]["id"] == document["document_id"]
+    assert exported["annotations"][0]["selected_text"] == "市场需求"
+    assert ("AI" + "za") not in str(exported)
 
 
 def test_google_ai_context_uses_rotating_keys_without_exposing_secret(session, monkeypatch) -> None:

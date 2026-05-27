@@ -27,6 +27,7 @@ Implemented:
 - Review item and simple SRS scheduler
 - User profile/settings sync
 - Optional Google Gemini context-reading API with rotating keys
+- Production hardening basics: explicit CORS config, upload limits, deep health, backup/export APIs, Alembic migrations, and CI build/test workflow
 
 Not in MVP:
 
@@ -99,6 +100,8 @@ backend/data/
 backend/.env
 dist/
 node_modules/
+test-results/
+playwright-report/
 ```
 
 ## Setup
@@ -119,6 +122,18 @@ Copy optional environment template:
 
 ```bash
 copy backend\.env.example backend\.env
+```
+
+Recommended backend production-oriented defaults:
+
+```text
+APP_ENV=development
+FRONTEND_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
+MAX_UPLOAD_BYTES=52428800
+ALLOWED_UPLOAD_EXTENSIONS=.pdf,.txt,.md,.docx
+GOOGLE_API_KEYS=
+GOOGLE_AI_MODEL=gemini-3.5-flash
+GOOGLE_AI_TIMEOUT_SECONDS=30
 ```
 
 For frontend API override, create `.env` if needed:
@@ -151,6 +166,13 @@ Backend health:
 
 ```text
 http://127.0.0.1:3001/api/health
+http://127.0.0.1:3001/api/health/deep
+```
+
+Apply migrations on a clean database:
+
+```bash
+npm run db:migrate
 ```
 
 ## Import Dictionary Data
@@ -202,6 +224,7 @@ Supported config:
 ```text
 GOOGLE_API_KEYS=key1,key2,key3
 GOOGLE_AI_MODEL=gemini-3.5-flash
+GOOGLE_AI_TIMEOUT_SECONDS=30
 ```
 
 You can also add keys manually in:
@@ -228,7 +251,9 @@ System:
 
 ```text
 GET /api/health
+GET /api/health/deep
 GET /api/system/info
+GET /api/system/config
 GET /api/ai/status
 ```
 
@@ -286,6 +311,20 @@ GET /api/dashboard/hsk-distribution
 GET /api/dashboard/domain-distribution
 ```
 
+Admin/operations:
+
+```text
+POST /api/admin/backup
+GET  /api/admin/backups
+GET  /api/admin/export
+```
+
+Create a local SQLite backup from the terminal:
+
+```bash
+npm run backend:backup
+```
+
 ## Verify
 
 Run backend tests:
@@ -305,6 +344,8 @@ Run both:
 ```bash
 npm run verify
 ```
+
+CI runs backend tests and frontend build on pushes/PRs to `main`.
 
 Optional browser golden path:
 
