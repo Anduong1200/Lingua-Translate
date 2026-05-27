@@ -7,7 +7,7 @@ const supportedTypes = [
     { icon: FileText, label: 'PDF selectable text', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
     { icon: FileText, label: 'DOCX', tone: 'bg-blue-50 text-blue-700 border-blue-100' },
     { icon: FileText, label: 'TXT', tone: 'bg-teal-50 text-teal-700 border-teal-100' },
-    { icon: FileText, label: 'Scanned PDF chưa hỗ trợ', tone: 'bg-slate-50 text-slate-600 border-slate-100' },
+    { icon: FileText, label: 'Scanned PDF OCR fallback', tone: 'bg-purple-50 text-purple-700 border-purple-100' },
 ]
 
 export default function UploadPage() {
@@ -27,7 +27,7 @@ export default function UploadPage() {
         const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(file.name)
         if (isImage) {
             setStatus('error')
-            setMessage('OCR/image upload chưa thuộc MVP 0.1. Hãy dùng PDF có selectable text, DOCX hoặc TXT.')
+            setMessage('Image upload riêng chưa thuộc MVP. Hãy dùng PDF, DOCX hoặc TXT; scanned PDF sẽ thử OCR ở backend nếu Tesseract/Poppler đã được cài.')
             return
         }
         const result = await translateFile(file)
@@ -37,16 +37,16 @@ export default function UploadPage() {
             setMessage('Đã lưu file vào backend và đưa tài liệu vào Reader.')
         } else {
             setStatus('error')
-            setMessage('Không đọc được file này. Hãy dùng TXT/DOCX/PDF có text selectable.')
+            setMessage('Không đọc được file này. Hãy kiểm tra file TXT/DOCX/PDF hoặc cấu hình OCR cho scanned PDF.')
         }
     }
 
     return (
         <div className="flex min-h-full flex-col gap-6 pb-8">
-            <section className="glass custom-shadow rounded-3xl border border-white p-6">
+            <section className="shrink-0 glass custom-shadow rounded-3xl border border-white p-6">
                 <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
-                    <div className="flex items-start gap-4">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-600 text-white custom-shadow">
+                    <div className="flex shrink-0 items-start gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-teal-600 text-white custom-shadow">
                             <Upload className="h-7 w-7" />
                         </div>
                         <div>
@@ -80,7 +80,7 @@ export default function UploadPage() {
                     if (file) handleFile(file)
                 }}
                 onClick={() => !isTranslatingFile && inputRef.current?.click()}
-                className={`group relative cursor-pointer overflow-hidden rounded-3xl border-2 border-dashed bg-white/85 p-10 text-center custom-shadow transition-all ${
+                className={`shrink-0 group relative cursor-pointer overflow-hidden rounded-3xl border-2 border-dashed bg-white/85 p-10 text-center custom-shadow transition-all ${
                     dragOver ? 'border-teal-400 bg-teal-50' : 'border-teal-200 hover:bg-teal-50/60'
                 }`}
             >
@@ -144,9 +144,9 @@ export default function UploadPage() {
                 )}
             </section>
 
-            <section className="custom-shadow overflow-hidden rounded-2xl border border-teal-100 bg-white">
+            <section className="shrink-0 custom-shadow overflow-hidden rounded-2xl border border-teal-100 bg-white">
                 <div className="flex flex-col justify-between gap-3 border-b border-teal-100 bg-teal-50/40 p-4 md:flex-row md:items-center">
-                    <div>
+                    <div className="shrink-0">
                         <h2 className="font-black text-slate-900">Workspace documents</h2>
                         <p className="text-xs font-semibold text-slate-500">Tài liệu đã import trong phiên local.</p>
                     </div>

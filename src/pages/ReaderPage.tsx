@@ -10,6 +10,8 @@ import {
     Plus,
     Sparkles,
     Volume2,
+    Columns,
+    Type,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { AnnotationRecord, ChineseSentenceAnalysis, ChineseToken } from '@/types'
@@ -68,6 +70,9 @@ export default function ReaderPage() {
         annotations,
         updateReadingProgress,
         settings,
+        isSideBySide,
+        toggleSideBySide,
+        updateSettings,
     } = useStore()
 
     const [selectedSentence, setSelectedSentence] = useState<ChineseSentenceAnalysis | null>(null)
@@ -76,6 +81,7 @@ export default function ReaderPage() {
     const [note, setNote] = useState('')
     const [meaningOverride, setMeaningOverride] = useState('')
     const [savedNotice, setSavedNotice] = useState('')
+    const [showFontSizeMenu, setShowFontSizeMenu] = useState(false)
     const [activeTab, setActiveTab] = useState<PanelTab>('quick')
 
     useEffect(() => {
@@ -228,39 +234,88 @@ export default function ReaderPage() {
     const domainTags = quickMeaning?.domain_tags?.length ? quickMeaning.domain_tags : selectedToken?.domain_tags || []
 
     return (
-        <div className="flex h-[calc(100vh-6.5rem)] flex-col overflow-hidden rounded-[2rem] border border-white bg-white/80 custom-shadow backdrop-blur md:flex-row">
-            <section className="flex min-h-0 flex-1 flex-col border-b border-teal-100/80 md:w-1/2 md:border-b-0 md:border-r">
-                <div className="flex items-center justify-between border-b border-teal-100 bg-white/90 px-5 py-4">
+        <div className="flex h-[calc(100vh-6.5rem)] flex-col overflow-hidden rounded-[2rem] border border-white dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 custom-shadow backdrop-blur-md md:flex-row transition-colors duration-300">
+            <section className="flex min-h-0 flex-1 flex-col border-b border-teal-100/80 dark:border-slate-800/80 md:w-1/2 md:border-b-0 md:border-r transition-colors">
+                <div className="flex items-center justify-between border-b border-teal-100/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900 px-5 py-4 transition-colors">
                     <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-white custom-shadow">
                             <BookOpen className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                            <h1 className="truncate text-lg font-black text-slate-900">
+                            <h1 className="truncate text-lg font-black text-slate-900 dark:text-slate-100">
                                 {currentDocument?.title || 'Chưa chọn tài liệu'}
                             </h1>
-                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                                 Reader mode · {sentences.length} câu · {hskLabel}
                             </p>
                         </div>
                     </div>
-                    <select
-                        value={currentDocument?.id || ''}
-                        onChange={(event) => {
-                            const doc = documents.find((item) => item.id === event.target.value) ?? null
-                            setCurrentDocument(doc)
-                        }}
-                        className="max-w-[180px] rounded-lg border border-teal-100 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none focus:border-teal-400"
-                    >
-                        {documents.map((doc) => (
-                            <option key={doc.id} value={doc.id}>
-                                {doc.title}
-                            </option>
-                        ))}
-                    </select>
+
+                    <div className="flex items-center gap-2">
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowFontSizeMenu(!showFontSizeMenu)}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-teal-50 dark:hover:bg-slate-800 transition-colors"
+                                title="Cỡ chữ"
+                            >
+                                <Type className="h-4 w-4" />
+                            </button>
+                            {showFontSizeMenu && (
+                                <div className="absolute right-0 mt-2 z-50 w-36 rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 shadow-xl">
+                                    <p className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Cỡ chữ đầu đọc</p>
+                                    {(['small', 'medium', 'large'] as const).map((sz) => (
+                                        <button
+                                            key={sz}
+                                            onClick={() => {
+                                                updateSettings({ fontSize: sz })
+                                                setShowFontSizeMenu(false)
+                                            }}
+                                            className={`block w-full text-left rounded-lg px-2.5 py-2 text-xs font-black capitalize ${
+                                                settings.fontSize === sz
+                                                    ? 'bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-400'
+                                                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                            }`}
+                                        >
+                                            {sz === 'small' ? 'Nhỏ' : sz === 'large' ? 'Lớn' : 'Vừa'}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {currentDocument?.type !== 'pdf' && (
+                            <button
+                                onClick={toggleSideBySide}
+                                className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-black transition-all ${
+                                    isSideBySide
+                                        ? 'border-teal-400 bg-teal-50 text-teal-700 dark:border-teal-800 dark:bg-teal-950/45 dark:text-teal-400'
+                                        : 'border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-teal-50 dark:hover:bg-slate-800'
+                                }`}
+                                title="Xem bản dịch song song"
+                            >
+                                <Columns className="h-4 w-4" />
+                                <span className="hidden sm:inline">Dịch song song</span>
+                            </button>
+                        )}
+
+                        <select
+                            value={currentDocument?.id || ''}
+                            onChange={(event) => {
+                                const doc = documents.find((item) => item.id === event.target.value) ?? null
+                                setCurrentDocument(doc)
+                            }}
+                            className="max-w-[150px] rounded-lg border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 outline-none focus:border-teal-400 dark:focus:border-slate-700 transition-all"
+                        >
+                            {documents.map((doc) => (
+                                <option key={doc.id} value={doc.id}>
+                                    {doc.title}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-5 scrollbar-hide">
+                <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 dark:bg-slate-950/10 p-5 scrollbar-hide">
                     {currentDocument?.type === 'pdf' && currentDocument.sourceUrl ? (
                         <PdfDocumentViewer
                             sourceUrl={currentDocument.sourceUrl}
@@ -268,11 +323,106 @@ export default function ReaderPage() {
                             annotations={annotations.filter((annotation) => annotation.document_id === currentDocument.id)}
                         />
                     ) : (
-                        <article className="mx-auto min-h-full max-w-3xl rounded-[2rem] border border-white bg-white p-6 custom-shadow">
+                        <article className="mx-auto min-h-full max-w-5xl rounded-[2rem] border border-white dark:border-slate-850/80 bg-white dark:bg-slate-900/50 p-6 custom-shadow">
                             {isAnalyzing ? (
-                                <div className="flex h-64 flex-col items-center justify-center gap-3 text-teal-700">
+                                <div className="flex h-64 flex-col items-center justify-center gap-3 text-teal-700 dark:text-teal-400">
                                     <Loader2 className="h-8 w-8 animate-spin" />
                                     <p className="text-sm font-bold">Đang segment và tạo pinyin...</p>
+                                </div>
+                            ) : isSideBySide ? (
+                                <div className="space-y-6">
+                                    {sentences.map((sentence, sentenceIndex) => {
+                                        const active = selectedSentence?.text === sentence.text
+                                        const getJoinedViTranslation = (sent: ChineseSentenceAnalysis) => {
+                                            return sent.tokens
+                                                .map((token) => {
+                                                    if (token.pos === 'punctuation') return token.surface
+                                                    const defs = token.definitions_vi || token.definitions?.filter(d => d.lang === 'vi').map(d => d.value) || []
+                                                    return defs.length > 0 ? defs[0].split(';')[0].split(',')[0] : token.surface
+                                                })
+                                                .join('')
+                                        }
+                                        return (
+                                            <div
+                                                key={`sbs-${sentence.text}-${sentenceIndex}`}
+                                                className={`grid grid-cols-1 md:grid-cols-2 gap-5 p-4 rounded-2xl border transition-all ${
+                                                    active
+                                                        ? 'border-teal-400 bg-teal-50/50 dark:border-teal-800 dark:bg-teal-950/20 shadow-md'
+                                                        : 'border-transparent hover:border-teal-100/50 dark:hover:border-slate-800 hover:bg-slate-50/30 dark:hover:bg-slate-900/30'
+                                                }`}
+                                            >
+                                                <div
+                                                    onClick={() => handleSentenceClick(sentence)}
+                                                    className="cursor-pointer text-left"
+                                                >
+                                                    <p className={`chinese-text text-slate-800 dark:text-slate-200 leading-loose reader-size-${settings.fontSize || 'medium'}`}>
+                                                        {sentence.tokens.map((token, tokenIndex) => {
+                                                            const selectable = isSelectableToken(token)
+                                                            const tokenActive = active && selectedToken?.surface === token.surface
+                                                            return (
+                                                                <span
+                                                                    key={`${token.surface}-${tokenIndex}`}
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation()
+                                                                        if (!selectable) return
+                                                                        setSelectedSentence(sentence)
+                                                                        setSelectedToken(token)
+                                                                        setPdfSelection(null)
+                                                                        setSavedNotice('')
+                                                                        setActiveTab('quick')
+                                                                        void analyzeChineseText({
+                                                                            selected_text: token.surface,
+                                                                            source_sentence: sentence.text,
+                                                                            paragraph_context: currentDocument?.content || sentence.text,
+                                                                            page_context: currentDocument?.content || sentence.text,
+                                                                            domain_mode: settings.domainMode || 'auto',
+                                                                            user_level: settings.targetHskLevel || 'HSK4',
+                                                                        })
+                                                                    }}
+                                                                    className={
+                                                                        selectable
+                                                                            ? `cursor-pointer rounded px-0.5 transition-colors ${
+                                                                                  tokenActive
+                                                                                      ? 'bg-teal-200 text-teal-950 ring-2 ring-teal-305 dark:bg-teal-800 dark:text-teal-50 dark:ring-teal-700'
+                                                                                      : 'hover:bg-teal-100 hover:text-teal-800 dark:hover:bg-teal-900/60 dark:hover:text-teal-200'
+                                                                              }`
+                                                                            : 'text-slate-500 dark:text-slate-400'
+                                                                    }
+                                                                >
+                                                                    {token.surface}
+                                                                </span>
+                                                            )
+                                                        })}
+                                                    </p>
+                                                </div>
+
+                                                <div
+                                                    onClick={() => handleSentenceClick(sentence)}
+                                                    className="cursor-pointer text-left flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 pt-3 md:pt-0 md:pl-5"
+                                                >
+                                                    {active ? (
+                                                        <div className="space-y-1.5 animate-fadeIn">
+                                                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-black uppercase text-teal-700 dark:text-teal-400">
+                                                                <span>Bản dịch chi tiết</span>
+                                                            </div>
+                                                            <p className="text-sm font-black text-teal-800 dark:text-teal-300 leading-relaxed">
+                                                                {naturalTranslation || getJoinedViTranslation(sentence)}
+                                                            </p>
+                                                            {literalTranslation && (
+                                                                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 italic">
+                                                                    Sát nghĩa: {literalTranslation}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-3">
+                                                            {getJoinedViTranslation(sentence)}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             ) : (
                                 <div className="space-y-5">
@@ -284,11 +434,11 @@ export default function ReaderPage() {
                                                 onClick={() => handleSentenceClick(sentence)}
                                                 className={`block w-full rounded-2xl border p-5 text-left transition-all ${
                                                     active
-                                                        ? 'scale-[1.01] border-teal-400 bg-teal-50 shadow-md'
-                                                        : 'border-transparent bg-white hover:border-teal-200 hover:bg-teal-50/40'
+                                                        ? 'scale-[1.01] border-teal-400 bg-teal-50/50 dark:border-teal-800 dark:bg-teal-950/20 shadow-md'
+                                                        : 'border-transparent bg-white dark:bg-transparent hover:border-teal-200 dark:hover:border-slate-800 hover:bg-teal-50/30 dark:hover:bg-slate-900/30'
                                                 }`}
                                             >
-                                                <p className="chinese-text text-[22px] leading-loose text-slate-800">
+                                                <p className={`chinese-text text-slate-800 dark:text-slate-200 leading-loose reader-size-${settings.fontSize || 'medium'}`}>
                                                     {sentence.tokens.map((token, tokenIndex) => {
                                                         const selectable = isSelectableToken(token)
                                                         const tokenActive = active && selectedToken?.surface === token.surface
@@ -316,10 +466,10 @@ export default function ReaderPage() {
                                                                     selectable
                                                                         ? `cursor-pointer rounded px-0.5 transition-colors ${
                                                                               tokenActive
-                                                                                  ? 'bg-teal-200 text-teal-950 ring-2 ring-teal-300'
-                                                                                  : 'hover:bg-teal-100 hover:text-teal-800'
+                                                                                  ? 'bg-teal-200 text-teal-950 ring-2 ring-teal-350 dark:bg-teal-800 dark:text-teal-50 dark:ring-teal-700'
+                                                                                  : 'hover:bg-teal-100 hover:text-teal-800 dark:hover:bg-teal-900/60 dark:hover:text-teal-200'
                                                                           }`
-                                                                        : 'text-slate-500'
+                                                                        : 'text-slate-500 dark:text-slate-400'
                                                                 }
                                                             >
                                                                 {token.surface}
@@ -337,20 +487,20 @@ export default function ReaderPage() {
                 </div>
             </section>
 
-            <section className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-5 scrollbar-hide md:w-1/2">
+            <section className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 dark:bg-slate-950/10 p-5 scrollbar-hide md:w-1/2 transition-colors duration-300">
                 <div className="flex flex-col gap-5">
-                    <div className="rounded-[2rem] border border-teal-100 bg-white p-5 custom-shadow">
-                        <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div className="rounded-[2rem] border border-teal-100/60 dark:border-slate-800 bg-white dark:bg-slate-905/70 p-5 custom-shadow">
+                        <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
                             <div className="flex items-center gap-2">
-                                <Layers className="h-5 w-5 text-teal-600" />
-                                <h2 className="font-black text-slate-900">Context Reader Panel</h2>
+                                <Layers className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                                <h2 className="font-black text-slate-900 dark:text-slate-100">Context Reader Panel</h2>
                             </div>
                             {selectedSurface && (
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={handleRunAIContext}
                                         disabled={isGeneratingAIContext}
-                                        className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
+                                        className="flex items-center gap-2 rounded-lg border border-amber-250 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/50 px-3 py-2 text-xs font-black text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 disabled:cursor-wait disabled:opacity-70"
                                         title="Gọi AI context reading"
                                     >
                                         {isGeneratingAIContext ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -358,7 +508,7 @@ export default function ReaderPage() {
                                     </button>
                                     <button
                                         onClick={() => speak(selectedSurface)}
-                                        className="rounded-lg border border-teal-100 p-2 text-teal-700 hover:bg-teal-50"
+                                        className="rounded-lg border border-teal-100/60 dark:border-slate-800 p-2 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-slate-800"
                                         title="Nghe phát âm"
                                     >
                                         <Volume2 className="h-4 w-4" />
@@ -369,35 +519,35 @@ export default function ReaderPage() {
 
                         {selectedSentence || selectedSurface ? (
                             <div className="space-y-4">
-                                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                                <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 p-4">
                                     <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-wider">
                                         {pdfSelection && (
-                                            <span className="rounded-full bg-teal-100 px-2 py-1 text-teal-700">
+                                            <span className="rounded-full bg-teal-100 dark:bg-teal-900/40 px-2 py-1 text-teal-700 dark:text-teal-300">
                                                 PDF page {pdfSelection.pageNumber}
                                             </span>
                                         )}
-                                        <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700">
+                                        <span className="rounded-full bg-amber-50 dark:bg-amber-900/40 px-2 py-1 text-amber-700 dark:text-amber-300">
                                             {activeAnalysis?.selection?.analysis_mode || (selectedToken ? 'word' : 'sentence')}
                                         </span>
-                                        <span className="rounded-full bg-cyan-50 px-2 py-1 text-cyan-700">
+                                        <span className="rounded-full bg-cyan-50 dark:bg-cyan-900/40 px-2 py-1 text-cyan-700 dark:text-cyan-300">
                                             {activeAnalysis?.context?.domain || settings.domainMode || 'auto'}
                                         </span>
                                     </div>
-                                    <p className="chinese-text text-3xl font-black leading-loose text-teal-700">
+                                    <p className="chinese-text text-3xl font-black leading-loose text-teal-750 dark:text-teal-400">
                                         {selectedSurface || selectedSentence?.text}
                                     </p>
-                                    {quickPinyin && <p className="mt-1 text-sm font-semibold italic text-slate-500">/{quickPinyin}/</p>}
+                                    {quickPinyin && <p className="mt-1 text-sm font-semibold italic text-slate-500 dark:text-slate-400">/{quickPinyin}/</p>}
                                 </div>
 
-                                <div className="flex gap-2 overflow-x-auto pb-1">
+                                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                                     {panelTabs.map((tab) => (
                                         <button
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id)}
                                             className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-black transition-colors ${
                                                 activeTab === tab.id
-                                                    ? 'bg-teal-600 text-white'
-                                                    : 'border border-slate-200 bg-white text-slate-500 hover:border-teal-200 hover:text-teal-700'
+                                                    ? 'bg-teal-600 text-white shadow-sm'
+                                                    : 'border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-505 dark:text-slate-400 hover:border-teal-200 hover:text-teal-700 dark:hover:text-teal-400'
                                             }`}
                                         >
                                             {tab.label}
@@ -408,47 +558,47 @@ export default function ReaderPage() {
                                 {activeTab === 'quick' && (
                                     <div className="space-y-3">
                                         <div className="grid gap-3 md:grid-cols-2">
-                                            <div className="rounded-xl border-l-4 border-teal-500 bg-teal-50 p-3">
-                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-teal-800">
+                                            <div className="rounded-xl border-l-4 border-teal-500 bg-teal-50 dark:bg-teal-950/20 p-3">
+                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-teal-800 dark:text-teal-400">
                                                     Nghĩa Việt
                                                 </h3>
-                                                <p className="font-bold text-slate-800">
+                                                <p className="font-bold text-slate-800 dark:text-slate-200">
                                                     {quickVi || 'Chưa có nghĩa Việt trong từ điển cục bộ.'}
                                                 </p>
                                             </div>
-                                            <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-slate-400">
+                                            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 p-3">
+                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-slate-450 dark:text-slate-500">
                                                     English fallback
                                                 </h3>
-                                                <p className="font-semibold text-slate-700">{quickEn || 'No fallback available'}</p>
+                                                <p className="font-semibold text-slate-700 dark:text-slate-300">{quickEn || 'No fallback available'}</p>
                                             </div>
                                         </div>
                                         <div className="grid gap-3 md:grid-cols-2">
-                                            <div className="rounded-xl border border-teal-100 bg-white p-3">
-                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-slate-400">
+                                            <div className="rounded-xl border border-teal-100/60 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-3">
+                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-slate-450 dark:text-slate-500">
                                                     Dịch tự nhiên
                                                 </h3>
-                                                <p className="text-sm font-semibold leading-relaxed text-slate-700">
+                                                <p className="text-sm font-semibold leading-relaxed text-slate-700 dark:text-slate-300">
                                                     {naturalTranslation || quickVi || 'Chưa có bản dịch tự nhiên.'}
                                                 </p>
                                             </div>
-                                            <div className="rounded-xl border border-slate-100 bg-white p-3">
-                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-slate-400">
+                                            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-3">
+                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-slate-450 dark:text-slate-500">
                                                     Dịch sát cấu trúc
                                                 </h3>
-                                                <p className="text-sm font-semibold leading-relaxed text-slate-700">
+                                                <p className="text-sm font-semibold leading-relaxed text-slate-700 dark:text-slate-300">
                                                     {literalTranslation || quickVi || 'Chưa có bản dịch sát.'}
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             {quickMeaning?.hsk_level && (
-                                                <span className="rounded-md bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">
+                                                <span className="rounded-md bg-amber-105 dark:bg-amber-950/35 px-2 py-1 text-xs font-bold text-amber-700 dark:text-amber-400 border border-amber-200/20">
                                                     HSK {quickMeaning.hsk_level}
                                                 </span>
                                             )}
                                             {domainTags.map((tag) => (
-                                                <span key={tag} className="rounded-md bg-cyan-100 px-2 py-1 text-xs font-bold text-cyan-700">
+                                                <span key={tag} className="rounded-md bg-cyan-105 dark:bg-cyan-950/35 px-2 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 border border-cyan-200/20">
                                                     {tag}
                                                 </span>
                                             ))}
@@ -458,18 +608,18 @@ export default function ReaderPage() {
 
                                 {activeTab === 'context' && (
                                     <div className="space-y-3">
-                                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">Original sentence</h3>
-                                            <p className="chinese-text text-xl leading-loose text-slate-800">{sourceSentence}</p>
+                                        <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 p-4">
+                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-550">Original sentence</h3>
+                                            <p className="chinese-text text-xl leading-loose text-slate-850 dark:text-slate-200">{sourceSentence}</p>
                                         </div>
-                                        <div className="rounded-xl border border-teal-100 bg-teal-50/70 p-4">
-                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-teal-700">
+                                        <div className="rounded-xl border border-teal-100/60 dark:border-slate-850 bg-teal-50/40 dark:bg-teal-950/20 p-4">
+                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-teal-700 dark:text-teal-400">
                                                 Vai trò trong câu
                                             </h3>
-                                            <p className="text-sm font-black text-slate-800">
+                                            <p className="text-sm font-black text-slate-800 dark:text-slate-200">
                                                 {activeAnalysis?.context?.role_vi || 'Đơn vị được chọn trong câu'}
                                             </p>
-                                            <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-700">
+                                            <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-705 dark:text-slate-300">
                                                 {activeAnalysis?.context?.explanation_vi ||
                                                     'Chọn từ/cụm trong PDF hoặc văn bản để backend phân tích cùng câu gốc và domain.'}
                                             </p>
@@ -479,79 +629,50 @@ export default function ReaderPage() {
 
                                 {activeTab === 'ai' && (
                                     <div className="space-y-3">
-                                        <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+                                        <div className="rounded-xl border border-amber-100/65 dark:border-amber-900 bg-amber-50/45 dark:bg-amber-950/20 p-4">
                                             <div className="mb-2 flex items-center justify-between gap-3">
-                                                <h3 className="text-xs font-black uppercase tracking-wider text-amber-700">
+                                                <h3 className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
                                                     Google AI context layer
                                                 </h3>
                                                 {aiContext?.status && (
-                                                    <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700">
+                                                    <span className="rounded-full bg-white dark:bg-slate-800 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
                                                         {aiContext.status}
                                                     </span>
                                                 )}
                                             </div>
                                             {isGeneratingAIContext ? (
-                                                <div className="flex items-center gap-2 text-sm font-bold text-amber-700">
+                                                <div className="flex items-center gap-2 text-sm font-bold text-amber-700 dark:text-amber-400">
                                                     <Loader2 className="h-4 w-4 animate-spin" />
                                                     Đang gọi AI context reading...
                                                 </div>
                                             ) : aiContext?.status === 'ok' && aiContext.response ? (
                                                 <div className="space-y-3">
-                                                    <p className="text-sm font-semibold leading-relaxed text-slate-700">
+                                                    <p className="text-sm font-semibold leading-relaxed text-slate-700 dark:text-slate-350">
                                                         {aiContext.response.context_explanation_vi || aiContext.response.raw_text}
                                                     </p>
                                                     <div className="grid gap-3 md:grid-cols-2">
-                                                        <div className="rounded-lg bg-white p-3">
-                                                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                        <div className="rounded-lg bg-white dark:bg-slate-900 p-3">
+                                                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                                                                 Dịch tự nhiên
                                                             </p>
-                                                            <p className="mt-1 text-sm font-bold text-slate-800">
+                                                            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-200">
                                                                 {aiContext.response.natural_vi || 'Không có'}
                                                             </p>
                                                         </div>
-                                                        <div className="rounded-lg bg-white p-3">
-                                                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                                        <div className="rounded-lg bg-white dark:bg-slate-900 p-3">
+                                                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                                                                 Sát cấu trúc
                                                             </p>
-                                                            <p className="mt-1 text-sm font-bold text-slate-800">
+                                                            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-200">
                                                                 {aiContext.response.literal_vi || 'Không có'}
                                                             </p>
                                                         </div>
                                                     </div>
-                                                    {aiContext.response.nuance_vi && (
-                                                        <div className="rounded-lg bg-white p-3 text-sm font-semibold text-slate-700">
-                                                            {aiContext.response.nuance_vi}
-                                                        </div>
-                                                    )}
-                                                    {aiContext.response.grammar_notes?.length ? (
-                                                        <div className="space-y-2">
-                                                            {aiContext.response.grammar_notes.map((note, index) => (
-                                                                <div key={`${note.pattern}-${index}`} className="rounded-lg bg-white p-3">
-                                                                    <p className="text-sm font-black text-amber-800">{note.pattern}</p>
-                                                                    <p className="mt-1 text-sm font-semibold text-slate-700">{note.meaning_vi}</p>
-                                                                    {note.evidence && <p className="mt-1 text-xs font-semibold text-slate-500">{note.evidence}</p>}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ) : null}
-                                                    {typeof aiContext.response.confidence === 'number' && (
-                                                        <p className="text-xs font-bold text-slate-500">
-                                                            Confidence: {Math.round(aiContext.response.confidence * 100)}%
-                                                        </p>
-                                                    )}
                                                 </div>
                                             ) : (
-                                                <div className="space-y-3">
-                                                    <p className="text-sm font-semibold leading-relaxed text-slate-700">
-                                                        {aiContext?.message ||
-                                                            'Bấm nút AI ở góc panel để gọi Google Gemini. Nếu chưa cấu hình key, app vẫn dùng phân tích offline.'}
-                                                    </p>
-                                                    {aiContext?.errors?.map((error) => (
-                                                        <p key={`${error.key_index}-${error.status_code}`} className="rounded-lg bg-white p-2 text-xs font-semibold text-red-600">
-                                                            Key {error.key_index}: {error.status_code} - {error.message}
-                                                        </p>
-                                                    ))}
-                                                </div>
+                                                <p className="text-xs font-semibold text-slate-505 dark:text-slate-400">
+                                                    AI chưa được kích hoạt cho selection hiện tại. Hãy bấm nút AI phía trên để giải thích ngữ pháp và sắc thái nâng cao.
+                                                </p>
                                             )}
                                         </div>
                                     </div>
@@ -559,16 +680,19 @@ export default function ReaderPage() {
 
                                 {activeTab === 'grammar' && (
                                     <div className="space-y-3">
+                                        <div className="flex items-center gap-2 text-sm font-black text-slate-700 dark:text-slate-300">
+                                            Ngữ pháp & Cấu trúc liên kết
+                                        </div>
                                         {grammarPatterns.length > 0 ? (
                                             grammarPatterns.map((pattern) => (
-                                                <div key={pattern.pattern} className="rounded-xl border border-amber-100 bg-amber-50 p-3">
-                                                    <p className="text-sm font-bold text-amber-800">{pattern.pattern}</p>
-                                                    <p className="mt-1 text-sm leading-relaxed text-slate-600">{pattern.meaning_vi}</p>
+                                                <div key={pattern.pattern} className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-sm">
+                                                    <p className="font-bold text-teal-700 dark:text-teal-400">{pattern.pattern}</p>
+                                                    <p className="mt-1 text-xs text-slate-550 dark:text-slate-400 font-semibold">{pattern.meaning_vi}</p>
                                                 </div>
                                             ))
                                         ) : (
-                                            <p className="rounded-xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">
-                                                Chưa phát hiện rule grammar nổi bật trong selection này.
+                                            <p className="rounded-xl bg-slate-50 dark:bg-slate-950/20 p-4 text-xs font-semibold text-slate-500">
+                                                Chưa phát hiện cấu trúc đặc biệt ở phân khúc này.
                                             </p>
                                         )}
                                     </div>
@@ -576,28 +700,17 @@ export default function ReaderPage() {
 
                                 {activeTab === 'examples' && (
                                     <div className="space-y-3">
-                                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">
-                                                Phân tích token
-                                            </h3>
-                                            <div className="flex flex-wrap gap-2">
-                                                {(activeAnalysis?.sentences[0]?.tokens || selectedSentence?.tokens || [])
-                                                    .filter(isSelectableToken)
-                                                    .map((token) => (
-                                                        <span key={token.surface} className="rounded-lg bg-white px-2 py-1 text-sm font-bold text-slate-700">
-                                                            {token.surface} = {getVietnameseDefinition(token)}
-                                                        </span>
-                                                    ))}
-                                            </div>
+                                        <div className="flex items-center gap-2 text-sm font-black text-slate-700 dark:text-slate-300">
+                                            Ví dụ minh họa
                                         </div>
                                         {exampleList.length > 0 ? (
                                             exampleList.map((example) => (
-                                                <div key={example} className="rounded-xl border border-slate-100 bg-white p-3 text-sm font-semibold text-slate-700">
+                                                <div key={example} className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
                                                     {example}
                                                 </div>
                                             ))
                                         ) : (
-                                            <p className="rounded-xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                                            <p className="rounded-xl bg-slate-50 dark:bg-slate-950/20 p-4 text-sm font-semibold text-slate-500">
                                                 Chưa có ví dụ cục bộ cho selection này.
                                             </p>
                                         )}
@@ -606,7 +719,7 @@ export default function ReaderPage() {
 
                                 {activeTab === 'note' && (
                                     <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-sm font-black text-slate-700">
+                                        <div className="flex items-center gap-2 text-sm font-black text-slate-700 dark:text-slate-300">
                                             <Highlighter className="h-4 w-4 text-teal-600" />
                                             Personal Note
                                         </div>
@@ -615,23 +728,23 @@ export default function ReaderPage() {
                                             onChange={(event) => setNote(event.target.value)}
                                             rows={5}
                                             placeholder="Ghi chú cá nhân hoặc nghĩa bạn muốn ưu tiên cho ngữ cảnh này..."
-                                            className="w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-teal-400"
+                                            className="w-full resize-none rounded-xl border border-slate-205 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-sm outline-none focus:border-teal-400 text-slate-800 dark:text-slate-200"
                                         />
-                                        <div className="rounded-2xl border border-teal-100 bg-teal-50/60 p-3">
-                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-teal-700">
-                                                Edit Vietnamese meaning
+                                        <div className="rounded-2xl border border-teal-100/60 dark:border-slate-800 bg-teal-50/40 dark:bg-teal-950/20 p-3">
+                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-teal-700 dark:text-teal-400">
+                                                Ghi đè bản dịch Tiếng Việt
                                             </h3>
                                             <div className="flex flex-col gap-2 sm:flex-row">
                                                 <input
                                                     value={meaningOverride}
                                                     onChange={(event) => setMeaningOverride(event.target.value)}
                                                     placeholder="Ví dụ: hệ thống máy tính"
-                                                    className="min-w-0 flex-1 rounded-xl border border-teal-100 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-teal-400"
+                                                    className="min-w-0 flex-1 rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold outline-none focus:border-teal-450 text-slate-800 dark:text-slate-200"
                                                 />
                                                 <button
                                                     onClick={handleSaveCorrection}
                                                     disabled={!selectedSurface || !meaningOverride.trim()}
-                                                    className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                                                    className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-black text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-500"
                                                 >
                                                     Lưu nghĩa
                                                 </button>
@@ -640,25 +753,25 @@ export default function ReaderPage() {
                                         <button
                                             onClick={handleMarkKnown}
                                             disabled={!selectedSurface}
-                                            className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 disabled:text-slate-400"
+                                            className="rounded-xl border border-emerald-205 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 text-sm font-black text-emerald-700 dark:text-emerald-400 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
                                         >
-                                            Mark as known
+                                            Đánh dấu: Đã biết từ này
                                         </button>
                                     </div>
                                 )}
 
                                 {activeTab === 'review' && (
                                     <div className="space-y-3">
-                                        <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                                        <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 p-4">
                                             <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">
-                                                Review suggestion
+                                                Đề xuất câu hỏi (SRS)
                                             </h3>
-                                            <p className="chinese-text text-lg font-black leading-loose text-slate-800">
+                                            <p className="chinese-text text-lg font-black leading-loose text-slate-805 dark:text-slate-200">
                                                 {activeAnalysis?.review_suggestion?.front ||
                                                     (selectedSurface ? sourceSentence.replace(selectedSurface, '____') : sourceSentence)}
                                             </p>
-                                            <p className="mt-2 text-sm font-semibold text-slate-600">
-                                                Answer: {activeAnalysis?.review_suggestion?.answer || selectedSurface}
+                                            <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-400">
+                                                Đáp án: {activeAnalysis?.review_suggestion?.answer || selectedSurface}
                                             </p>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-3">
@@ -667,45 +780,45 @@ export default function ReaderPage() {
                                                 disabled={!selectedToken}
                                                 className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-black shadow-sm ${
                                                     selectedWordSaved
-                                                        ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                                                        ? 'border border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400'
                                                         : selectedToken
                                                           ? 'bg-teal-600 text-white hover:bg-teal-700'
-                                                          : 'cursor-not-allowed bg-slate-200 text-slate-500'
+                                                          : 'cursor-not-allowed bg-slate-200 dark:bg-slate-800 text-slate-500'
                                                 }`}
                                             >
                                                 {selectedWordSaved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                                                 {selectedWordSaved ? 'Đã có trong từ vựng' : 'Lưu annotation + review'}
                                             </button>
-                                            {savedNotice && <span className="text-sm font-semibold text-emerald-600">{savedNotice}</span>}
+                                            {savedNotice && <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{savedNotice}</span>}
                                         </div>
                                     </div>
                                 )}
                             </div>
                         ) : (
                             <div className="flex h-56 flex-col items-center justify-center text-center text-slate-500">
-                                <FileText className="mb-3 h-10 w-10 text-slate-300" />
-                                <p className="max-w-sm font-semibold">Chọn text trong PDF hoặc click vào token để mở phân tích song ngữ theo ngữ cảnh.</p>
+                                <FileText className="mb-3 h-10 w-10 text-slate-300 dark:text-slate-700 animate-bounce" />
+                                <p className="max-w-sm font-semibold text-slate-500 dark:text-slate-450">Bấm chọn một câu hoặc một từ trong tài liệu để hiển thị bảng phân tích ngữ nghĩa chi tiết.</p>
                             </div>
                         )}
                     </div>
 
-                    <div className="rounded-2xl border border-teal-100 bg-white p-5 custom-shadow">
-                        <h2 className="mb-3 font-black text-slate-900">Annotation gần đây</h2>
+                    <div className="rounded-2xl border border-teal-100/60 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5 custom-shadow">
+                        <h2 className="mb-3 font-black text-slate-900 dark:text-slate-100">Annotation gần đây</h2>
                         <div className="space-y-2">
-                            {annotations.slice(0, 5).map((annotation) => (
-                                <div key={annotation.id} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-3">
+                            {annotations.slice(0, 4).map((annotation) => (
+                                <div key={annotation.id} className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/20 p-3">
                                     <div>
-                                        <p className="chinese-text text-lg font-black text-teal-700">{annotation.selected_text}</p>
-                                        <p className="text-xs font-semibold text-slate-500">{annotation.explanation_vi}</p>
+                                        <p className="chinese-text text-lg font-black text-teal-700 dark:text-teal-400">{annotation.selected_text}</p>
+                                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate max-w-[200px]">{annotation.explanation_vi || annotation.selected_meaning_vi}</p>
                                     </div>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-550">
                                         {annotation.hsk_level ? `HSK ${annotation.hsk_level}` : 'Custom'}
                                     </span>
                                 </div>
                             ))}
                             {annotations.length === 0 && (
-                                <p className="rounded-xl bg-slate-50 p-4 text-sm font-semibold text-slate-500">
-                                    Chưa có annotation. Lưu một từ để tạo flashcard đầu tiên.
+                                <p className="rounded-xl bg-slate-50 dark:bg-slate-950/20 p-4 text-sm font-semibold text-slate-500">
+                                    Chưa có ghi chú lưu trữ.
                                 </p>
                             )}
                         </div>

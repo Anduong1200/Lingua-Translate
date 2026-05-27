@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import Sidebar from '@/components/layout/Sidebar'
 import TopBar from '@/components/layout/TopBar'
 import { useStore } from '@/store/useStore'
@@ -13,9 +14,25 @@ const FlashCardsPage = lazy(() => import('@/pages/FlashCardsPage'))
 
 function RouteFallback() {
     return (
-        <div className="flex h-full items-center justify-center rounded-3xl border border-white bg-white/80 text-sm font-black text-teal-700 custom-shadow">
-            Đang tải giao diện...
+        <div className="flex h-full min-h-[500px] items-center justify-center">
+            <div className="flex flex-col items-center gap-5">
+                <div className="h-12 w-12 animate-spin rounded-full border-[3px] border-teal-100 border-t-teal-500" />
+                <p className="text-base font-semibold text-slate-400">Loading...</p>
+            </div>
         </div>
+    )
+}
+
+function PageTransition({ children }: { children: React.ReactNode }) {
+    return (
+        <motion.div className="w-full min-w-0"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        >
+            {children}
+        </motion.div>
     )
 }
 
@@ -27,21 +44,26 @@ export default function App() {
     }, [hydrateFromBackend])
 
     return (
-        <div className="h-screen overflow-hidden bg-gradient-to-br from-teal-50 via-cyan-50 to-emerald-50 font-sans text-slate-800 selection:bg-teal-200">
+        <div className="h-screen overflow-hidden bg-[#eefaf6] font-sans text-slate-800 selection:bg-teal-200/50 dark:bg-slate-900 dark:text-slate-100">
             <TopBar />
             <Sidebar />
-            <main className="h-full overflow-hidden pt-16 md:pl-64">
-                <div className="mx-auto h-full w-full max-w-[1600px] overflow-y-auto px-4 py-5 md:px-6">
-                    <Suspense fallback={<RouteFallback />}>
-                        <Routes>
-                            <Route path="/" element={<DashboardPage />} />
-                            <Route path="/reader" element={<ReaderPage />} />
-                            <Route path="/upload" element={<UploadPage />} />
-                            <Route path="/vocabulary" element={<VocabularyPage />} />
-                            <Route path="/flashcards" element={<FlashCardsPage />} />
-                            <Route path="/settings" element={<SettingsPage />} />
-                        </Routes>
-                    </Suspense>
+
+            <main className="flex h-full min-h-0 w-full pt-[72px] md:pl-[300px]">
+                <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+                    <div className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 md:px-8 lg:px-10 xl:px-12">
+                        <Suspense fallback={<RouteFallback />}>
+                            <AnimatePresence mode="wait">
+                                <Routes>
+                                    <Route path="/" element={<PageTransition><DashboardPage /></PageTransition>} />
+                                    <Route path="/reader" element={<PageTransition><ReaderPage /></PageTransition>} />
+                                    <Route path="/upload" element={<PageTransition><UploadPage /></PageTransition>} />
+                                    <Route path="/vocabulary" element={<PageTransition><VocabularyPage /></PageTransition>} />
+                                    <Route path="/flashcards" element={<PageTransition><FlashCardsPage /></PageTransition>} />
+                                    <Route path="/settings" element={<PageTransition><SettingsPage /></PageTransition>} />
+                                </Routes>
+                            </AnimatePresence>
+                        </Suspense>
+                    </div>
                 </div>
             </main>
         </div>

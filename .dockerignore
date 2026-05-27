@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+dist
+test-results
+playwright-report
+blob-report
+.pytest_cache
+__pycache__
+*.pyc
+backend/.env
+backend/data
+backend/uploads
+logs
+*.log

@@ -1,90 +1,141 @@
-import { NavLink } from 'react-router-dom'
 import {
-    BookMarked,
-    FileText,
-    Layers,
-    LayoutDashboard,
-    Settings,
-    Upload,
-    BookOpenText,
-} from 'lucide-react'
-import { useStore } from '@/store/useStore'
+  BookMarked,
+  Layers,
+  LayoutDashboard,
+  Settings,
+  Upload,
+  BookOpenText,
+  GraduationCap,
+  BarChart3,
+} from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { useStore } from '@/store/useStore';
+import { motion } from 'framer-motion';
 
-const navItems = [
-    { path: '/', icon: LayoutDashboard, label: 'Bảng điều khiển' },
-    { path: '/reader', icon: BookOpenText, label: 'Đọc & phân tích' },
-    { path: '/upload', icon: Upload, label: 'Dịch file' },
-    { path: '/vocabulary', icon: BookMarked, label: 'Từ vựng' },
-    { path: '/flashcards', icon: Layers, label: 'Flashcards' },
-    { path: '/settings', icon: Settings, label: 'Cài đặt' },
-]
+const mainNavItems = [
+  { path: '/', icon: LayoutDashboard, label: 'Bảng điều khiển' },
+  { path: '/reader', icon: BookOpenText, label: 'Đọc & phân tích' },
+  { path: '/upload', icon: Upload, label: 'Dịch file' },
+  { path: '/vocabulary', icon: BookMarked, label: 'Từ vựng' },
+  { path: '/flashcards', icon: Layers, label: 'Flashcards' },
+];
 
 export default function Sidebar() {
-    const { savedWords, documents, reviewItems } = useStore()
-    const dueCount = reviewItems.filter((item) => new Date(item.due_at).getTime() <= Date.now()).length
+  const { savedWords, documents, reviewItems } = useStore();
+  const dueCount = reviewItems.filter(
+    (item) => new Date(item.due_at).getTime() <= Date.now()
+  ).length;
 
-    return (
-        <aside className="fixed bottom-0 left-0 top-16 z-40 hidden w-64 flex-col border-r border-teal-100 bg-white/95 p-4 backdrop-blur md:flex">
-            <section>
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">Menu chính</h3>
-                <nav className="flex flex-col gap-2">
-                    {navItems.map((item) => (
-                        <NavLink
-                            key={item.path}
-                            to={item.path}
-                            end={item.path === '/'}
-                            className={({ isActive }) =>
-                                `flex items-center gap-3 rounded-xl border px-4 py-3 text-sm transition-colors ${
-                                    isActive
-                                        ? 'border-teal-100 bg-teal-50 font-bold text-teal-700'
-                                        : 'border-transparent font-semibold text-slate-600 hover:border-slate-200 hover:bg-slate-50'
-                                }`
-                            }
-                        >
-                            {({ isActive }) => (
-                                <>
-                                    <item.icon className={`h-5 w-5 ${isActive ? 'text-teal-600' : 'text-slate-400'}`} />
-                                    <span>{item.label}</span>
-                                </>
-                            )}
-                        </NavLink>
-                    ))}
-                </nav>
-            </section>
-
-            <section className="mt-6 rounded-xl border border-teal-100 bg-teal-50/80 p-4">
-                <div className="mb-3 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-teal-700" />
-                    <h4 className="text-sm font-bold text-slate-800">Workspace</h4>
-                </div>
-                <div className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Tài liệu</span>
-                        <span className="font-bold text-slate-800">{documents.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Từ đã lưu</span>
-                        <span className="font-bold text-slate-800">{savedWords.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Cần ôn</span>
-                        <span className="font-bold text-amber-700">{dueCount}</span>
-                    </div>
-                </div>
-            </section>
-
-            <section className="mt-auto rounded-xl bg-gradient-to-br from-teal-600 to-cyan-700 p-4 text-white custom-shadow">
-                <h4 className="mb-1 text-sm font-bold">Chinese Reader MVP</h4>
-                <p className="mb-3 text-[11px] leading-relaxed text-teal-50">
-                    {'PDF.js -> context NLP -> dictionary -> note -> review.'}
-                </p>
-                <NavLink
-                    to="/reader"
-                    className="block rounded-lg border border-white/20 bg-white/20 px-3 py-2 text-center text-xs font-bold hover:bg-white/30"
+  return (
+    <aside className="fixed bottom-0 left-0 top-[72px] z-40 hidden w-[300px] flex-col border-r border-teal-100/30 bg-white/80 backdrop-blur-2xl dark:bg-slate-900/80 dark:border-slate-800/60 md:flex">
+      {/* Navigation */}
+      <nav className="flex-1 space-y-1 px-4 pt-6">
+        {mainNavItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            end={item.path === '/'}
+            className={({ isActive }) =>
+              `group relative flex items-center gap-3 rounded-xl px-4 py-3 text-base font-semibold transition-all duration-200 ${isActive
+                ? 'sidebar-active text-teal-700 dark:text-teal-400'
+                : 'text-slate-500 hover:bg-teal-50/50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-slate-200'
+              }`
+            }
+          >
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-active"
+                    className="absolute left-0 top-1/2 h-6 w-[4px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-teal-500 to-teal-600 shadow-sm shadow-teal-500/20"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 ${isActive
+                      ? 'bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-sm shadow-teal-500/20'
+                      : 'text-slate-400 group-hover:bg-teal-100 group-hover:text-teal-600 dark:group-hover:bg-slate-800 dark:group-hover:text-teal-400'
+                    }`}
                 >
-                    Mở Reader
-                </NavLink>
-            </section>
-        </aside>
-    )
+                  <item.icon className="h-5 w-5" />
+                </div>
+                <span className={`text-base font-semibold ${isActive ? 'text-teal-700 dark:text-teal-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                  {item.label}
+                </span>
+              </>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Workspace section */}
+      <div className="mx-4 mb-4">
+        <div className="rounded-2xl bg-gradient-to-br from-teal-50/80 to-teal-50/40 dark:from-slate-800/80 dark:to-slate-800/40 border border-teal-100/40 dark:border-slate-700/50 p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Workspace</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{documents.length}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Tài liệu</p>
+            </div>
+            <div>
+              <p className="text-xl font-bold text-slate-800 dark:text-slate-200">{savedWords.length}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Từ vựng</p>
+            </div>
+            <div>
+              <p className={`text-xl font-bold ${dueCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-200'}`}>{dueCount}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Cần ôn</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom section */}
+      <div className="border-t border-teal-100/20 dark:border-slate-800/50 px-4 py-4">
+        <NavLink
+          to="/settings"
+          className={({ isActive }) =>
+            `group relative flex items-center gap-3 rounded-xl px-4 py-3 text-base font-semibold transition-all duration-200 ${isActive
+              ? 'sidebar-active text-teal-700 dark:text-teal-400'
+              : 'text-slate-500 hover:bg-teal-50/50 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800/50 dark:hover:text-slate-200'
+            }`
+          }
+        >
+          {({ isActive }) => (
+            <>
+              {isActive && (
+                <motion.div
+                  layoutId="sidebar-active-bottom"
+                  className="absolute left-0 top-1/2 h-6 w-[4px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-teal-500 to-teal-600 shadow-sm shadow-teal-500/20"
+                  transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                />
+              )}
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-200 ${isActive
+                    ? 'bg-gradient-to-br from-teal-500 to-teal-600 text-white shadow-sm shadow-teal-500/20'
+                    : 'text-slate-400 group-hover:bg-teal-100 group-hover:text-teal-600 dark:group-hover:bg-slate-800 dark:group-hover:text-teal-400'
+                  }`}
+              >
+                <Settings className="h-5 w-5" />
+              </div>
+              <span className={`text-base font-semibold ${isActive ? 'text-teal-700 dark:text-teal-400' : 'text-slate-600 dark:text-slate-400'}`}>Cài đặt</span>
+            </>
+          )}
+        </NavLink>
+
+        {/* Branding */}
+        <div className="mt-4 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 dark:from-teal-600 dark:to-cyan-800 p-4 text-white shadow-sm">
+          <div className="flex items-center gap-2 mb-1.5">
+            <GraduationCap className="h-4 w-4 text-teal-100" />
+            <span className="text-sm font-bold">Hanora</span>
+          </div>
+          <p className="text-xs leading-relaxed text-teal-100">
+            Chinese Context Reader
+          </p>
+        </div>
+      </div>
+    </aside>
+  );
 }

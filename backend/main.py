@@ -6,6 +6,8 @@ import os
 import re
 import sqlite3
 import threading
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
@@ -13,7 +15,7 @@ from typing import Any, Literal
 
 import httpx
 import jieba
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
@@ -246,6 +248,10 @@ def db_session() -> Session:
         session.close()
 
 
+def current_request(request: Request) -> Request:
+    return request
+
+
 def json_loads(value: str | None, fallback: Any) -> Any:
     if not value:
         return fallback
@@ -321,7 +327,12 @@ def configured_cors_origins() -> list[str]:
     configured = parse_key_list(app_config("FRONTEND_ORIGINS"))
     if configured:
         return configured
-    return ["http://127.0.0.1:3000", "http://localhost:3000"]
+    # Allow local dev server ports dynamically from 3000 to 3010 to prevent CORS issues on port collisions
+    origins = []
+    for port in range(3000, 3011):
+        origins.append(f"http://127.0.0.1:{port}")
+        origins.append(f"http://localhost:{port}")
+    return origins
 
 
 def max_upload_bytes() -> int:
@@ -332,6 +343,42 @@ def allowed_upload_extensions() -> set[str]:
     configured = parse_key_list(app_config("ALLOWED_UPLOAD_EXTENSIONS"))
     extensions = configured or [".pdf", ".txt", ".md", ".docx"]
     return {item.lower() if item.startswith(".") else f".{item.lower()}" for item in extensions}
+
+
+def ai_rate_limit_per_minute() -> int:
+    return config_int("AI_RATE_LIMIT_PER_MINUTE", 30, minimum=0, maximum=10000)
+
+
+def upload_rate_limit_per_minute() -> int:
+    return config_int("UPLOAD_RATE_LIMIT_PER_MINUTE", 20, minimum=0, maximum=10000)
+
+
+class InMemoryRateLimiter:
+    def __init__(self) -> None:
+        self._events: dict[str, deque[float]] = defaultdict(deque)
+        self._lock = threading.Lock()
+
+    def check(self, request: Request, *, name: str, limit: int, window_seconds: int = 60) -> None:
+        if limit <= 0:
+            return
+        client = request.client.host if request.client else "local"
+        key = f"{name}:{client}"
+        now = time.monotonic()
+        cutoff = now - window_seconds
+        with self._lock:
+            events = self._events[key]
+            while events and events[0] < cutoff:
+                events.popleft()
+            if len(events) >= limit:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Rate limit exceeded for {name}. Try again later.",
+                    headers={"Retry-After": str(window_seconds)},
+                )
+            events.append(now)
+
+
+rate_limiter = InMemoryRateLimiter()
 
 
 def safe_filename(value: str | None, fallback: str = "document.pdf") -> str:
@@ -376,6 +423,10 @@ def runtime_config_warnings() -> list[str]:
         warnings.append("SQLite database file does not exist yet.")
     if max_upload_bytes() > 100 * 1024 * 1024:
         warnings.append("MAX_UPLOAD_BYTES is high; large local uploads can slow PDF parsing.")
+    if ai_rate_limit_per_minute() == 0:
+        warnings.append("AI rate limiting is disabled.")
+    if upload_rate_limit_per_minute() == 0:
+        warnings.append("Upload rate limiting is disabled.")
     return warnings
 
 
@@ -1009,6 +1060,10 @@ class KnownWordCreateRequest(BaseModel):
     confidence: float = Field(0.5, ge=0, le=1)
 
 
+class BackupRestoreRequest(BaseModel):
+    file_name: str
+
+
 class GoogleAIError(Exception):
     def __init__(self, status_code: int, message: str) -> None:
         super().__init__(message)
@@ -1258,6 +1313,11 @@ def system_config() -> dict[str, Any]:
             "dir": str(UPLOAD_DIR),
             "max_bytes": max_upload_bytes(),
             "allowed_extensions": sorted(allowed_upload_extensions()),
+            "rate_limit_per_minute": upload_rate_limit_per_minute(),
+        },
+        "rate_limits": {
+            "ai_per_minute": ai_rate_limit_per_minute(),
+            "upload_per_minute": upload_rate_limit_per_minute(),
         },
         "backup_dir": str(BACKUP_DIR),
         "ai": ai_status_payload(),
@@ -1271,7 +1331,13 @@ def ai_status() -> dict[str, Any]:
 
 
 @app.post("/api/ai/context-reading")
-def ai_context_reading(payload: AIContextRequest, session: Session = Depends(db_session)) -> dict[str, Any]:
+def ai_context_reading(
+    payload: AIContextRequest,
+    session: Session = Depends(db_session),
+    request: Request = Depends(current_request),
+) -> dict[str, Any]:
+    if isinstance(request, Request):
+        rate_limiter.check(request, name="ai", limit=ai_rate_limit_per_minute())
     text = (payload.selected_text or payload.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Text parameter is required.")
@@ -1285,7 +1351,11 @@ def ai_context_reading(payload: AIContextRequest, session: Session = Depends(db_
 
 
 @app.post("/api/nlp/analyze")
-def nlp_analyze(payload: NlpAnalyzeRequest, session: Session = Depends(db_session)) -> dict[str, Any]:
+def nlp_analyze(
+    payload: NlpAnalyzeRequest,
+    session: Session = Depends(db_session),
+    request: Request | None = Depends(current_request),
+) -> dict[str, Any]:
     text = (payload.selected_text or payload.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="Text parameter is required.")
@@ -1294,6 +1364,8 @@ def nlp_analyze(payload: NlpAnalyzeRequest, session: Session = Depends(db_sessio
     else:
         analysis = analyze_chinese(text, session)
     if payload.ai_enabled:
+        if isinstance(request, Request):
+            rate_limiter.check(request, name="ai", limit=ai_rate_limit_per_minute())
         analysis["ai_context"] = generate_google_ai_context(payload, analysis, session)
     return analysis
 
@@ -1463,7 +1535,10 @@ async def upload_document(
     file: UploadFile = File(...),
     language: str = Form("zh-CN"),
     session: Session = Depends(db_session),
+    request: Request = Depends(current_request),
 ) -> dict[str, Any]:
+    if isinstance(request, Request):
+        rate_limiter.check(request, name="upload", limit=upload_rate_limit_per_minute())
     original_name = safe_filename(file.filename or "document.pdf")
     suffix = Path(original_name).suffix.lower() or ".bin"
     if suffix not in allowed_upload_extensions():
@@ -1971,9 +2046,49 @@ def create_database_backup() -> dict[str, Any]:
     }
 
 
+def resolve_backup_path(file_name: str) -> Path:
+    backup_name = Path(file_name).name
+    if not backup_name.endswith(".sqlite3"):
+        raise HTTPException(status_code=400, detail="Backup file must be a .sqlite3 file.")
+    source = (BACKUP_DIR / backup_name).resolve()
+    if not path_is_under(source, BACKUP_DIR):
+        raise HTTPException(status_code=400, detail="Invalid backup file path.")
+    if not source.exists():
+        raise HTTPException(status_code=404, detail="Backup file not found.")
+    return source
+
+
+def restore_database_backup(file_name: str) -> dict[str, Any]:
+    source_path = resolve_backup_path(file_name)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    engine.dispose()
+    source = sqlite3.connect(str(source_path))
+    destination = sqlite3.connect(str(DB_PATH))
+    try:
+        source.backup(destination)
+    finally:
+        destination.close()
+        source.close()
+    ensure_runtime_schema()
+    with SessionLocal() as session:
+        configure_jieba(session)
+        get_profile(session)
+    return {
+        "status": "restored",
+        "file_name": source_path.name,
+        "size_bytes": DB_PATH.stat().st_size if DB_PATH.exists() else 0,
+        "restored_at": now_utc().isoformat(),
+    }
+
+
 @app.post("/api/admin/backup")
 def admin_backup_database() -> dict[str, Any]:
     return create_database_backup()
+
+
+@app.post("/api/admin/restore")
+def admin_restore_database(payload: BackupRestoreRequest) -> dict[str, Any]:
+    return restore_database_backup(payload.file_name)
 
 
 @app.get("/api/admin/backups")

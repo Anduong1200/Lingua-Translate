@@ -123,6 +123,8 @@ export interface AppSettings {
     targetHskLevel?: string
     showPinyinMode?: 'always' | 'unknown_only' | 'never'
     translationStyle?: 'natural' | 'literal' | 'both'
+    desiredRetention?: number
+    learningSteps?: string
 }
 
 export interface ChineseDefinition {

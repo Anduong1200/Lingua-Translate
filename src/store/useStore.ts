@@ -95,6 +95,10 @@ interface AppState {
     settings: AppSettings
     isDarkMode: boolean
 
+    // Side-by-side translation
+    isSideBySide: boolean
+    toggleSideBySide: () => void
+
     // Actions
     hydrateFromBackend: () => Promise<void>
     setFloatingPopup: (popup: { visible: boolean; x: number; y: number; text: string }) => void
@@ -134,9 +138,11 @@ const defaultSettings: AppSettings = {
     targetHskLevel: 'HSK4',
     showPinyinMode: 'always',
     translationStyle: 'both',
+    desiredRetention: 0.90,
+    learningSteps: '1m 5m 15m',
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:3001/api'
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:3001/api'
 
 function toStoredDate(value: unknown): Date {
     if (value instanceof Date) return value
@@ -279,6 +285,7 @@ export const useStore = create<AppState>((set, get) => ({
     flashCards: storedFlashCards,
     settings: defaultSettings,
     isDarkMode: false,
+    isSideBySide: false,
 
     hydrateFromBackend: async () => {
         set({ isHydrating: true })
@@ -762,6 +769,8 @@ export const useStore = create<AppState>((set, get) => ({
             document.body.classList.toggle('dark', newDark)
             return { isDarkMode: newDark }
         }),
+
+    toggleSideBySide: () => set((state) => ({ isSideBySide: !state.isSideBySide })),
 
     updateSettings: (newSettings) => {
         const mergedSettings = { ...get().settings, ...newSettings }

@@ -47,8 +47,10 @@ Supported variables:
 ```text
 APP_ENV=development
 FRONTEND_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
-MAX_UPLOAD_BYTES=52428800
 ALLOWED_UPLOAD_EXTENSIONS=.pdf,.txt,.md,.docx
+MAX_UPLOAD_BYTES=52428800
+UPLOAD_RATE_LIMIT_PER_MINUTE=20
+AI_RATE_LIMIT_PER_MINUTE=30
 GOOGLE_API_KEYS=key1,key2,key3
 GOOGLE_AI_MODEL=gemini-3.5-flash
 GOOGLE_AI_TIMEOUT_SECONDS=30
@@ -115,8 +117,18 @@ Local backup/export:
 
 ```bash
 python backend\scripts\backup_database.py
+python backend\scripts\restore_database.py hanora_YYYYMMDDTHHMMSSZ.sqlite3
 curl -X POST http://127.0.0.1:3001/api/admin/backup
+curl -X POST http://127.0.0.1:3001/api/admin/restore -H "Content-Type: application/json" -d "{\"file_name\":\"hanora_YYYYMMDDTHHMMSSZ.sqlite3\"}"
 curl http://127.0.0.1:3001/api/admin/export
+```
+
+Restore only accepts file names already present in `backend/data/backups`.
+
+Docker Compose from repository root:
+
+```bash
+docker compose up --build
 ```
 
 ## Tests

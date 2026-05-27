@@ -27,14 +27,14 @@ Implemented:
 - Review item and simple SRS scheduler
 - User profile/settings sync
 - Optional Google Gemini context-reading API with rotating keys
-- Production hardening basics: explicit CORS config, upload limits, deep health, backup/export APIs, Alembic migrations, and CI build/test workflow
+- Production hardening basics: explicit CORS config, upload/rate limits, deep health, backup/restore/export APIs, Alembic migrations, Docker Compose, and CI build/test workflow
 - OCR for scanned PDFs (integrated with OpenCV preprocessing and Tesseract OCR fallback)
 
 ## Not in Production v1.0 / Next Steps:
 
 - Full-document AI translation (side-by-side)
-- Login/auth (Firebase Integration)
-- Cloud sync (Firebase synchronization)
+- Login/auth with a real identity provider
+- Remote sync with a real backend service
 - Payment / SaaS features
 - FSRS tuning (Free Spaced Repetition Scheduler)
 
@@ -137,8 +137,10 @@ Recommended backend production-oriented defaults:
 ```text
 APP_ENV=development
 FRONTEND_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
-MAX_UPLOAD_BYTES=52428800
 ALLOWED_UPLOAD_EXTENSIONS=.pdf,.txt,.md,.docx
+MAX_UPLOAD_BYTES=52428800
+UPLOAD_RATE_LIMIT_PER_MINUTE=20
+AI_RATE_LIMIT_PER_MINUTE=30
 GOOGLE_API_KEYS=
 GOOGLE_AI_MODEL=gemini-3.5-flash
 GOOGLE_AI_TIMEOUT_SECONDS=30
@@ -170,6 +172,27 @@ Open:
 
 ```text
 http://127.0.0.1:3000
+```
+
+Docker Compose local production build:
+
+```bash
+npm run docker:up
+```
+
+Optional AI keys for Compose:
+
+```bash
+set GOOGLE_API_KEYS=GOOGLE_KEY_1,GOOGLE_KEY_2
+npm run docker:up
+```
+
+This starts:
+
+```text
+frontend: http://127.0.0.1:3000
+backend:  http://127.0.0.1:3001
+data:     ./backend/data
 ```
 
 Backend health:
@@ -326,6 +349,7 @@ Admin/operations:
 ```text
 POST /api/admin/backup
 GET  /api/admin/backups
+POST /api/admin/restore
 GET  /api/admin/export
 ```
 
@@ -333,7 +357,10 @@ Create a local SQLite backup from the terminal:
 
 ```bash
 npm run backend:backup
+npm run backend:restore -- hanora_YYYYMMDDTHHMMSSZ.sqlite3
 ```
+
+Restore only accepts backup file names from `backend/data/backups`; path traversal and arbitrary DB paths are rejected.
 
 ## Verify
 

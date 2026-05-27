@@ -36,7 +36,9 @@ from main import (  # noqa: E402
     NlpAnalyzeRequest,
     upload_document,
     system_config,
+    restore_database_backup,
 )
+from starlette.requests import Request
 
 
 @pytest.fixture()
@@ -55,6 +57,10 @@ def resolve_immediate_coroutine(coro: Any) -> Any:
     except StopIteration as exc:
         return exc.value
     raise AssertionError("Coroutine unexpectedly suspended.")
+
+
+def make_request(host: str = "testclient") -> Request:
+    return Request({"type": "http", "method": "POST", "path": "/", "headers": [], "client": (host, 12345)})
 
 
 class DummyUploadFile:
@@ -281,6 +287,48 @@ def test_admin_backup_and_export_are_sanitized(session, monkeypatch, tmp_path) -
     assert exported["documents"][0]["id"] == document["document_id"]
     assert exported["annotations"][0]["selected_text"] == "市场需求"
     assert ("AI" + "za") not in str(exported)
+
+
+def test_admin_restore_replaces_database_from_safe_backup(session, monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(backend_main, "BACKUP_DIR", tmp_path)
+    document = create_document(DocumentCreateRequest(title="Restore Demo", file_name="restore.pdf", source_type="pdf"), session)
+    backup = admin_backup_database()
+    debug_reset_demo(session)
+    session.close()
+
+    restored = restore_database_backup(backup["file_name"])
+
+    with SessionLocal() as restored_session:
+        documents = list_documents(restored_session)["documents"]
+    assert restored["status"] == "restored"
+    assert any(item["id"] == document["document_id"] for item in documents)
+
+
+def test_upload_rate_limit_returns_429(session, monkeypatch) -> None:
+    monkeypatch.setenv("UPLOAD_RATE_LIMIT_PER_MINUTE", "1")
+    monkeypatch.setattr(backend_main, "rate_limiter", backend_main.InMemoryRateLimiter())
+    request = make_request("rate-limit-upload")
+
+    resolve_immediate_coroutine(upload_document(file=DummyUploadFile(), language="zh-CN", session=session, request=request))
+    with pytest.raises(backend_main.HTTPException) as exc:
+        resolve_immediate_coroutine(upload_document(file=DummyUploadFile(), language="zh-CN", session=session, request=request))
+
+    assert exc.value.status_code == 429
+
+
+def test_ai_rate_limit_returns_429(session, monkeypatch) -> None:
+    monkeypatch.setenv("AI_RATE_LIMIT_PER_MINUTE", "1")
+    monkeypatch.setattr(backend_main, "load_google_api_keys", lambda: [])
+    monkeypatch.setattr(backend_main, "rate_limiter", backend_main.InMemoryRateLimiter())
+    request = make_request("rate-limit-ai")
+    payload = AIContextRequest(selected_text="市场需求")
+
+    first = ai_context_reading(payload, session, request)
+    with pytest.raises(backend_main.HTTPException) as exc:
+        ai_context_reading(payload, session, request)
+
+    assert first["ai"]["status"] == "missing_api_key"
+    assert exc.value.status_code == 429
 
 
 def test_google_ai_context_uses_rotating_keys_without_exposing_secret(session, monkeypatch) -> None:
