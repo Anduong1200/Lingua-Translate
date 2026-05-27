@@ -104,6 +104,14 @@ test-results/
 playwright-report/
 ```
 
+## System Requirements (OCR)
+
+For processing scanned PDFs and images, the backend requires:
+1. **Tesseract OCR**: Needs to be installed on the system (with `chi_sim` and `chi_tra` language data).
+2. **Poppler**: Required for `pdf2image` to extract images from PDFs.
+
+On Windows, ensure both are added to your `PATH`, or configure them via environment variables below.
+
 ## Setup
 
 Install frontend dependencies:
@@ -134,6 +142,8 @@ ALLOWED_UPLOAD_EXTENSIONS=.pdf,.txt,.md,.docx
 GOOGLE_API_KEYS=
 GOOGLE_AI_MODEL=gemini-3.5-flash
 GOOGLE_AI_TIMEOUT_SECONDS=30
+TESSERACT_CMD=tesseract
+POPPLER_PATH=
 ```
 
 For frontend API override, create `.env` if needed:

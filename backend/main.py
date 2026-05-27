@@ -2143,7 +2143,15 @@ def extract_file_text(file_name: str, data: bytes) -> str:
         if PdfReader is None:
             raise HTTPException(status_code=500, detail="pypdf is not installed.")
         reader = PdfReader(BytesIO(data))
-        return "\n".join(page.extract_text() or "" for page in reader.pages)
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        if not text.strip():
+            # Fallback to OCR if text is empty (scanned PDF)
+            try:
+                from ocr_service import ocr_chinese_pdf_bytes
+                text = ocr_chinese_pdf_bytes(data)
+            except Exception as e:
+                print(f"OCR fallback failed: {e}")
+        return text
     if lower_name.endswith(".docx"):
         if docx is None:
             raise HTTPException(status_code=500, detail="python-docx is not installed.")
