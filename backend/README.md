@@ -52,11 +52,30 @@ ALLOWED_UPLOAD_EXTENSIONS=.pdf,.txt,.md,.docx
 GOOGLE_API_KEYS=key1,key2,key3
 GOOGLE_AI_MODEL=gemini-3.5-flash
 GOOGLE_AI_TIMEOUT_SECONDS=30
+TESSERACT_CMD=tesseract
+POPPLER_PATH=
 ```
 
-Multiple keys are rotated round-robin. API responses expose only key index and fingerprint.
+Multiple keys are rotated round-robin. When one key hits rate limits (429) or quota errors (403), the system automatically tries the next key. API responses never expose raw keys, only `key_index` and `key_fingerprint` (SHA-256 first 10 chars).
+
+**Full setup guide with architecture diagrams:** See [GOOGLE_AI_SETUP.md](GOOGLE_AI_SETUP.md).
 
 For production, set `APP_ENV=production` and explicit `FRONTEND_ORIGINS`. Do not use wildcard CORS.
+
+## OCR (Scanned PDFs)
+
+The backend uses Tesseract OCR with OpenCV preprocessing to extract text from scanned PDFs. When a PDF has no text layer, the system automatically falls back to OCR.
+
+System requirements (must be installed on the host machine):
+- **Tesseract OCR** with `chi_sim` (Simplified Chinese) language data
+- **Poppler** (for pdf2image to convert PDF pages to images)
+
+Configure via environment variables if not on PATH:
+
+```text
+TESSERACT_CMD=/usr/bin/tesseract
+POPPLER_PATH=/usr/bin
+```
 
 ## Migrations
 
