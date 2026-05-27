@@ -154,6 +154,36 @@ export interface ChineseGrammarPattern {
     confidence: number
 }
 
+export interface DocumentTranslationSentence {
+    sentence_id: string
+    index: number
+    source: string
+    natural_vi: string
+    literal_vi: string
+    pinyin: string
+    domain: string
+    grammar_patterns: ChineseGrammarPattern[]
+}
+
+export interface DocumentTranslationResult {
+    document_id: string
+    title: string
+    mode: 'local_rule_based' | string
+    translations: DocumentTranslationSentence[]
+}
+
+export interface VocabularySuggestion {
+    surface: string
+    pinyin: string
+    definition_vi: string
+    definition_en: string
+    hsk_level?: number | null
+    domain_tags: string[]
+    frequency: number
+    source_sentence: string
+    score: number
+}
+
 export interface ChineseSentenceAnalysis {
     text: string
     tokens: ChineseToken[]

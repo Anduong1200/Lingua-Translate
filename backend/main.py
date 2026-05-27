@@ -1064,6 +1064,11 @@ class BackupRestoreRequest(BaseModel):
     file_name: str
 
 
+class AutoReviewCreateRequest(BaseModel):
+    limit: int = Field(20, ge=1, le=100)
+    min_frequency: int = Field(1, ge=1, le=50)
+
+
 class GoogleAIError(Exception):
     def __init__(self, status_code: int, message: str) -> None:
         super().__init__(message)
@@ -1677,6 +1682,157 @@ def create_page(document_id: str, payload: PageCreateRequest, session: Session =
     existing.height = payload.height
     session.commit()
     return {"document_id": document_id, "page_number": payload.page_number, "status": "saved"}
+
+
+def document_text(document: DocumentRecord, session: Session) -> str:
+    if document.content.strip():
+        return document.content.strip()
+    pages = session.execute(
+        select(PageRecord).where(PageRecord.document_id == document.id).order_by(PageRecord.page_number)
+    ).scalars().all()
+    return "\n".join(page.text for page in pages if page.text.strip()).strip()
+
+
+def document_translation_sentence(document_id: str, sentence: str, index: int, session: Session) -> dict[str, Any]:
+    tokens = tokenize_chinese(sentence, session)
+    domain = detect_domain(sentence, "auto")
+    return {
+        "sentence_id": f"{document_id}-sentence-{index + 1}",
+        "index": index,
+        "source": sentence,
+        "natural_vi": natural_translation(sentence, sentence, tokens, domain),
+        "literal_vi": literal_translation(tokens),
+        "pinyin": pinyin_display(sentence),
+        "domain": domain,
+        "grammar_patterns": grammar_patterns(sentence),
+    }
+
+
+@app.get("/api/documents/{document_id}/translate")
+def translate_document(document_id: str, session: Session = Depends(db_session)) -> dict[str, Any]:
+    document = session.get(DocumentRecord, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    text = document_text(document, session)
+    translations = [
+        document_translation_sentence(document.id, sentence, index, session)
+        for index, sentence in enumerate(split_sentences(text))
+    ]
+    return {
+        "document_id": document.id,
+        "title": document.title,
+        "mode": "local_rule_based",
+        "translations": translations,
+    }
+
+
+def document_vocabulary_suggestions(document: DocumentRecord, session: Session, limit: int = 30) -> list[dict[str, Any]]:
+    text = document_text(document, session)
+    suggestions: dict[str, dict[str, Any]] = {}
+    for sentence in split_sentences(text):
+        for token in content_tokens(tokenize_chinese(sentence, session)):
+            surface = token.get("surface", "").strip()
+            if not surface or surface in PUNCTUATION:
+                continue
+            definitions_vi = token.get("definitions_vi") or []
+            definitions_en = token.get("definitions_en") or []
+            if len(surface) == 1 and not definitions_vi and not definitions_en:
+                continue
+            domain_tags = token.get("domain_tags") or []
+            hsk_level = token.get("hsk_level")
+            score = 1.0
+            score += min(len(surface), 6) * 0.25
+            score += 1.0 if definitions_vi else 0.0
+            score += 0.5 if definitions_en else 0.0
+            score += 0.4 if domain_tags else 0.0
+            score += (hsk_level or 0) * 0.08
+            existing = suggestions.get(surface)
+            if existing:
+                existing["frequency"] += 1
+                existing["score"] = round(existing["score"] + score + 0.35, 2)
+                continue
+            suggestions[surface] = {
+                "surface": surface,
+                "pinyin": token.get("pinyin", ""),
+                "definition_vi": token_vi(token) or "",
+                "definition_en": token_en(token) or "",
+                "hsk_level": hsk_level,
+                "domain_tags": domain_tags,
+                "frequency": 1,
+                "source_sentence": sentence,
+                "score": round(score, 2),
+            }
+    return sorted(suggestions.values(), key=lambda item: (-item["score"], -len(item["surface"]), item["surface"]))[:limit]
+
+
+@app.get("/api/documents/{document_id}/vocabulary-scan")
+def scan_document_vocabulary(
+    document_id: str,
+    limit: int = Query(30, ge=1, le=100),
+    session: Session = Depends(db_session),
+) -> dict[str, Any]:
+    document = session.get(DocumentRecord, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    return {
+        "document_id": document.id,
+        "title": document.title,
+        "items": document_vocabulary_suggestions(document, session, limit),
+    }
+
+
+@app.post("/api/documents/{document_id}/auto-review-items")
+def create_document_auto_review_items(
+    document_id: str,
+    payload: AutoReviewCreateRequest,
+    session: Session = Depends(db_session),
+) -> dict[str, Any]:
+    document = session.get(DocumentRecord, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    existing_fronts = {
+        row[0]
+        for row in session.execute(
+            select(ReviewItemRecord.front).where(ReviewItemRecord.context == f"auto:{document.id}")
+        ).all()
+    }
+    created_items: list[ReviewItemRecord] = []
+    skipped = 0
+    suggestions = [
+        item
+        for item in document_vocabulary_suggestions(document, session, payload.limit)
+        if item["frequency"] >= payload.min_frequency
+    ]
+    for index, suggestion in enumerate(suggestions):
+        if suggestion["surface"] in existing_fronts:
+            skipped += 1
+            continue
+        back = suggestion["definition_vi"] or suggestion["definition_en"] or "Cần bổ sung nghĩa Việt"
+        item = ReviewItemRecord(
+            id=f"{make_id('rev')}_{index}",
+            annotation_id=None,
+            item_type="flashcard",
+            source_type="auto_vocabulary",
+            front=suggestion["surface"],
+            back=back,
+            context=f"auto:{document.id}",
+            source_sentence=suggestion["source_sentence"],
+            pinyin=suggestion["pinyin"],
+            hsk_level=suggestion["hsk_level"],
+            domain_tag=(suggestion["domain_tags"] or [None])[0],
+            due_at=review_scheduler.schedule_new(),
+        )
+        session.add(item)
+        created_items.append(item)
+        existing_fronts.add(item.front)
+    session.commit()
+    return {
+        "document_id": document.id,
+        "created": len(created_items),
+        "skipped": skipped,
+        "items": [review_item_to_dict(item) for item in created_items],
+    }
 
 
 def annotation_to_dict(annotation: AnnotationRecord) -> dict[str, Any]:

@@ -50,7 +50,7 @@ def resolve_hsk_files(path: Path) -> list[Path]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Bootstrap local dictionary data for Lingua Translate MVP.")
+    parser = argparse.ArgumentParser(description="Bootstrap local dictionary data for Hanora MVP.")
     parser.add_argument("--cedict", type=Path, default=None, help="Path to cedict_ts.u8.")
     parser.add_argument("--hsk", type=Path, default=None, help="Path to HSK vocabulary folder or file.")
     parser.add_argument("--force", action="store_true", help="Run imports even when source rows already exist.")

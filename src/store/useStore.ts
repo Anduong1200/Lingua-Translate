@@ -7,6 +7,8 @@ import {
     ChineseAnalysis,
     ChineseToken,
     DocumentContent,
+    DocumentTranslationSentence,
+    DocumentTranslationResult,
     FlashCard,
     KnownWord,
     LearningProgress,
@@ -15,6 +17,7 @@ import {
     TranslationHistory,
     TranslationResult,
     UserCorrection,
+    VocabularySuggestion,
 } from '@/types'
 import { detectLanguage, generateId } from '@/lib/utils'
 import { analyzeChineseText as analyzeOffline, getVietnameseDefinition } from '@/lib/chinese'
@@ -85,6 +88,10 @@ interface AppState {
     reviewItems: ReviewItem[]
     userCorrections: UserCorrection[]
     knownWords: KnownWord[]
+    documentTranslations: Record<string, DocumentTranslationSentence[]>
+    vocabularySuggestions: VocabularySuggestion[]
+    isTranslatingDocument: boolean
+    isScanningVocabulary: boolean
     isHydrating: boolean
 
     // Learning
@@ -109,6 +116,9 @@ interface AppState {
     saveUserCorrection: (input: UserCorrectionInput) => Promise<void>
     markKnownWord: (word: string, confidence?: number) => Promise<void>
     submitReview: (reviewItemId: string, rating: number, responseTimeMs?: number) => Promise<void>
+    translateCurrentDocument: (documentId: string) => Promise<DocumentTranslationSentence[]>
+    scanDocumentVocabulary: (documentId: string, limit?: number) => Promise<VocabularySuggestion[]>
+    createAutoReviewItems: (documentId: string, limit?: number) => Promise<number>
     saveWord: (word: SavedWord) => void
     removeSavedWord: (id: string) => void
     toggleFavorite: (id: string) => void
@@ -273,6 +283,10 @@ export const useStore = create<AppState>((set, get) => ({
     reviewItems: storedReviewItems,
     userCorrections: [],
     knownWords: [],
+    documentTranslations: {},
+    vocabularySuggestions: [],
+    isTranslatingDocument: false,
+    isScanningVocabulary: false,
     isHydrating: false,
     learningProgress: {
         wordsLearned: storedSavedWords.filter((word) => word.learned).length,
@@ -662,6 +676,58 @@ export const useStore = create<AppState>((set, get) => ({
             })
             return { reviewItems, flashCards, savedWords }
         })
+    },
+
+    translateCurrentDocument: async (documentId) => {
+        set({ isTranslatingDocument: true })
+        try {
+            const result = await getJson<DocumentTranslationResult>(`${API_BASE_URL}/documents/${documentId}/translate`)
+            set((state) => ({
+                documentTranslations: {
+                    ...state.documentTranslations,
+                    [documentId]: result.translations,
+                },
+                isTranslatingDocument: false,
+            }))
+            return result.translations
+        } catch {
+            set({ isTranslatingDocument: false })
+            return []
+        }
+    },
+
+    scanDocumentVocabulary: async (documentId, limit = 30) => {
+        set({ isScanningVocabulary: true })
+        try {
+            const result = await getJson<{ items: VocabularySuggestion[] }>(
+                `${API_BASE_URL}/documents/${documentId}/vocabulary-scan?limit=${limit}`,
+            )
+            set({ vocabularySuggestions: result.items, isScanningVocabulary: false })
+            return result.items
+        } catch {
+            set({ vocabularySuggestions: [], isScanningVocabulary: false })
+            return []
+        }
+    },
+
+    createAutoReviewItems: async (documentId, limit = 20) => {
+        set({ isScanningVocabulary: true })
+        try {
+            const result = await postJson<{ created: number; items: ReviewItem[] }>(
+                `${API_BASE_URL}/documents/${documentId}/auto-review-items`,
+                { limit, min_frequency: 1 },
+            )
+            const reviewResponse = await getJson<{ items: ReviewItem[] }>(`${API_BASE_URL}/review-items`)
+            set({
+                reviewItems: reviewResponse.items,
+                flashCards: reviewResponse.items.map(flashCardFromReviewItem),
+                isScanningVocabulary: false,
+            })
+            return result.created
+        } catch {
+            set({ isScanningVocabulary: false })
+            return 0
+        }
     },
 
     saveWord: (word) =>

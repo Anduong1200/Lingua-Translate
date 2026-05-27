@@ -10,6 +10,7 @@ import main as backend_main  # noqa: E402
 from main import (  # noqa: E402
     AIContextRequest,
     AnnotationCreateRequest,
+    AutoReviewCreateRequest,
     DocumentCreateRequest,
     ReviewEventCreateRequest,
     ReviewItemCreateRequest,
@@ -34,8 +35,11 @@ from main import (  # noqa: E402
     list_documents,
     nlp_analyze,
     NlpAnalyzeRequest,
+    scan_document_vocabulary,
+    translate_document,
     upload_document,
     system_config,
+    create_document_auto_review_items,
     restore_database_backup,
 )
 from starlette.requests import Request
@@ -249,6 +253,34 @@ def test_document_upload_persists_file_and_metadata(session) -> None:
     stored_path = Path(str(file_response.path))
     assert stored_path.exists()
     assert stored_path.read_bytes() == "市场需求下降".encode("utf-8")
+
+
+def test_document_translation_and_vocabulary_automation(session) -> None:
+    document = create_document(
+        DocumentCreateRequest(
+            title="Economics Demo",
+            file_name="demo.txt",
+            source_type="txt",
+            language="zh-CN",
+            content="由于市场需求下降，该公司调整了生产计划。",
+        ),
+        session,
+    )
+
+    translated = translate_document(document["document_id"], session)
+    scanned = scan_document_vocabulary(document["document_id"], limit=10, session=session)
+    auto_reviews = create_document_auto_review_items(
+        document["document_id"],
+        AutoReviewCreateRequest(limit=10, min_frequency=1),
+        session,
+    )
+    due = due_review_items(session)
+
+    assert translated["mode"] == "local_rule_based"
+    assert translated["translations"][0]["natural_vi"] == "Do nhu cầu thị trường giảm, công ty đó đã điều chỉnh kế hoạch sản xuất."
+    assert any(item["surface"] == "市场需求" for item in scanned["items"])
+    assert auto_reviews["created"] > 0
+    assert any(item["front"] == "市场需求" for item in due["items"])
 
 
 def test_document_upload_rejects_unsupported_file_type(session) -> None:

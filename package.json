@@ -1,8 +1,8 @@
 {
-  "name": "lingua-translate",
+  "name": "hanora",
   "private": true,
   "version": "0.1.0",
-  "description": "Offline-first Chinese context reader with React, PDF.js, FastAPI, SQLite, CC-CEDICT, HSK vocabulary, and optional Google Gemini AI context reading.",
+  "description": "Hanora is an offline-first Chinese context reader for Vietnamese learners with document translation, smart PDF/DOCX lookup, flashcards, and optional Google Gemini AI context reading.",
   "type": "module",
   "scripts": {
     "dev": "vite",

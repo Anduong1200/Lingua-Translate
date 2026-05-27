@@ -16,7 +16,7 @@ export default function TopBar() {
         {/* Logo */}
         <NavLink to="/" className="flex shrink-0 items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 shadow-sm p-0 overflow-hidden">
-            <img src="/logo.png" alt="Hanora Logo" className="h-full w-full object-cover" />
+            <img src="/logo.svg" alt="Hanora Logo" className="h-full w-full object-cover" />
           </div>
           <div className="leading-tight">
             <div className="text-xl font-black tracking-tight">

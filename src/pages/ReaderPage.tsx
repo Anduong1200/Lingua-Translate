@@ -8,6 +8,7 @@ import {
     Layers,
     Loader2,
     Plus,
+    Search,
     Sparkles,
     Volume2,
     Columns,
@@ -73,6 +74,13 @@ export default function ReaderPage() {
         isSideBySide,
         toggleSideBySide,
         updateSettings,
+        documentTranslations,
+        vocabularySuggestions,
+        isTranslatingDocument,
+        isScanningVocabulary,
+        translateCurrentDocument,
+        scanDocumentVocabulary,
+        createAutoReviewItems,
     } = useStore()
 
     const [selectedSentence, setSelectedSentence] = useState<ChineseSentenceAnalysis | null>(null)
@@ -217,6 +225,40 @@ export default function ReaderPage() {
         })
     }
 
+    const currentTranslations = currentDocument ? documentTranslations[currentDocument.id] || [] : []
+    const localJoinedViTranslation = (sentence: ChineseSentenceAnalysis) =>
+        sentence.tokens
+            .map((token) => {
+                if (token.pos === 'punctuation') return token.surface
+                const defs = token.definitions_vi || token.definitions?.filter((definition) => definition.lang === 'vi').map((definition) => definition.value) || []
+                return defs.length > 0 ? defs[0].split(';')[0].split(',')[0] : token.surface
+            })
+            .join('')
+
+    const handleTranslateDocument = async () => {
+        if (!currentDocument) return
+        setSavedNotice('')
+        const translations = await translateCurrentDocument(currentDocument.id)
+        if (currentDocument.type !== 'pdf' && !isSideBySide) {
+            toggleSideBySide()
+        }
+        setSavedNotice(translations.length > 0 ? `Đã dịch ${translations.length} câu bằng backend local.` : 'Chưa có text để dịch tài liệu.')
+    }
+
+    const handleScanVocabulary = async () => {
+        if (!currentDocument) return
+        setSavedNotice('')
+        const items = await scanDocumentVocabulary(currentDocument.id, 30)
+        setSavedNotice(items.length > 0 ? `Đã quét ${items.length} từ/cụm gợi ý.` : 'Chưa tìm được từ/cụm phù hợp để gợi ý.')
+    }
+
+    const handleCreateAutoReviewItems = async () => {
+        if (!currentDocument) return
+        setSavedNotice('')
+        const created = await createAutoReviewItems(currentDocument.id, 20)
+        setSavedNotice(created > 0 ? `Đã tạo ${created} flashcards tự động.` : 'Không có flashcard mới để tạo.')
+    }
+
     const panelTabs: { id: PanelTab; label: string }[] = [
         { id: 'quick', label: 'Quick Meaning' },
         { id: 'context', label: 'Context' },
@@ -283,6 +325,36 @@ export default function ReaderPage() {
                             )}
                         </div>
 
+                        <button
+                            onClick={handleTranslateDocument}
+                            disabled={!currentDocument || isTranslatingDocument}
+                            className="flex h-9 items-center gap-1.5 rounded-lg border border-cyan-100 bg-cyan-50 px-3 text-xs font-black text-cyan-700 transition-all hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-cyan-900/50 dark:bg-cyan-950/30 dark:text-cyan-300"
+                            title="Dịch tài liệu tự động bằng backend local"
+                        >
+                            {isTranslatingDocument ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                            <span className="hidden xl:inline">Dịch tài liệu</span>
+                        </button>
+
+                        <button
+                            onClick={handleScanVocabulary}
+                            disabled={!currentDocument || isScanningVocabulary}
+                            className="flex h-9 items-center gap-1.5 rounded-lg border border-teal-100 bg-white px-3 text-xs font-black text-teal-700 transition-all hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-teal-300 dark:hover:bg-slate-800"
+                            title="Tra từ thông minh trong tài liệu"
+                        >
+                            {isScanningVocabulary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                            <span className="hidden xl:inline">Quét từ</span>
+                        </button>
+
+                        <button
+                            onClick={handleCreateAutoReviewItems}
+                            disabled={!currentDocument || isScanningVocabulary}
+                            className="flex h-9 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-black text-amber-700 transition-all hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                            title="Tạo flashcards tự động từ từ vựng quan trọng"
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span className="hidden xl:inline">Flashcards</span>
+                        </button>
+
                         {currentDocument?.type !== 'pdf' && (
                             <button
                                 onClick={toggleSideBySide}
@@ -333,15 +405,9 @@ export default function ReaderPage() {
                                 <div className="space-y-6">
                                     {sentences.map((sentence, sentenceIndex) => {
                                         const active = selectedSentence?.text === sentence.text
-                                        const getJoinedViTranslation = (sent: ChineseSentenceAnalysis) => {
-                                            return sent.tokens
-                                                .map((token) => {
-                                                    if (token.pos === 'punctuation') return token.surface
-                                                    const defs = token.definitions_vi || token.definitions?.filter(d => d.lang === 'vi').map(d => d.value) || []
-                                                    return defs.length > 0 ? defs[0].split(';')[0].split(',')[0] : token.surface
-                                                })
-                                                .join('')
-                                        }
+                                        const backendTranslation = currentTranslations[sentenceIndex]
+                                        const sentenceNaturalTranslation = backendTranslation?.natural_vi || localJoinedViTranslation(sentence)
+                                        const sentenceLiteralTranslation = backendTranslation?.literal_vi
                                         return (
                                             <div
                                                 key={`sbs-${sentence.text}-${sentenceIndex}`}
@@ -406,17 +472,17 @@ export default function ReaderPage() {
                                                                 <span>Bản dịch chi tiết</span>
                                                             </div>
                                                             <p className="text-sm font-black text-teal-800 dark:text-teal-300 leading-relaxed">
-                                                                {naturalTranslation || getJoinedViTranslation(sentence)}
+                                                                {naturalTranslation || sentenceNaturalTranslation}
                                                             </p>
-                                                            {literalTranslation && (
+                                                            {(literalTranslation || sentenceLiteralTranslation) && (
                                                                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 italic">
-                                                                    Sát nghĩa: {literalTranslation}
+                                                                    Sát nghĩa: {literalTranslation || sentenceLiteralTranslation}
                                                                 </p>
                                                             )}
                                                         </div>
                                                     ) : (
                                                         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-3">
-                                                            {getJoinedViTranslation(sentence)}
+                                                            {sentenceNaturalTranslation}
                                                         </p>
                                                     )}
                                                 </div>
@@ -800,6 +866,69 @@ export default function ReaderPage() {
                                 <p className="max-w-sm font-semibold text-slate-500 dark:text-slate-450">Bấm chọn một câu hoặc một từ trong tài liệu để hiển thị bảng phân tích ngữ nghĩa chi tiết.</p>
                             </div>
                         )}
+                    </div>
+
+                    <div className="rounded-2xl border border-cyan-100/70 bg-white p-5 custom-shadow dark:border-slate-800 dark:bg-slate-900/50">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                            <div>
+                                <h2 className="font-black text-slate-900 dark:text-slate-100">Từ vựng tự động</h2>
+                                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                    Quét từ/cụm quan trọng rồi tạo flashcards từ backend SQLite.
+                                </p>
+                            </div>
+                            <button
+                                onClick={handleCreateAutoReviewItems}
+                                disabled={!currentDocument || isScanningVocabulary}
+                                className="rounded-xl bg-teal-600 px-3 py-2 text-xs font-black text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-800"
+                            >
+                                Tạo thẻ
+                            </button>
+                        </div>
+                        <div className="space-y-2">
+                            {vocabularySuggestions.slice(0, 6).map((item) => (
+                                <button
+                                    key={`${item.surface}-${item.source_sentence}`}
+                                    onClick={() => {
+                                        setSelectedSentence({ text: item.source_sentence, tokens: [], grammar_patterns: [] })
+                                        void analyzeChineseText({
+                                            selected_text: item.surface,
+                                            source_sentence: item.source_sentence,
+                                            paragraph_context: currentDocument?.content || item.source_sentence,
+                                            page_context: currentDocument?.content || item.source_sentence,
+                                            domain_mode: item.domain_tags[0] || settings.domainMode || 'auto',
+                                            user_level: settings.targetHskLevel || 'HSK4',
+                                        })
+                                        setSelectedToken(null)
+                                        setPdfSelection(null)
+                                        setActiveTab('quick')
+                                    }}
+                                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left transition-colors hover:border-cyan-200 hover:bg-cyan-50 dark:border-slate-800 dark:bg-slate-950/20 dark:hover:bg-slate-800"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="chinese-text text-lg font-black text-cyan-700 dark:text-cyan-300">{item.surface}</p>
+                                        <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                            {item.definition_vi || item.definition_en || 'Cần bổ sung nghĩa Việt'} · {item.pinyin}
+                                        </p>
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                                            x{item.frequency}
+                                        </p>
+                                        {item.hsk_level && <p className="text-[10px] font-black text-amber-600">HSK {item.hsk_level}</p>}
+                                    </div>
+                                </button>
+                            ))}
+                            {vocabularySuggestions.length === 0 && (
+                                <button
+                                    onClick={handleScanVocabulary}
+                                    disabled={!currentDocument || isScanningVocabulary}
+                                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-cyan-200 bg-cyan-50/50 p-4 text-sm font-black text-cyan-700 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-cyan-900/50 dark:bg-cyan-950/20 dark:text-cyan-300"
+                                >
+                                    {isScanningVocabulary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                    Quét từ thông minh
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="rounded-2xl border border-teal-100/60 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5 custom-shadow">

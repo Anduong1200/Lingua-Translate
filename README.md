@@ -1,4 +1,4 @@
-# Lingua Translate
+# Hanora
 
 Offline-first Chinese context reader for Vietnamese learners.
 
@@ -29,10 +29,12 @@ Implemented:
 - Optional Google Gemini context-reading API with rotating keys
 - Production hardening basics: explicit CORS config, upload/rate limits, deep health, backup/restore/export APIs, Alembic migrations, Docker Compose, and CI build/test workflow
 - OCR for scanned PDFs (integrated with OpenCV preprocessing and Tesseract OCR fallback)
+- Local full-document translation endpoint for side-by-side reading
+- Automatic vocabulary scan and flashcard creation from imported documents
 
 ## Not in Production v1.0 / Next Steps:
 
-- Full-document AI translation (side-by-side)
+- Full-document AI translation beyond the local rule-based layer
 - Login/auth with a real identity provider
 - Remote sync with a real backend service
 - Payment / SaaS features
@@ -308,6 +310,9 @@ POST /api/documents/upload
 GET  /api/documents
 GET  /api/documents/{document_id}
 GET  /api/documents/{document_id}/file
+GET  /api/documents/{document_id}/translate
+GET  /api/documents/{document_id}/vocabulary-scan
+POST /api/documents/{document_id}/auto-review-items
 POST /api/documents/{document_id}/pages
 ```
 

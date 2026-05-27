@@ -1,6 +1,6 @@
 # Backend
 
-Canonical backend for Lingua Translate MVP 0.1.
+Canonical backend for Hanora MVP 0.1.
 
 ## Run
 
@@ -147,6 +147,7 @@ HSK import priority vs Vietnamese seed
 annotation/review/review-event flow
 user correction priority
 document upload persistence
+document translation/vocabulary automation
 upload type/size safety
 admin backup/export without secret leakage
 Google AI key rotation without secret leakage
