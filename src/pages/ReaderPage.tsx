@@ -1,18 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import {
+    Bookmark,
     BookOpen,
+    BookMarked,
+    Brain,
     Check,
     FileText,
     Highlighter,
+    History,
     Layers,
     Loader2,
+    Minus,
     Plus,
     Search,
+    Settings,
     Sparkles,
     Volume2,
     Columns,
     Type,
+    UserCircle,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { AnnotationRecord, ChineseSentenceAnalysis, ChineseToken } from '@/types'
@@ -260,13 +267,13 @@ export default function ReaderPage() {
     }
 
     const panelTabs: { id: PanelTab; label: string }[] = [
-        { id: 'quick', label: 'Quick Meaning' },
+        { id: 'quick', label: 'Dict' },
         { id: 'context', label: 'Context' },
-        { id: 'ai', label: 'AI Context' },
+        { id: 'ai', label: 'AI' },
         { id: 'grammar', label: 'Grammar' },
         { id: 'examples', label: 'Examples' },
-        { id: 'note', label: 'Personal Note' },
-        { id: 'review', label: 'Add to Review' },
+        { id: 'note', label: 'Note' },
+        { id: 'review', label: 'Review' },
     ]
     const quickVi = quickMeaning?.definitions_vi?.join('; ') || viDefinition
     const quickEn = quickMeaning?.definitions_en?.join('; ') || enDefinition
@@ -276,28 +283,33 @@ export default function ReaderPage() {
     const domainTags = quickMeaning?.domain_tags?.length ? quickMeaning.domain_tags : selectedToken?.domain_tags || []
 
     return (
-        <div className="flex h-[calc(100vh-6.5rem)] flex-col overflow-hidden rounded-[2rem] border border-white dark:border-slate-800/80 bg-white/80 dark:bg-slate-900/80 custom-shadow backdrop-blur-md md:flex-row transition-colors duration-300">
-            <section className="flex min-h-0 flex-1 flex-col border-b border-teal-100/80 dark:border-slate-800/80 md:w-1/2 md:border-b-0 md:border-r transition-colors">
-                <div className="flex items-center justify-between border-b border-teal-100/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900 px-5 py-4 transition-colors">
+        <div className="flex h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-xl border border-white/60 bg-gradient-to-br from-[#f2f3ff] to-[#faf8ff] shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-900 md:flex-row">
+            <section className="flex min-h-0 flex-1 flex-col transition-colors">
+                <div className="m-4 flex flex-col gap-3 rounded-full border border-white/60 bg-white/70 px-4 py-2 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/70 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-600 text-white custom-shadow">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#14b8a6]/15 text-[#006b5f]">
                             <BookOpen className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
-                            <h1 className="truncate text-lg font-black text-slate-900 dark:text-slate-100">
+                            <h1 className="truncate text-lg font-black text-[#006b5f] dark:text-teal-300">
                                 {currentDocument?.title || 'Chưa chọn tài liệu'}
                             </h1>
                             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                                Reader mode · {sentences.length} câu · {hskLabel}
+                                Hanora NLP Reader · {sentences.length} câu · {hskLabel}
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                        <div className="hidden items-center gap-2 rounded-full border border-white/60 bg-white/65 px-3 py-2 text-xs font-black text-slate-600 backdrop-blur md:flex dark:border-slate-800 dark:bg-slate-900/65 dark:text-slate-300">
+                            <Minus className="h-3.5 w-3.5 text-slate-400" />
+                            100%
+                            <Plus className="h-3.5 w-3.5 text-slate-400" />
+                        </div>
                         <div className="relative">
                             <button
                                 onClick={() => setShowFontSizeMenu(!showFontSizeMenu)}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-teal-50 dark:hover:bg-slate-800 transition-colors"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/60 bg-white/70 text-slate-500 transition-colors hover:bg-[#d4e3ff]/60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800"
                                 title="Cỡ chữ"
                             >
                                 <Type className="h-4 w-4" />
@@ -328,7 +340,7 @@ export default function ReaderPage() {
                         <button
                             onClick={handleTranslateDocument}
                             disabled={!currentDocument || isTranslatingDocument}
-                            className="flex h-9 items-center gap-1.5 rounded-lg border border-cyan-100 bg-cyan-50 px-3 text-xs font-black text-cyan-700 transition-all hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-cyan-900/50 dark:bg-cyan-950/30 dark:text-cyan-300"
+                            className="flex h-9 items-center gap-1.5 rounded-lg border border-[#a4c9ff]/60 bg-[#d4e3ff]/75 px-3 text-xs font-black text-[#004883] transition-all hover:bg-[#a4c9ff]/50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-cyan-900/50 dark:bg-cyan-950/30 dark:text-cyan-300"
                             title="Dịch tài liệu tự động bằng backend local"
                         >
                             {isTranslatingDocument ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -338,7 +350,7 @@ export default function ReaderPage() {
                         <button
                             onClick={handleScanVocabulary}
                             disabled={!currentDocument || isScanningVocabulary}
-                            className="flex h-9 items-center gap-1.5 rounded-lg border border-teal-100 bg-white px-3 text-xs font-black text-teal-700 transition-all hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-teal-300 dark:hover:bg-slate-800"
+                            className="flex h-9 items-center gap-1.5 rounded-lg border border-white/60 bg-white/75 px-3 text-xs font-black text-[#006b5f] transition-all hover:bg-[#71f8e4]/25 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-teal-300 dark:hover:bg-slate-800"
                             title="Tra từ thông minh trong tài liệu"
                         >
                             {isScanningVocabulary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -348,7 +360,7 @@ export default function ReaderPage() {
                         <button
                             onClick={handleCreateAutoReviewItems}
                             disabled={!currentDocument || isScanningVocabulary}
-                            className="flex h-9 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-black text-amber-700 transition-all hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+                            className="flex h-9 items-center gap-1.5 rounded-lg border border-[#bbcac6]/50 bg-white/75 px-3 text-xs font-black text-[#3f484d] transition-all hover:bg-[#dbe4ea]/70 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
                             title="Tạo flashcards tự động từ từ vựng quan trọng"
                         >
                             <Plus className="h-4 w-4" />
@@ -360,8 +372,8 @@ export default function ReaderPage() {
                                 onClick={toggleSideBySide}
                                 className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-black transition-all ${
                                     isSideBySide
-                                        ? 'border-teal-400 bg-teal-50 text-teal-700 dark:border-teal-800 dark:bg-teal-950/45 dark:text-teal-400'
-                                        : 'border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-teal-50 dark:hover:bg-slate-800'
+                                        ? 'border-[#14b8a6] bg-[#14b8a6]/15 text-[#006b5f] dark:border-teal-800 dark:bg-teal-950/45 dark:text-teal-400'
+                                        : 'border-white/60 bg-white/75 text-slate-500 hover:bg-[#71f8e4]/20 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
                                 }`}
                                 title="Xem bản dịch song song"
                             >
@@ -376,7 +388,7 @@ export default function ReaderPage() {
                                 const doc = documents.find((item) => item.id === event.target.value) ?? null
                                 setCurrentDocument(doc)
                             }}
-                            className="max-w-[150px] rounded-lg border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 outline-none focus:border-teal-400 dark:focus:border-slate-700 transition-all"
+                            className="max-w-[180px] rounded-lg border border-white/60 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition-all focus:border-[#14b8a6] dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:focus:border-slate-700"
                         >
                             {documents.map((doc) => (
                                 <option key={doc.id} value={doc.id}>
@@ -387,7 +399,7 @@ export default function ReaderPage() {
                     </div>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 dark:bg-slate-950/10 p-5 scrollbar-hide">
+                <div className="min-h-0 flex-1 overflow-y-auto bg-transparent px-4 py-5 scrollbar-hide md:px-10">
                     {currentDocument?.type === 'pdf' && currentDocument.sourceUrl ? (
                         <PdfDocumentViewer
                             sourceUrl={currentDocument.sourceUrl}
@@ -395,7 +407,44 @@ export default function ReaderPage() {
                             annotations={annotations.filter((annotation) => annotation.document_id === currentDocument.id)}
                         />
                     ) : (
-                        <article className="mx-auto min-h-full max-w-5xl rounded-[2rem] border border-white dark:border-slate-850/80 bg-white dark:bg-slate-900/50 p-6 custom-shadow">
+                        <article className="relative mx-auto min-h-[1000px] w-full max-w-[800px] rounded-lg border border-[#bbcac6]/30 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 md:p-12">
+                            {selectedSurface && (
+                                <div className="absolute right-6 top-6 z-20 flex items-center gap-2 rounded-lg border border-white/60 bg-white/85 px-3 py-2 shadow-lg shadow-blue-400/10 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/85">
+                                    <button
+                                        onClick={() => setActiveTab('context')}
+                                        className="group flex flex-col items-center gap-1 text-[#006b5f]"
+                                        title="Analyze"
+                                    >
+                                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#14b8a6]/10 transition-colors group-hover:bg-[#14b8a6]/20">
+                                            <Brain className="h-4 w-4" />
+                                        </span>
+                                        <span className="text-[10px] font-black">Analyze</span>
+                                    </button>
+                                    <div className="h-8 w-px bg-[#bbcac6]/60" />
+                                    <button
+                                        onClick={handleSave}
+                                        disabled={!selectedToken}
+                                        className="group flex flex-col items-center gap-1 text-slate-500 disabled:cursor-not-allowed disabled:opacity-45"
+                                        title="Highlight"
+                                    >
+                                        <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-[#d4e3ff]/60">
+                                            <Highlighter className="h-4 w-4" />
+                                        </span>
+                                        <span className="text-[10px] font-black">Highlight</span>
+                                    </button>
+                                    <div className="h-8 w-px bg-[#bbcac6]/60" />
+                                    <button
+                                        onClick={() => setActiveTab('review')}
+                                        className="group flex flex-col items-center gap-1 text-slate-500"
+                                        title="Review"
+                                    >
+                                        <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-[#d4e3ff]/60">
+                                            <BookMarked className="h-4 w-4" />
+                                        </span>
+                                        <span className="text-[10px] font-black">Review</span>
+                                    </button>
+                                </div>
+                            )}
                             {isAnalyzing ? (
                                 <div className="flex h-64 flex-col items-center justify-center gap-3 text-teal-700 dark:text-teal-400">
                                     <Loader2 className="h-8 w-8 animate-spin" />
@@ -413,8 +462,8 @@ export default function ReaderPage() {
                                                 key={`sbs-${sentence.text}-${sentenceIndex}`}
                                                 className={`grid grid-cols-1 md:grid-cols-2 gap-5 p-4 rounded-2xl border transition-all ${
                                                     active
-                                                        ? 'border-teal-400 bg-teal-50/50 dark:border-teal-800 dark:bg-teal-950/20 shadow-md'
-                                                        : 'border-transparent hover:border-teal-100/50 dark:hover:border-slate-800 hover:bg-slate-50/30 dark:hover:bg-slate-900/30'
+                                                        ? 'border-[#14b8a6] bg-[#14b8a6]/10 shadow-sm dark:border-teal-800 dark:bg-teal-950/20'
+                                                        : 'border-transparent hover:border-[#bbcac6]/40 hover:bg-[#f2f3ff]/60 dark:hover:border-slate-800 dark:hover:bg-slate-900/30'
                                                 }`}
                                             >
                                                 <div
@@ -448,9 +497,9 @@ export default function ReaderPage() {
                                                                     className={
                                                                         selectable
                                                                             ? `cursor-pointer rounded px-0.5 transition-colors ${
-                                                                                  tokenActive
-                                                                                      ? 'bg-teal-200 text-teal-950 ring-2 ring-teal-305 dark:bg-teal-800 dark:text-teal-50 dark:ring-teal-700'
-                                                                                      : 'hover:bg-teal-100 hover:text-teal-800 dark:hover:bg-teal-900/60 dark:hover:text-teal-200'
+                                                                                 tokenActive
+                                                                                      ? 'bg-[#14b8a6]/20 text-[#00423b] ring-2 ring-[#14b8a6] dark:bg-teal-800 dark:text-teal-50 dark:ring-teal-700'
+                                                                                      : 'hover:bg-[#14b8a6]/15 hover:text-[#00423b] dark:hover:bg-teal-900/60 dark:hover:text-teal-200'
                                                                               }`
                                                                             : 'text-slate-500 dark:text-slate-400'
                                                                     }
@@ -500,8 +549,8 @@ export default function ReaderPage() {
                                                 onClick={() => handleSentenceClick(sentence)}
                                                 className={`block w-full rounded-2xl border p-5 text-left transition-all ${
                                                     active
-                                                        ? 'scale-[1.01] border-teal-400 bg-teal-50/50 dark:border-teal-800 dark:bg-teal-950/20 shadow-md'
-                                                        : 'border-transparent bg-white dark:bg-transparent hover:border-teal-200 dark:hover:border-slate-800 hover:bg-teal-50/30 dark:hover:bg-slate-900/30'
+                                                        ? 'border-[#14b8a6] bg-[#14b8a6]/10 shadow-sm dark:border-teal-800 dark:bg-teal-950/20'
+                                                        : 'border-transparent bg-white hover:border-[#bbcac6]/50 hover:bg-[#f2f3ff]/70 dark:bg-transparent dark:hover:border-slate-800 dark:hover:bg-slate-900/30'
                                                 }`}
                                             >
                                                 <p className={`chinese-text text-slate-800 dark:text-slate-200 leading-loose reader-size-${settings.fontSize || 'medium'}`}>
@@ -532,8 +581,8 @@ export default function ReaderPage() {
                                                                     selectable
                                                                         ? `cursor-pointer rounded px-0.5 transition-colors ${
                                                                               tokenActive
-                                                                                  ? 'bg-teal-200 text-teal-950 ring-2 ring-teal-350 dark:bg-teal-800 dark:text-teal-50 dark:ring-teal-700'
-                                                                                  : 'hover:bg-teal-100 hover:text-teal-800 dark:hover:bg-teal-900/60 dark:hover:text-teal-200'
+                                                                                  ? 'bg-[#14b8a6]/20 text-[#00423b] ring-2 ring-[#14b8a6] dark:bg-teal-800 dark:text-teal-50 dark:ring-teal-700'
+                                                                                  : 'hover:bg-[#14b8a6]/15 hover:text-[#00423b] dark:hover:bg-teal-900/60 dark:hover:text-teal-200'
                                                                           }`
                                                                         : 'text-slate-500 dark:text-slate-400'
                                                                 }
@@ -553,13 +602,29 @@ export default function ReaderPage() {
                 </div>
             </section>
 
-            <section className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 dark:bg-slate-950/10 p-5 scrollbar-hide md:w-1/2 transition-colors duration-300">
-                <div className="flex flex-col gap-5">
-                    <div className="rounded-[2rem] border border-teal-100/60 dark:border-slate-800 bg-white dark:bg-slate-905/70 p-5 custom-shadow">
-                        <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <aside className="flex h-full w-full flex-col border-l border-white/60 bg-white/65 shadow-xl backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80 md:w-[360px] md:shrink-0">
+                <div className="flex items-center gap-3 border-b border-[#bbcac6]/25 p-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#14b8a6]/20 bg-[#14b8a6]/10">
+                        <img src="/logo.svg" alt="Hanora" className="h-full w-full object-cover" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h2 className="truncate text-xl font-black leading-tight text-[#006b5f] dark:text-teal-300">NLP Analysis</h2>
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Deep Dive</p>
+                    </div>
+                    <button className="rounded-lg p-2 text-[#006b5f] transition-colors hover:bg-[#14b8a6]/10" title="Reader settings">
+                        <Settings className="h-4 w-4" />
+                    </button>
+                    <button className="rounded-lg p-2 text-[#006b5f] transition-colors hover:bg-[#14b8a6]/10" title="Local profile">
+                        <UserCircle className="h-4 w-4" />
+                    </button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-4 scrollbar-hide">
+                    <div className="flex flex-col gap-4">
+                    <div className="rounded-xl border border-white/70 bg-white/70 p-4 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/70">
+                        <div className="mb-4 flex items-center justify-between gap-3 border-b border-[#bbcac6]/25 pb-4">
                             <div className="flex items-center gap-2">
-                                <Layers className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                                <h2 className="font-black text-slate-900 dark:text-slate-100">Context Reader Panel</h2>
+                                <Layers className="h-5 w-5 text-[#006b5f] dark:text-teal-400" />
+                                <h2 className="font-black text-slate-900 dark:text-slate-100">Reader Panel</h2>
                             </div>
                             {selectedSurface && (
                                 <div className="flex items-center gap-2">
@@ -605,15 +670,15 @@ export default function ReaderPage() {
                                     {quickPinyin && <p className="mt-1 text-sm font-semibold italic text-slate-500 dark:text-slate-400">/{quickPinyin}/</p>}
                                 </div>
 
-                                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                                <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#bbcac6]/30 bg-[#f2f3ff] p-1 scrollbar-hide dark:border-slate-800 dark:bg-slate-950/30">
                                     {panelTabs.map((tab) => (
                                         <button
                                             key={tab.id}
                                             onClick={() => setActiveTab(tab.id)}
-                                            className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-black transition-colors ${
+                                            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-black transition-colors ${
                                                 activeTab === tab.id
-                                                    ? 'bg-teal-600 text-white shadow-sm'
-                                                    : 'border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-505 dark:text-slate-400 hover:border-teal-200 hover:text-teal-700 dark:hover:text-teal-400'
+                                                    ? 'bg-[#14b8a6] text-[#00423b] shadow-sm'
+                                                    : 'text-slate-500 hover:bg-white/70 hover:text-[#006b5f] dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-teal-400'
                                             }`}
                                         >
                                             {tab.label}
@@ -952,8 +1017,19 @@ export default function ReaderPage() {
                             )}
                         </div>
                     </div>
+                    </div>
                 </div>
-            </section>
+                <div className="flex gap-2 border-t border-[#bbcac6]/25 p-3">
+                    <button className="flex flex-1 flex-col items-center justify-center rounded-lg p-2 text-slate-500 transition-colors hover:bg-[#d4e3ff]/40 hover:text-[#006b5f] dark:text-slate-400 dark:hover:bg-slate-800">
+                        <Bookmark className="mb-1 h-4 w-4" />
+                        <span className="text-[10px] font-black">Saved</span>
+                    </button>
+                    <button className="flex flex-1 flex-col items-center justify-center rounded-lg p-2 text-slate-500 transition-colors hover:bg-[#d4e3ff]/40 hover:text-[#006b5f] dark:text-slate-400 dark:hover:bg-slate-800">
+                        <History className="mb-1 h-4 w-4" />
+                        <span className="text-[10px] font-black">History</span>
+                    </button>
+                </div>
+            </aside>
         </div>
     )
 }
