@@ -55,7 +55,7 @@ Tạo file `backend/.env` (đã bị .gitignore, an toàn):
 
 ```env
 # Nhiều key cách nhau bằng dấu phẩy
-GOOGLE_API_KEYS=AIzaSyA_key1_xxx,AIzaSyB_key2_yyy,AIzaSyC_key3_zzz
+GOOGLE_API_KEYS=GOOGLE_KEY_1,GOOGLE_KEY_2,GOOGLE_KEY_3
 
 # Model và timeout
 GOOGLE_AI_MODEL=gemini-3.5-flash
@@ -66,10 +66,10 @@ GOOGLE_AI_TIMEOUT_SECONDS=30
 
 ```bash
 # Linux / Server
-export GOOGLE_API_KEYS="AIzaSyA_key1,AIzaSyB_key2,AIzaSyC_key3"
+export GOOGLE_API_KEYS="GOOGLE_KEY_1,GOOGLE_KEY_2,GOOGLE_KEY_3"
 
 # Windows PowerShell
-$env:GOOGLE_API_KEYS = "AIzaSyA_key1,AIzaSyB_key2,AIzaSyC_key3"
+$env:GOOGLE_API_KEYS = "GOOGLE_KEY_1,GOOGLE_KEY_2,GOOGLE_KEY_3"
 ```
 
 Backend nhận các biến: `GOOGLE_API_KEYS`, `GEMINI_API_KEYS`, `GOOGLE_API_KEY`, `GEMINI_API_KEY` — tất cả đều hợp lệ.
@@ -80,11 +80,11 @@ Tạo file `backend/data/google_api_keys.txt` — mỗi key một dòng:
 
 ```
 # Key nhóm 1 (tài khoản A)
-AIzaSyA_key1_xxx
-AIzaSyB_key2_yyy
+GOOGLE_KEY_1
+GOOGLE_KEY_2
 
 # Key nhóm 2 (tài khoản B)
-AIzaSyC_key3_zzz
+GOOGLE_KEY_3
 ```
 
 File này cũng bị .gitignore, không bao giờ commit lên repo.
@@ -190,7 +190,7 @@ curl -X POST http://127.0.0.1:3001/api/nlp/analyze \
 1. Truy cập https://aistudio.google.com/apikey
 2. Nhấn **Create API Key**
 3. Chọn hoặc tạo Google Cloud Project
-4. Copy key (dạng `AIzaSy...`)
+4. Copy key từ Google AI Studio
 5. Thêm vào `backend/.env` hoặc `backend/data/google_api_keys.txt`
 6. Restart backend → Kiểm tra `GET /api/ai/status`
 
