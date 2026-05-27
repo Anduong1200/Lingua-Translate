@@ -28,15 +28,15 @@ Implemented:
 - User profile/settings sync
 - Optional Google Gemini context-reading API with rotating keys
 - Production hardening basics: explicit CORS config, upload limits, deep health, backup/export APIs, Alembic migrations, and CI build/test workflow
+- OCR for scanned PDFs (integrated with OpenCV preprocessing and Tesseract OCR fallback)
 
-Not in MVP:
+## Not in Production v1.0 / Next Steps:
 
-- OCR for scanned PDFs
-- Full-document AI translation
-- Login/auth
-- Cloud sync
-- Payment
-- FSRS tuning
+- Full-document AI translation (side-by-side)
+- Login/auth (Firebase Integration)
+- Cloud sync (Firebase synchronization)
+- Payment / SaaS features
+- FSRS tuning (Free Spaced Repetition Scheduler)
 
 ## Stack
 
