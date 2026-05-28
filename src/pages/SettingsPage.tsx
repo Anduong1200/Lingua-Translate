@@ -11,9 +11,21 @@ import {
     Check,
     HardDrive,
     ShieldCheck,
+    Download,
+    RefreshCw,
+    RotateCcw,
+    Archive,
 } from 'lucide-react'
-import type { ComponentType, ReactNode } from 'react'
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { useStore } from '@/store/useStore'
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:3001/api'
+
+type BackupInfo = {
+    file_name: string
+    size_bytes: number
+    created_at: string
+}
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
     return (
@@ -44,7 +56,85 @@ export default function SettingsPage() {
         reviewItems,
         knownWords,
         userCorrections,
+        hydrateFromBackend,
     } = useStore()
+    const [backups, setBackups] = useState<BackupInfo[]>([])
+    const [adminStatus, setAdminStatus] = useState('')
+    const [isAdminBusy, setIsAdminBusy] = useState(false)
+
+    const loadBackups = async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/admin/backups`)
+            if (!response.ok) throw new Error('Failed to load backups')
+            const data = await response.json() as { backups: BackupInfo[] }
+            setBackups(data.backups)
+        } catch {
+            setAdminStatus('Không tải được danh sách backup. Kiểm tra backend local.')
+        }
+    }
+
+    useEffect(() => {
+        void loadBackups()
+    }, [])
+
+    const createBackup = async () => {
+        setIsAdminBusy(true)
+        setAdminStatus('')
+        try {
+            const response = await fetch(`${API_BASE_URL}/admin/backup`, { method: 'POST' })
+            if (!response.ok) throw new Error('Backup failed')
+            const data = await response.json() as { file_name: string }
+            setAdminStatus(`Đã tạo backup: ${data.file_name}`)
+            await loadBackups()
+        } catch {
+            setAdminStatus('Tạo backup thất bại.')
+        } finally {
+            setIsAdminBusy(false)
+        }
+    }
+
+    const restoreBackup = async (fileName: string) => {
+        if (!confirm(`Restore database từ backup ${fileName}? Dữ liệu hiện tại sẽ được thay bằng bản backup này.`)) return
+        setIsAdminBusy(true)
+        setAdminStatus('')
+        try {
+            const response = await fetch(`${API_BASE_URL}/admin/restore`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_name: fileName }),
+            })
+            if (!response.ok) throw new Error('Restore failed')
+            setAdminStatus(`Đã restore backup: ${fileName}`)
+            await hydrateFromBackend()
+            await loadBackups()
+        } catch {
+            setAdminStatus('Restore thất bại. Backup có thể không còn tồn tại hoặc backend đang bận.')
+        } finally {
+            setIsAdminBusy(false)
+        }
+    }
+
+    const exportData = async () => {
+        setIsAdminBusy(true)
+        setAdminStatus('')
+        try {
+            const response = await fetch(`${API_BASE_URL}/admin/export`)
+            if (!response.ok) throw new Error('Export failed')
+            const payload = await response.json()
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const anchor = document.createElement('a')
+            anchor.href = url
+            anchor.download = `hanora_export_${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+            anchor.click()
+            URL.revokeObjectURL(url)
+            setAdminStatus('Đã export dữ liệu JSON.')
+        } catch {
+            setAdminStatus('Export dữ liệu thất bại.')
+        } finally {
+            setIsAdminBusy(false)
+        }
+    }
 
     return (
         <div className="mx-auto flex max-w-5xl flex-col gap-6 pb-8 transition-colors duration-300">
@@ -250,6 +340,80 @@ export default function SettingsPage() {
                             <Toggle checked={settings.offlineCache} onChange={() => updateSettings({ offlineCache: !settings.offlineCache })} />
                         </SettingRow>
                     </div>
+                </div>
+            </section>
+
+            <section className="custom-shadow rounded-[2rem] border border-teal-100/40 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl p-6">
+                <div className="flex flex-col justify-between gap-4 border-b border-teal-100/40 pb-5 dark:border-slate-800 md:flex-row md:items-center">
+                    <div className="flex items-start gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 dark:bg-teal-950/30 dark:text-teal-300">
+                            <Archive className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h2 className="font-display font-bold text-slate-900 dark:text-slate-100">Backup / Restore local</h2>
+                            <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                                Mapping trực tiếp tới FastAPI admin endpoints: backup SQLite, restore backup, export dữ liệu JSON.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={createBackup}
+                            disabled={isAdminBusy}
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#0d9488] px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <Archive className="h-4 w-4" />
+                            Tạo backup
+                        </button>
+                        <button
+                            onClick={exportData}
+                            disabled={isAdminBusy}
+                            className="inline-flex items-center gap-2 rounded-xl border border-teal-100 bg-white px-4 py-2.5 text-xs font-black text-teal-700 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950 dark:text-teal-300 dark:hover:bg-slate-900"
+                        >
+                            <Download className="h-4 w-4" />
+                            Export JSON
+                        </button>
+                        <button
+                            onClick={() => void loadBackups()}
+                            disabled={isAdminBusy}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
+                        >
+                            <RefreshCw className="h-4 w-4" />
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                {adminStatus && (
+                    <p className="mt-4 rounded-2xl border border-teal-100 bg-teal-50/50 px-4 py-3 text-xs font-bold text-teal-800 dark:border-teal-900/40 dark:bg-teal-950/20 dark:text-teal-300">
+                        {adminStatus}
+                    </p>
+                )}
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                    {backups.slice(0, 6).map((backup) => (
+                        <div key={backup.file_name} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-white/80 p-4 dark:border-slate-800 dark:bg-slate-950/30">
+                            <div className="min-w-0">
+                                <p className="truncate text-xs font-black text-slate-800 dark:text-slate-200">{backup.file_name}</p>
+                                <p className="mt-1 text-[10px] font-semibold text-slate-400">
+                                    {(backup.size_bytes / 1024).toFixed(1)} KB · {new Date(backup.created_at).toLocaleString('vi-VN')}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => void restoreBackup(backup.file_name)}
+                                disabled={isAdminBusy}
+                                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-[10px] font-black text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300"
+                            >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                Restore
+                            </button>
+                        </div>
+                    ))}
+                    {backups.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-xs font-bold text-slate-400 dark:border-slate-800">
+                            Chưa có backup nào. Bấm “Tạo backup” để lưu snapshot SQLite hiện tại.
+                        </div>
+                    )}
                 </div>
             </section>
 

@@ -26,6 +26,7 @@ from main import (  # noqa: E402
     create_review_item,
     create_user_correction,
     debug_reset_demo,
+    delete_document,
     dictionary_search,
     due_review_items,
     health_deep,
@@ -318,6 +319,49 @@ def test_document_translation_and_vocabulary_automation(session) -> None:
     assert any(item["surface"] == "市场需求" for item in scanned["items"])
     assert auto_reviews["created"] > 0
     assert any(item["front"] == "市场需求" for item in due["items"])
+
+
+def test_delete_document_cleans_dependent_learning_data(session) -> None:
+    document = create_document(
+        DocumentCreateRequest(
+            title="Delete Demo",
+            file_name="delete.txt",
+            source_type="txt",
+            language="zh-CN",
+            content="由于市场需求下降，该公司调整了生产计划。",
+        ),
+        session,
+    )
+    annotation = create_annotation(
+        AnnotationCreateRequest(
+            document_id=document["document_id"],
+            page_id="page-1",
+            selected_text="市场需求",
+            source_sentence="由于市场需求下降，该公司调整了生产计划。",
+            selected_meaning_vi="nhu cầu thị trường",
+            pinyin="shì chǎng xū qiú",
+        ),
+        session,
+    )
+    review = create_review_item(ReviewItemCreateRequest(annotation_id=annotation["annotation_id"]), session)
+    create_review_event(ReviewEventCreateRequest(review_item_id=review["review_item_id"], rating="good"), session)
+    record_vocabulary_lookup(
+        VocabularyUpsertRequest(
+            word="市场需求",
+            translation="nhu cầu thị trường",
+            source_document_id=document["document_id"],
+        ),
+        session,
+    )
+
+    deleted = delete_document(document["document_id"], session)
+
+    assert deleted["status"] == "deleted"
+    assert deleted["deleted_annotations"] == 1
+    assert deleted["deleted_review_items"] == 1
+    assert deleted["deleted_review_events"] == 1
+    assert deleted["deleted_vocabulary_items"] == 1
+    assert all(item["id"] != document["document_id"] for item in list_documents(session)["documents"])
 
 
 def test_document_upload_rejects_unsupported_file_type(session) -> None:

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import * as pdfjsLib from 'pdfjs-dist'
 import {
@@ -29,7 +29,7 @@ import {
     Send,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
-import { AnnotationRecord, ChineseSentenceAnalysis, ChineseToken } from '@/types'
+import { AIContextReadingResult, AnnotationRecord, ChineseSentenceAnalysis, ChineseToken } from '@/types'
 import { estimateHskLabel, getVietnameseDefinition } from '@/lib/chinese'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString()
@@ -44,6 +44,20 @@ type PdfSelection = {
 }
 
 type PanelTab = 'chat' | 'quiz' | 'vocab'
+
+type ChatMessage = {
+    id: string
+    role: 'user' | 'assistant'
+    content: string
+    timestamp: string
+}
+
+type QuizQuestion = {
+    question: string
+    options: string[]
+    answerIndex: number
+    explanation: string
+}
 
 function isSelectableToken(token: ChineseToken) {
     return token.definitions.length > 0 && token.pos !== 'punctuation' && token.surface.trim().length > 0
@@ -64,6 +78,32 @@ function findSentenceForSelection(context: string, selectedText: string) {
         .map((item) => item.trim())
         .find((item) => item.includes(selected))
     return sentence || selected
+}
+
+function messageTime() {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatAiChatReply(result: AIContextReadingResult | null) {
+    if (!result) return 'Không tạo được phản hồi AI lúc này.'
+    const ai = result.ai
+    const response = ai.response
+    if (ai.status !== 'ok' || !response) {
+        const fallback = result.rule_based.context?.explanation_vi || result.rule_based.translations?.natural_vi || result.rule_based.text
+        return [
+            ai.message || 'AI chưa sẵn sàng hoặc chưa cấu hình API key.',
+            fallback ? `Phân tích local: ${fallback}` : '',
+        ].filter(Boolean).join('\n\n')
+    }
+
+    return [
+        response.natural_vi ? `Dịch tự nhiên: ${response.natural_vi}` : '',
+        response.context_explanation_vi ? `Ngữ cảnh: ${response.context_explanation_vi}` : '',
+        response.grammar_notes?.length
+            ? `Ngữ pháp: ${response.grammar_notes.map((note) => `${note.pattern} - ${note.meaning_vi}`).join('; ')}`
+            : '',
+        response.nuance_vi ? `Sắc thái: ${response.nuance_vi}` : '',
+    ].filter(Boolean).join('\n\n') || response.raw_text || 'AI đã phản hồi nhưng không có nội dung có cấu trúc.'
 }
 
 export default function ReaderPage() {
@@ -109,13 +149,13 @@ export default function ReaderPage() {
     // Sidebar State
     const [activeTab, setActiveTab] = useState<PanelTab>('chat')
     const [chatInput, setChatInput] = useState('')
-    const [chatMessages, setChatMessages] = useState<any[]>([])
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
     const [chatLoading, setChatLoading] = useState(false)
     const [pdfZoom, setPdfZoom] = useState(100)
     const handleZoomOut = () => setPdfZoom(z => Math.max(50, z - 10))
     const handleZoomIn = () => setPdfZoom(z => Math.min(250, z + 10))
     const chatBottomRef = useRef<HTMLDivElement>(null)
-    const [quizQuestions, setQuizQuestions] = useState<any[]>([])
+    const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
     const [quizLoading, setQuizLoading] = useState(false)
     const [quizScore, setQuizScore] = useState(0)
     const [quizFinished, setQuizFinished] = useState(false)
@@ -291,6 +331,134 @@ export default function ReaderPage() {
             domain_mode: activeAnalysis?.context?.domain || settings.domainMode || 'auto',
             user_level: settings.targetHskLevel || 'HSK4',
         })
+    }
+
+    const handleChatSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+        const question = chatInput.trim()
+        if (!question || chatLoading) return
+
+        const userMessage: ChatMessage = {
+            id: `user-${Date.now()}`,
+            role: 'user',
+            content: question,
+            timestamp: messageTime(),
+        }
+        setChatMessages((messages) => [...messages, userMessage])
+        setChatInput('')
+        setChatLoading(true)
+
+        try {
+            const documentContext = currentDocument?.content || sourceSentence || selectedSurface || question
+            const result = await generateAIContextReading({
+                selected_text: selectedSurface || question,
+                source_sentence: sourceSentence || findSentenceForSelection(documentContext, selectedSurface || question),
+                paragraph_context: `${documentContext}\n\nCâu hỏi người dùng: ${question}`,
+                page_context: `${pdfSelection?.pageContext || documentContext}\n\nCâu hỏi người dùng: ${question}`,
+                domain_mode: activeAnalysis?.context?.domain || settings.domainMode || 'auto',
+                user_level: settings.targetHskLevel || 'HSK4',
+            })
+            setChatMessages((messages) => [
+                ...messages,
+                {
+                    id: `assistant-${Date.now()}`,
+                    role: 'assistant',
+                    content: formatAiChatReply(result),
+                    timestamp: messageTime(),
+                },
+            ])
+        } catch {
+            setChatMessages((messages) => [
+                ...messages,
+                {
+                    id: `assistant-${Date.now()}`,
+                    role: 'assistant',
+                    content: 'Không gọi được AI context endpoint. Hãy kiểm tra backend và cấu hình Google API keys.',
+                    timestamp: messageTime(),
+                },
+            ])
+        } finally {
+            setChatLoading(false)
+        }
+    }
+
+    const buildQuizQuestions = (sourceSentences: ChineseSentenceAnalysis[]): QuizQuestion[] => {
+        const tokenRows = sourceSentences.flatMap((sentence) =>
+            sentence.tokens
+                .filter(isSelectableToken)
+                .map((token) => ({
+                    token,
+                    sentence: sentence.text,
+                    answer: getVietnameseDefinition(token),
+                })),
+        )
+        const uniqueRows = Array.from(new Map(tokenRows.filter((row) => row.answer).map((row) => [row.token.surface, row])).values())
+        const fallbackAnswers = ['từ/cụm trong ngữ cảnh', 'cấu trúc ngữ pháp', 'trạng thái hoàn thành', 'từ chỉ quan hệ logic']
+
+        return uniqueRows.slice(0, 5).map((row, index) => {
+            const distractors = uniqueRows
+                .filter((item) => item.token.surface !== row.token.surface)
+                .map((item) => item.answer)
+                .filter((answer, answerIndex, answers) => answer && answers.indexOf(answer) === answerIndex)
+            const options = [row.answer, ...distractors, ...fallbackAnswers]
+                .filter((answer, answerIndex, answers) => answer && answers.indexOf(answer) === answerIndex)
+                .slice(0, 4)
+            while (options.length < 4) {
+                options.push(`Gợi ý khác ${options.length}`)
+            }
+            const answerIndex = index % options.length
+            const correctAnswer = options[0]
+            options[0] = options[answerIndex]
+            options[answerIndex] = correctAnswer
+            return {
+                question: `Trong câu "${row.sentence}", nghĩa phù hợp của "${row.token.surface}" là gì?`,
+                options,
+                answerIndex,
+                explanation: `${row.token.surface} (${row.token.pinyin}) = ${row.answer}`,
+            }
+        })
+    }
+
+    const handleGenerateQuiz = async () => {
+        if (quizLoading) return
+        setQuizLoading(true)
+        setSavedNotice('')
+        try {
+            let sourceSentences = sentences
+            if (!sourceSentences.length && currentDocument?.content) {
+                const analysis = await analyzeChineseText(currentDocument.content)
+                sourceSentences = analysis.sentences
+            }
+            const questions = buildQuizQuestions(sourceSentences)
+            setQuizQuestions(questions)
+            setQuizScore(0)
+            setQuizFinished(false)
+            setCurrentQuestionIndex(0)
+            setSelectedAnswerIndex(null)
+            if (!questions.length) {
+                setSavedNotice('Chưa đủ từ vựng để tạo quiz. Hãy chọn hoặc quét thêm nội dung tiếng Trung.')
+            }
+        } finally {
+            setQuizLoading(false)
+        }
+    }
+
+    const handleQuizAnswer = (answerIndex: number) => {
+        if (selectedAnswerIndex !== null) return
+        const currentQuestion = quizQuestions[currentQuestionIndex]
+        if (!currentQuestion) return
+        setSelectedAnswerIndex(answerIndex)
+        if (answerIndex === currentQuestion.answerIndex) {
+            setQuizScore((score) => score + 1)
+        }
+        window.setTimeout(() => {
+            if (currentQuestionIndex >= quizQuestions.length - 1) {
+                setQuizFinished(true)
+                return
+            }
+            setCurrentQuestionIndex((index) => index + 1)
+            setSelectedAnswerIndex(null)
+        }, 700)
     }
 
     const currentTranslations = currentDocument ? documentTranslations[currentDocument.id] || [] : []
@@ -567,6 +735,7 @@ export default function ReaderPage() {
                             sourceUrl={currentDocument.sourceUrl}
                             onSelection={handlePdfSelection}
                             annotations={annotations.filter((annotation) => annotation.document_id === currentDocument.id)}
+                            zoom={pdfZoom}
                         />
                     ) : (
                         <article className="relative mx-auto min-h-[1000px] w-full max-w-[800px] rounded-lg border border-[#bbcac6]/30 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 md:p-12">
@@ -754,7 +923,7 @@ export default function ReaderPage() {
                                                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-tl-none'
                                                 }`}
                                             >
-                                                <div dangerouslySetInnerHTML={{ __html: msg.content }} />
+                                                <p className="whitespace-pre-wrap">{msg.content}</p>
                                             </div>
                                             <span className="text-[9px] text-slate-400 mt-1 px-1">{msg.timestamp}</span>
                                         </div>
@@ -772,19 +941,7 @@ export default function ReaderPage() {
                             {/* Chat Input */}
                             <div className="mt-auto">
                                 <form
-                                    onSubmit={(e) => {
-                                        e.preventDefault()
-                                        if (!chatInput.trim() || chatLoading) return
-                                        const newMsg = {
-                                            id: `user-${Date.now()}`,
-                                            role: 'user',
-                                            content: chatInput,
-                                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                                        }
-                                        setChatMessages(prev => [...prev, newMsg])
-                                        setChatInput('')
-                                        // TODO: wire up api
-                                    }}
+                                    onSubmit={handleChatSubmit}
                                     className="relative flex items-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
                                 >
                                     <input
@@ -821,9 +978,11 @@ export default function ReaderPage() {
                                         </p>
                                     </div>
                                     <button
-                                        onClick={() => {}}
-                                        className="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow shadow-[#0d9488]/10"
+                                        onClick={handleGenerateQuiz}
+                                        disabled={quizLoading}
+                                        className="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow shadow-[#0d9488]/10 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
+                                        {quizLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                                         Bắt đầu tạo câu hỏi
                                     </button>
                                 </div>
@@ -854,12 +1013,27 @@ export default function ReaderPage() {
                                         {quizQuestions[currentQuestionIndex]?.options.map((option: string, oIdx: number) => (
                                             <button
                                                 key={oIdx}
-                                                className="w-full text-left p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-xs transition-colors hover:border-[#0d9488]/30 dark:hover:border-[#0d9488]/30 hover:bg-teal-50/50 dark:hover:bg-teal-900/30"
+                                                onClick={() => handleQuizAnswer(oIdx)}
+                                                disabled={selectedAnswerIndex !== null}
+                                                className={`w-full text-left p-3 rounded-xl border text-xs transition-colors disabled:cursor-not-allowed ${
+                                                    selectedAnswerIndex === null
+                                                        ? 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:border-[#0d9488]/30 dark:hover:border-[#0d9488]/30 hover:bg-teal-50/50 dark:hover:bg-teal-900/30'
+                                                        : oIdx === quizQuestions[currentQuestionIndex]?.answerIndex
+                                                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300'
+                                                            : selectedAnswerIndex === oIdx
+                                                                ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300'
+                                                                : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500'
+                                                }`}
                                             >
                                                 {option}
                                             </button>
                                         ))}
                                     </div>
+                                    {selectedAnswerIndex !== null && quizQuestions[currentQuestionIndex]?.explanation && (
+                                        <p className="rounded-xl bg-teal-50/70 p-3 text-[11px] font-semibold text-teal-800 dark:bg-teal-950/30 dark:text-teal-300">
+                                            {quizQuestions[currentQuestionIndex].explanation}
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -1041,6 +1215,7 @@ function PdfDocumentViewer({
                     pdfDocument={pdfDocument}
                     pageNumber={pageNumber}
                     annotations={annotations.filter((annotation) => annotation.page_number === pageNumber)}
+                    zoom={zoom}
                 />
             ))}
         </div>

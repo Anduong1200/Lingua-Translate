@@ -138,6 +138,7 @@ interface AppState {
     toggleFavorite: (id: string) => void
     markSavedWordLearned: (id: string, learned: boolean) => void
     addDocument: (doc: DocumentContent) => void
+    deleteDocument: (id: string) => Promise<void>
     setCurrentDocument: (doc: DocumentContent | null) => void
     updateReadingProgress: (docId: string, progress: number) => void
     addFlashCard: (card: FlashCard) => void
@@ -919,6 +920,39 @@ export const useStore = create<AppState>((set, get) => ({
                 currentDocument: documentWithSentences,
             }
         }),
+
+    deleteDocument: async (id) => {
+        await fetch(`${API_BASE_URL}/documents/${id}`, { method: 'DELETE' }).catch(() => undefined)
+        set((state) => {
+            const documents = state.documents.filter((document) => document.id !== id)
+            const annotations = state.annotations.filter((annotation) => annotation.document_id !== id)
+            const annotationIds = new Set(state.annotations.filter((annotation) => annotation.document_id === id).map((annotation) => annotation.id))
+            const reviewItems = state.reviewItems.filter((item) => !annotationIds.has(item.annotation_id) && item.context !== `auto:${id}`)
+            const flashCards = reviewItems.map(flashCardFromReviewItem)
+            const savedWords = state.savedWords.filter((word) => word.sourceDocumentId !== id)
+            const currentDocument = state.currentDocument?.id === id ? documents[0] ?? null : state.currentDocument
+            syncLearningState({
+                savedWords,
+                documents,
+                annotations,
+                reviewItems,
+                flashCards,
+            })
+            return {
+                documents,
+                annotations,
+                reviewItems,
+                flashCards,
+                savedWords,
+                currentDocument,
+                learningProgress: {
+                    ...state.learningProgress,
+                    savedWords: savedWords.length,
+                    wordsLearned: savedWords.filter((word) => word.learned).length,
+                },
+            }
+        })
+    },
 
     setCurrentDocument: (doc) => set({ currentDocument: doc }),
 

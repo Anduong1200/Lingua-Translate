@@ -14,7 +14,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const {
     savedWords, documents, reviewItems, learningProgress,
-    setCurrentDocument, addDocument, translateFile
+    setCurrentDocument, addDocument, translateFile, deleteDocument
   } = useStore();
 
   const [dragActive, setDragActive] = useState(false);
@@ -84,10 +84,9 @@ export default function DashboardPage() {
         setCurrentDocument(result);
         navigate('/reader');
       } else {
-        alert('Không thể đọc được file này. Vui lòng thử lại với file TXT hoặc PDF.');
+        alert('Không thể đọc được file này. Vui lòng thử lại với PDF, DOCX, TXT hoặc ảnh rõ nét.');
       }
     } catch (err) {
-      console.error(err);
       alert('Đã xảy ra lỗi khi tải file.');
     } finally {
       setIsUploading(false);
@@ -125,9 +124,7 @@ export default function DashboardPage() {
 
   const handleDeleteDocument = (id: string) => {
     if (confirm("Bạn có chắc chắn muốn xóa tài liệu này?")) {
-      useStore.setState(state => ({
-        documents: state.documents.filter(d => d.id !== id)
-      }));
+      void deleteDocument(id);
     }
   };
 
@@ -185,7 +182,7 @@ export default function DashboardPage() {
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept=".txt,.pdf,.docx"
+              accept=".txt,.pdf,.docx,.png,.jpg,.jpeg,.webp"
               className="hidden"
             />
 
@@ -201,7 +198,7 @@ export default function DashboardPage() {
             </div>
 
             <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-150 mb-1">Kéo thả tài liệu tiếng Trung</h3>
-            <p className="text-xs text-slate-400 dark:text-slate-400 mb-6">Định dạng hỗ trợ: PDF, DOCX, TXT</p>
+            <p className="text-xs text-slate-400 dark:text-slate-400 mb-6">Định dạng hỗ trợ: PDF, DOCX, TXT, PNG/JPG/WEBP</p>
 
             <div className="flex space-x-3 items-center">
               <button

@@ -20,10 +20,9 @@ export default function LandingPage() {
         setCurrentDocument(result);
         navigate('/reader');
       } else {
-        alert('Không thể đọc được file này. Vui lòng thử lại với file TXT hoặc PDF.');
+        alert('Không thể đọc được file này. Vui lòng thử lại với PDF, DOCX, TXT hoặc ảnh rõ nét.');
       }
     } catch (err) {
-      console.error(err);
       alert('Đã xảy ra lỗi khi tải file.');
     } finally {
       setIsUploading(false);
@@ -44,9 +43,9 @@ export default function LandingPage() {
             Hanora
           </Link>
           <div className="hidden md:flex items-center space-x-8">
-            <a href="#" className="text-sm font-semibold text-[#006b5f] dark:text-teal-400 border-b-2 border-[#006b5f] dark:border-teal-400 pb-1 hover:opacity-80 transition-opacity">Features</a>
-            <a href="#" className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors hover:opacity-80">Tools</a>
-            <a href="#" className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors hover:opacity-80">Pricing</a>
+            <Link to="/dashboard" className="text-sm font-semibold text-[#006b5f] dark:text-teal-400 border-b-2 border-[#006b5f] dark:border-teal-400 pb-1 hover:opacity-80 transition-opacity">Dashboard</Link>
+            <Link to="/upload" className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors hover:opacity-80">Upload</Link>
+            <Link to="/settings" className="text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors hover:opacity-80">Settings</Link>
           </div>
           <div className="hidden md:flex items-center gap-4">
             <button
@@ -89,7 +88,7 @@ export default function LandingPage() {
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept=".txt,.pdf,.docx"
+            accept=".txt,.pdf,.docx,.png,.jpg,.jpeg,.webp"
             className="hidden"
           />
         </section>
@@ -155,15 +154,15 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="flex justify-center md:justify-end items-center space-x-6">
-            <a href="#" className="text-base text-slate-600 dark:text-slate-400 hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 rounded">
-              Terms of Service
-            </a>
-            <a href="#" className="text-base text-slate-600 dark:text-slate-400 hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 rounded">
-              Privacy Policy
-            </a>
-            <a href="#" className="text-base text-slate-600 dark:text-slate-400 hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 rounded">
-              Contact Us
-            </a>
+            <Link to="/upload" className="text-base text-slate-600 dark:text-slate-400 hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 rounded">
+              Upload
+            </Link>
+            <Link to="/vocabulary" className="text-base text-slate-600 dark:text-slate-400 hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 rounded">
+              Vocabulary
+            </Link>
+            <Link to="/settings" className="text-base text-slate-600 dark:text-slate-400 hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 rounded">
+              Settings
+            </Link>
           </div>
         </div>
       </footer>

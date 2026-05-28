@@ -1720,6 +1720,59 @@ def get_document(document_id: str, session: Session = Depends(db_session)) -> di
     }
 
 
+@app.delete("/api/documents/{document_id}")
+def delete_document(document_id: str, session: Session = Depends(db_session)) -> dict[str, Any]:
+    document = session.get(DocumentRecord, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    file_path = Path(document.file_path).resolve() if document.file_path else None
+    annotations = session.execute(select(AnnotationRecord.id).where(AnnotationRecord.document_id == document_id)).all()
+    annotation_ids = [row[0] for row in annotations]
+    review_ids: list[str] = []
+    if annotation_ids:
+        review_ids.extend(
+            row[0]
+            for row in session.execute(
+                select(ReviewItemRecord.id).where(ReviewItemRecord.annotation_id.in_(annotation_ids))
+            ).all()
+        )
+    review_ids.extend(
+        row[0]
+        for row in session.execute(
+            select(ReviewItemRecord.id).where(ReviewItemRecord.context == f"auto:{document_id}")
+        ).all()
+    )
+
+    deleted_events = 0
+    deleted_review_items = 0
+    if review_ids:
+        deleted_events = session.execute(delete(ReviewEventRecord).where(ReviewEventRecord.review_item_id.in_(review_ids))).rowcount or 0
+        deleted_review_items = session.execute(delete(ReviewItemRecord).where(ReviewItemRecord.id.in_(review_ids))).rowcount or 0
+
+    deleted_annotations = session.execute(delete(AnnotationRecord).where(AnnotationRecord.document_id == document_id)).rowcount or 0
+    deleted_pages = session.execute(delete(PageRecord).where(PageRecord.document_id == document_id)).rowcount or 0
+    deleted_vocabulary = session.execute(delete(VocabularyItemRecord).where(VocabularyItemRecord.source_document_id == document_id)).rowcount or 0
+    session.delete(document)
+    session.commit()
+
+    file_deleted = False
+    if file_path and path_is_under(file_path, UPLOAD_DIR) and file_path.exists():
+        file_path.unlink()
+        file_deleted = True
+
+    return {
+        "status": "deleted",
+        "document_id": document_id,
+        "deleted_pages": deleted_pages,
+        "deleted_annotations": deleted_annotations,
+        "deleted_review_items": deleted_review_items,
+        "deleted_review_events": deleted_events,
+        "deleted_vocabulary_items": deleted_vocabulary,
+        "file_deleted": file_deleted,
+    }
+
+
 @app.post("/api/documents/{document_id}/pages", status_code=201)
 def create_page(document_id: str, payload: PageCreateRequest, session: Session = Depends(db_session)) -> dict[str, Any]:
     if not session.get(DocumentRecord, document_id):
