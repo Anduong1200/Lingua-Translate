@@ -55,7 +55,7 @@ export default function LandingPage() {
             >
               {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <button 
+            <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
               className="bg-[#006b5f] hover:bg-[#005048] text-white text-sm font-semibold py-2 px-6 rounded-md transition-all shadow-sm hover:shadow-md active:scale-95 duration-200 flex items-center gap-2"
@@ -78,7 +78,7 @@ export default function LandingPage() {
           <p className="text-base md:text-lg text-slate-600 dark:text-slate-400 mb-10 max-w-2xl">
             Dịch tài liệu, tra từ theo ngữ cảnh, luyện phát âm và tự động tạo flashcard từ từ vựng đã học.
           </p>
-          <button 
+          <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
             className="bg-[#006b5f] text-white font-semibold py-4 px-10 rounded-full shadow-lg shadow-teal-500/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-lg flex items-center gap-2"
@@ -103,7 +103,7 @@ export default function LandingPage() {
               <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-3 font-display">Dịch tài liệu tự động</h3>
               <p className="text-base text-slate-600 dark:text-slate-400">Tự động dịch các tệp DOCX, PDF, TXT giữ nguyên định dạng.</p>
             </div>
-            
+
             <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-[0_20px_40px_rgba(96,165,250,0.1)] rounded-xl p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300 delay-100">
               <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-6 text-[#006b5f] dark:text-teal-400 group-hover:bg-[#006b5f] group-hover:text-white transition-colors">
                 <Compass className="w-8 h-8" />
@@ -111,7 +111,7 @@ export default function LandingPage() {
               <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-3 font-display">Tra từ thông minh trên PDF</h3>
               <p className="text-base text-slate-600 dark:text-slate-400">Tra từ ngay trên tài liệu của bạn với giải thích ngữ cảnh AI.</p>
             </div>
-            
+
             <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md border border-white/50 dark:border-slate-700/50 shadow-[0_20px_40px_rgba(96,165,250,0.1)] rounded-xl p-8 flex flex-col items-center text-center group hover:-translate-y-2 transition-transform duration-300 delay-200">
               <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-6 text-[#006b5f] dark:text-teal-400 group-hover:bg-[#006b5f] group-hover:text-white transition-colors">
                 <Layers className="w-8 h-8" />

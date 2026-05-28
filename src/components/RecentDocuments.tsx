@@ -55,7 +55,7 @@ export default function RecentDocuments({
               </button>
 
               {/* Document Cover Preview - styled differently based on file suffix */}
-              <div 
+              <div
                 onClick={() => onSelectDocument(doc)}
                 className="w-full aspect-video rounded-xl mb-4.5 bg-[#f0f9f9] border border-teal-50/50 flex items-center justify-center relative shadow-inner overflow-hidden cursor-pointer"
               >

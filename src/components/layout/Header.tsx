@@ -35,9 +35,9 @@ export default function Header() {
         {navLinks.map((link) => {
           const isActive = location.pathname.startsWith(link.path);
           return (
-            <Link 
-              key={link.path} 
-              to={link.path} 
+            <Link
+              key={link.path}
+              to={link.path}
               className={`transition-colors ${isActive ? 'text-[#0d9488] dark:text-teal-400 font-bold bg-[#14b8a6]/10 px-3 py-1 rounded-full' : 'hover:text-[#0d9488] dark:hover:text-teal-400'}`}
             >
               {link.label}
