@@ -17,6 +17,7 @@ import {
     TranslationHistory,
     TranslationResult,
     UserCorrection,
+    VocabularyItem,
     VocabularySuggestion,
 } from '@/types'
 import { detectLanguage, generateId } from '@/lib/utils'
@@ -39,6 +40,18 @@ type UserCorrectionInput = {
     user_translation: string
     context?: string
     domain?: string
+}
+
+type VocabularyLookupInput = {
+    word: string
+    translation?: string
+    pinyin?: string
+    context?: string
+    source_file?: string
+    source_document_id?: string
+    hsk_level?: number | null
+    domain_tags?: string[]
+    topic?: string
 }
 
 type AnalyzeChineseInput =
@@ -114,6 +127,7 @@ interface AppState {
     generateAIContextReading: (input: Exclude<AnalyzeChineseInput, string>) => Promise<AIContextReadingResult | null>
     saveChineseAnnotation: (input: ReaderAnnotationInput) => Promise<AnnotationRecord>
     saveUserCorrection: (input: UserCorrectionInput) => Promise<void>
+    recordLookupWord: (input: VocabularyLookupInput) => Promise<void>
     markKnownWord: (word: string, confidence?: number) => Promise<void>
     submitReview: (reviewItemId: string, rating: number, responseTimeMs?: number) => Promise<void>
     translateCurrentDocument: (documentId: string) => Promise<DocumentTranslationSentence[]>
@@ -122,6 +136,7 @@ interface AppState {
     saveWord: (word: SavedWord) => void
     removeSavedWord: (id: string) => void
     toggleFavorite: (id: string) => void
+    markSavedWordLearned: (id: string, learned: boolean) => void
     addDocument: (doc: DocumentContent) => void
     setCurrentDocument: (doc: DocumentContent | null) => void
     updateReadingProgress: (docId: string, progress: number) => void
@@ -242,6 +257,27 @@ function savedWordFromAnnotation(annotation: AnnotationRecord): SavedWord {
     }
 }
 
+function savedWordFromVocabularyItem(item: VocabularyItem): SavedWord {
+    return {
+        id: item.id,
+        word: item.word,
+        translation: item.translation,
+        language: 'zh',
+        context: item.context,
+        pinyin: item.pinyin,
+        hskLevel: item.hsk_level ?? null,
+        domainTags: item.domain_tags,
+        sourceFile: item.source_file,
+        sourceDocumentId: item.source_document_id,
+        topic: item.topic,
+        lookupCount: item.lookup_count,
+        isFavorite: item.favorite,
+        learned: item.learned,
+        createdAt: toStoredDate(item.created_at),
+        updatedAt: toStoredDate(item.updated_at),
+    }
+}
+
 function flashCardFromReviewItem(item: ReviewItem): FlashCard {
     return {
         id: item.id,
@@ -304,20 +340,31 @@ export const useStore = create<AppState>((set, get) => ({
     hydrateFromBackend: async () => {
         set({ isHydrating: true })
         try {
-            const [documentsResponse, annotationsResponse, reviewResponse, profileResponse, correctionsResponse, knownWordsResponse] = await Promise.all([
+            const [
+                documentsResponse,
+                annotationsResponse,
+                reviewResponse,
+                profileResponse,
+                correctionsResponse,
+                knownWordsResponse,
+                vocabularyResponse,
+            ] = await Promise.all([
                 getJson<{ documents: any[] }>(`${API_BASE_URL}/documents`),
                 getJson<AnnotationRecord[]>(`${API_BASE_URL}/annotations`),
                 getJson<{ items: ReviewItem[] }>(`${API_BASE_URL}/review-items`),
                 getJson<{ profile: any }>(`${API_BASE_URL}/user/profile`),
                 getJson<{ corrections: UserCorrection[] }>(`${API_BASE_URL}/user/corrections`),
                 getJson<{ words: KnownWord[] }>(`${API_BASE_URL}/known-words`),
+                getJson<{ items: VocabularyItem[] }>(`${API_BASE_URL}/vocabulary`),
             ])
 
             const documents = documentsResponse.documents.map(normalizeDocumentFromApi)
             const annotations = annotationsResponse
             const reviewItems = reviewResponse.items
             const flashCards = reviewItems.map(flashCardFromReviewItem)
-            const savedWords = annotations.map(savedWordFromAnnotation)
+            const savedWords = vocabularyResponse.items.length
+                ? vocabularyResponse.items.map(savedWordFromVocabularyItem)
+                : annotations.map(savedWordFromAnnotation)
             const profile = profileResponse.profile || {}
 
             set((state) => ({
@@ -630,6 +677,55 @@ export const useStore = create<AppState>((set, get) => ({
         set({ userCorrections: correctionsResponse.corrections })
     },
 
+    recordLookupWord: async (input) => {
+        if (!input.word.trim()) return
+        try {
+            const response = await postJson<{ item: VocabularyItem }>(`${API_BASE_URL}/vocabulary/lookup`, {
+                word: input.word,
+                translation: input.translation || '',
+                pinyin: input.pinyin || '',
+                context: input.context || '',
+                source_file: input.source_file || '',
+                source_document_id: input.source_document_id || '',
+                hsk_level: input.hsk_level ?? null,
+                domain_tags: input.domain_tags || [],
+                topic: input.topic || 'general',
+            })
+            const savedWord = savedWordFromVocabularyItem(response.item)
+            set((state) => {
+                const savedWords = [savedWord, ...state.savedWords.filter((word) => word.id !== savedWord.id && word.word !== savedWord.word)]
+                return {
+                    savedWords,
+                    learningProgress: {
+                        ...state.learningProgress,
+                        savedWords: savedWords.length,
+                        wordsLearned: savedWords.filter((word) => word.learned).length,
+                        todayProgress: Math.min(savedWords.length, state.learningProgress.dailyGoal),
+                    },
+                }
+            })
+        } catch {
+            const fallback: SavedWord = {
+                id: generateId(),
+                word: input.word,
+                translation: input.translation || '',
+                language: 'zh',
+                context: input.context,
+                pinyin: input.pinyin,
+                hskLevel: input.hsk_level ?? null,
+                domainTags: input.domain_tags || [],
+                sourceFile: input.source_file,
+                sourceDocumentId: input.source_document_id,
+                topic: input.topic,
+                lookupCount: 1,
+                learned: false,
+                isFavorite: false,
+                createdAt: new Date(),
+            }
+            set((state) => ({ savedWords: [fallback, ...state.savedWords.filter((word) => word.word !== fallback.word)] }))
+        }
+    },
+
     markKnownWord: async (word, confidence = 0.85) => {
         await postJson(`${API_BASE_URL}/known-words`, { word, confidence })
         const knownWordsResponse = await getJson<{ words: KnownWord[] }>(`${API_BASE_URL}/known-words`)
@@ -752,7 +848,8 @@ export const useStore = create<AppState>((set, get) => ({
             return nextState
         }),
 
-    removeSavedWord: (id) =>
+    removeSavedWord: (id) => {
+        void fetch(`${API_BASE_URL}/vocabulary/${id}`, { method: 'DELETE' }).catch(() => undefined)
         set((state) => {
             const savedWords = state.savedWords.filter((word) => word.id !== id)
             syncLearningState({
@@ -763,11 +860,19 @@ export const useStore = create<AppState>((set, get) => ({
                 flashCards: state.flashCards,
             })
             return { savedWords }
-        }),
+        })
+    },
 
     toggleFavorite: (id) =>
         set((state) => {
-            const savedWords = state.savedWords.map((word) => (word.id === id ? { ...word, learned: !word.learned } : word))
+            const currentWord = state.savedWords.find((word) => word.id === id)
+            const nextFavorite = !currentWord?.isFavorite
+            void fetch(`${API_BASE_URL}/vocabulary/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ favorite: nextFavorite }),
+            }).catch(() => undefined)
+            const savedWords = state.savedWords.map((word) => (word.id === id ? { ...word, isFavorite: nextFavorite } : word))
             syncLearningState({
                 savedWords,
                 documents: state.documents,
@@ -776,6 +881,23 @@ export const useStore = create<AppState>((set, get) => ({
                 flashCards: state.flashCards,
             })
             return { savedWords }
+        }),
+
+    markSavedWordLearned: (id, learned) =>
+        set((state) => {
+            void fetch(`${API_BASE_URL}/vocabulary/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ learned }),
+            }).catch(() => undefined)
+            const savedWords = state.savedWords.map((word) => (word.id === id ? { ...word, learned } : word))
+            return {
+                savedWords,
+                learningProgress: {
+                    ...state.learningProgress,
+                    wordsLearned: savedWords.filter((word) => word.learned).length,
+                },
+            }
         }),
 
     addDocument: (doc) =>
@@ -903,8 +1025,59 @@ export const useStore = create<AppState>((set, get) => ({
             set({ isTranslatingFile: false })
             return newDoc
         } catch {
-            set({ isTranslatingFile: false })
-            return null
+            // Client-side fallback when backend is unavailable
+            try {
+                const ext = file.name.split('.').pop()?.toLowerCase() || 'txt'
+                let extractedText = ''
+
+                if (ext === 'pdf') {
+                    const pdfjsLib = await import('pdfjs-dist')
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString()
+                    const arrayBuffer = await file.arrayBuffer()
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+                    const pages: string[] = []
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i)
+                        const content = await page.getTextContent()
+                        pages.push(content.items.map((item: any) => item.str || '').join(' '))
+                    }
+                    extractedText = pages.join('\n')
+                } else {
+                    // txt, docx, csv — best-effort text read
+                    extractedText = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader()
+                        reader.onload = () => resolve(reader.result as string)
+                        reader.onerror = () => reject(reader.error)
+                        reader.readAsText(file)
+                    })
+                }
+
+                if (!extractedText.trim()) {
+                    set({ isTranslatingFile: false })
+                    return null
+                }
+
+                const docId = generateId()
+                const newDoc: DocumentContent = {
+                    id: docId,
+                    title: file.name,
+                    type: ext === 'pdf' ? 'pdf' : ext === 'docx' ? 'docx' : 'txt',
+                    content: extractedText,
+                    sourceFileName: file.name,
+                    sentences: splitDocumentSentences(extractedText, docId),
+                    uploadedAt: new Date(),
+                    readingProgress: 0,
+                    highlights: [],
+                    notes: [],
+                }
+
+                get().addDocument(newDoc)
+                set({ isTranslatingFile: false })
+                return newDoc
+            } catch {
+                set({ isTranslatingFile: false })
+                return null
+            }
         }
     },
 }))

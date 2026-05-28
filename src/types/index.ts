@@ -34,8 +34,13 @@ export interface SavedWord {
     domainTags?: string[]
     examples?: string[]
     sourceFile?: string
+    sourceDocumentId?: string
+    topic?: string
+    lookupCount?: number
+    isFavorite?: boolean
     learned: boolean
     createdAt: Date
+    updatedAt?: Date
 }
 
 export interface DocumentContent {
@@ -331,7 +336,7 @@ export interface ReviewItem {
     id: string
     annotation_id: string
     item_type: 'flashcard' | 'cloze'
-    source_type: 'word' | 'phrase' | 'grammar' | 'sentence'
+    source_type: 'word' | 'phrase' | 'grammar' | 'sentence' | 'auto_vocabulary' | string
     front: string
     back: string
     context?: string
@@ -364,4 +369,22 @@ export interface KnownWord {
     times_seen: number
     times_looked_up: number
     created_at: string
+}
+
+export interface VocabularyItem {
+    id: string
+    word: string
+    translation: string
+    pinyin: string
+    context: string
+    source_file: string
+    source_document_id: string
+    hsk_level?: number | null
+    domain_tags: string[]
+    topic: string
+    favorite: boolean
+    learned: boolean
+    lookup_count: number
+    created_at: string
+    updated_at: string
 }

@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import pytesseract
 from pdf2image import convert_from_bytes
+from PIL import Image
+from io import BytesIO
 
 # Make it configurable for cross-platform/server deployment
 # Default to "tesseract" which uses system PATH on Linux/Servers
@@ -55,3 +57,10 @@ def ocr_chinese_pdf_bytes(pdf_bytes: bytes) -> str:
         full_text += f"\n{text}\n"
         
     return full_text
+
+
+def ocr_chinese_image_bytes(image_bytes: bytes) -> str:
+    image = Image.open(BytesIO(image_bytes)).convert("RGB")
+    final_image = preprocess_for_ocr(image)
+    custom_config = r'-l chi_sim --oem 1 --psm 6'
+    return pytesseract.image_to_string(final_image, config=custom_config)

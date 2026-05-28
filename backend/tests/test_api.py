@@ -40,6 +40,12 @@ from main import (  # noqa: E402
     upload_document,
     system_config,
     create_document_auto_review_items,
+    record_vocabulary_lookup,
+    list_vocabulary_items,
+    update_vocabulary_item,
+    delete_vocabulary_item,
+    VocabularyPatchRequest,
+    VocabularyUpsertRequest,
     restore_database_backup,
 )
 from starlette.requests import Request
@@ -235,6 +241,37 @@ def test_known_words_can_be_marked_and_listed(session) -> None:
     assert response["status"] == "saved"
     assert listed["words"][0]["word"] == "市场需求"
     assert listed["words"][0]["confidence"] == 0.9
+
+
+def test_vocabulary_lookup_history_can_be_favorited_and_deleted(session) -> None:
+    saved = record_vocabulary_lookup(
+        VocabularyUpsertRequest(
+            word="市场需求",
+            translation="nhu cầu thị trường",
+            pinyin="shì chǎng xū qiú",
+            context="由于市场需求下降，该公司调整了生产计划。",
+            source_file="demo.pdf",
+            source_document_id="doc_demo",
+            hsk_level=6,
+            domain_tags=["economics"],
+        ),
+        session,
+    )
+    record_vocabulary_lookup(
+        VocabularyUpsertRequest(word="市场需求", translation="nhu cầu thị trường", domain_tags=["economics"]),
+        session,
+    )
+
+    listed = list_vocabulary_items(session)
+    item_id = saved["item"]["id"]
+    updated = update_vocabulary_item(item_id, VocabularyPatchRequest(favorite=True, learned=True, topic="Kinh tế"), session)
+    deleted = delete_vocabulary_item(item_id, session)
+
+    assert listed["items"][0]["lookup_count"] == 2
+    assert listed["items"][0]["topic"] == "Kinh tế"
+    assert updated["item"]["favorite"] is True
+    assert updated["item"]["learned"] is True
+    assert deleted["deleted"] is True
 
 
 def test_document_upload_persists_file_and_metadata(session) -> None:

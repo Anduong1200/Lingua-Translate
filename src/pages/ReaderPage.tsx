@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import * as pdfjsLib from 'pdfjs-dist'
 import {
     Bookmark,
@@ -20,6 +21,12 @@ import {
     Columns,
     Type,
     UserCircle,
+    MessageSquare,
+    Award,
+    RefreshCw,
+    AlertCircle,
+    Play,
+    Send,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
 import { AnnotationRecord, ChineseSentenceAnalysis, ChineseToken } from '@/types'
@@ -36,7 +43,7 @@ type PdfSelection = {
     pageContext: string
 }
 
-type PanelTab = 'quick' | 'context' | 'ai' | 'grammar' | 'examples' | 'note' | 'review'
+type PanelTab = 'chat' | 'quiz' | 'vocab'
 
 function isSelectableToken(token: ChineseToken) {
     return token.definitions.length > 0 && token.pos !== 'punctuation' && token.surface.trim().length > 0
@@ -67,12 +74,12 @@ export default function ReaderPage() {
         chineseAnalysis,
         contextualAnalysis,
         aiContext,
-        isAnalyzing,
         isGeneratingAIContext,
         analyzeChineseText,
         generateAIContextReading,
         saveChineseAnnotation,
         saveUserCorrection,
+        recordLookupWord,
         markKnownWord,
         savedWords,
         annotations,
@@ -93,11 +100,39 @@ export default function ReaderPage() {
     const [selectedSentence, setSelectedSentence] = useState<ChineseSentenceAnalysis | null>(null)
     const [selectedToken, setSelectedToken] = useState<ChineseToken | null>(null)
     const [pdfSelection, setPdfSelection] = useState<PdfSelection | null>(null)
+    const [popupCoords, setPopupCoords] = useState<{ x: number, y: number } | null>(null)
     const [note, setNote] = useState('')
     const [meaningOverride, setMeaningOverride] = useState('')
     const [savedNotice, setSavedNotice] = useState('')
     const [showFontSizeMenu, setShowFontSizeMenu] = useState(false)
-    const [activeTab, setActiveTab] = useState<PanelTab>('quick')
+
+    // Sidebar State
+    const [activeTab, setActiveTab] = useState<PanelTab>('chat')
+    const [chatInput, setChatInput] = useState('')
+    const [chatMessages, setChatMessages] = useState<any[]>([])
+    const [chatLoading, setChatLoading] = useState(false)
+    const [pdfZoom, setPdfZoom] = useState(100)
+    const handleZoomOut = () => setPdfZoom(z => Math.max(50, z - 10))
+    const handleZoomIn = () => setPdfZoom(z => Math.min(250, z + 10))
+    const chatBottomRef = useRef<HTMLDivElement>(null)
+    const [quizQuestions, setQuizQuestions] = useState<any[]>([])
+    const [quizLoading, setQuizLoading] = useState(false)
+    const [quizScore, setQuizScore] = useState(0)
+    const [quizFinished, setQuizFinished] = useState(false)
+    const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+    const [selectedAnswerIndex, setSelectedAnswerIndex] = useState<number | null>(null)
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            const target = e.target as HTMLElement
+            if (target.closest('.floating-popup')) return
+            if (window.getSelection()?.isCollapsed) {
+                setPopupCoords(null)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
 
     useEffect(() => {
         if (currentDocument?.content && !(currentDocument.type === 'pdf' && currentDocument.sourceUrl)) {
@@ -132,12 +167,15 @@ export default function ReaderPage() {
     const literalTranslation = activeAnalysis?.translations?.literal_vi
     const sourceSentence = activeAnalysis?.selection?.source_sentence || selectedSentence?.text || ''
 
-    const handleSentenceClick = (sentence: ChineseSentenceAnalysis) => {
+    const handleSentenceClick = (sentence: ChineseSentenceAnalysis, event?: React.MouseEvent) => {
         setSelectedSentence(sentence)
         setSelectedToken(null)
         setPdfSelection(null)
         setSavedNotice('')
-        setActiveTab('context')
+        setActiveTab('vocab')
+        if (event) {
+            setPopupCoords({ x: event.clientX, y: event.clientY })
+        }
         void analyzeChineseText({
             selected_text: sentence.text,
             source_sentence: sentence.text,
@@ -151,25 +189,48 @@ export default function ReaderPage() {
         }
     }
 
-    const handlePdfSelection = async (selection: PdfSelection) => {
+    const handlePdfSelection = (selection: PdfSelection | null) => {
         setPdfSelection(selection)
+        if (selection) {
+            setSavedNotice('')
+            const sel = window.getSelection()
+            if (sel && sel.rangeCount > 0) {
+                const rect = sel.getRangeAt(0).getBoundingClientRect()
+                setPopupCoords({ x: rect.left + rect.width / 2, y: rect.top })
+            } else {
+                setPopupCoords(null)
+            }
+        } else {
+            setPopupCoords(null)
+        }
+    }
+
+    const handleTokenSelection = async (sentence: ChineseSentenceAnalysis, token: ChineseToken, event?: React.MouseEvent) => {
+        setSelectedSentence(sentence)
+        setSelectedToken(token)
+        setPdfSelection(null)
         setSavedNotice('')
-        setActiveTab('quick')
+        setActiveTab('vocab')
+        if (event) setPopupCoords({ x: event.clientX, y: event.clientY })
         const analysis = await analyzeChineseText({
-            selected_text: selection.selectedText,
-            source_sentence: selection.sourceSentence,
-            paragraph_context: selection.paragraphContext,
-            page_context: selection.pageContext,
+            selected_text: token.surface,
+            source_sentence: sentence.text,
+            paragraph_context: currentDocument?.content || sentence.text,
+            page_context: currentDocument?.content || sentence.text,
             domain_mode: settings.domainMode || 'auto',
             user_level: settings.targetHskLevel || 'HSK4',
         })
-        const firstSentence = analysis.sentences[0] ?? null
-        const firstToken = firstSentence?.tokens.find(isSelectableToken) ?? null
-        setSelectedSentence(firstSentence)
-        setSelectedToken(firstToken)
-        if (currentDocument) {
-            updateReadingProgress(currentDocument.id, Math.max(currentDocument.readingProgress, 1))
-        }
+        const quick = analysis.quick_meaning
+        void recordLookupWord({
+            word: token.surface,
+            translation: quick?.definitions_vi?.[0] || getVietnameseDefinition(token),
+            pinyin: quick?.pinyin || token.pinyin,
+            context: sentence.text,
+            source_file: currentDocument?.title || '',
+            source_document_id: currentDocument?.id || '',
+            hsk_level: quick?.hsk_level ?? token.hsk_level ?? null,
+            domain_tags: quick?.domain_tags || token.domain_tags || [],
+        })
     }
 
     const handleSave = async () => {
@@ -221,7 +282,7 @@ export default function ReaderPage() {
     const handleRunAIContext = async () => {
         if (!selectedSurface && !sourceSentence) return
         setSavedNotice('')
-        setActiveTab('ai')
+        setActiveTab('chat')
         await generateAIContextReading({
             selected_text: selectedSurface || sourceSentence,
             source_sentence: sourceSentence || selectedSurface,
@@ -265,16 +326,6 @@ export default function ReaderPage() {
         const created = await createAutoReviewItems(currentDocument.id, 20)
         setSavedNotice(created > 0 ? `Đã tạo ${created} flashcards tự động.` : 'Không có flashcard mới để tạo.')
     }
-
-    const panelTabs: { id: PanelTab; label: string }[] = [
-        { id: 'quick', label: 'Dict' },
-        { id: 'context', label: 'Context' },
-        { id: 'ai', label: 'AI' },
-        { id: 'grammar', label: 'Grammar' },
-        { id: 'examples', label: 'Examples' },
-        { id: 'note', label: 'Note' },
-        { id: 'review', label: 'Review' },
-    ]
     const quickVi = quickMeaning?.definitions_vi?.join('; ') || viDefinition
     const quickEn = quickMeaning?.definitions_en?.join('; ') || enDefinition
     const quickPinyin = quickMeaning?.pinyin || selectedToken?.pinyin || ''
@@ -283,9 +334,49 @@ export default function ReaderPage() {
     const domainTags = quickMeaning?.domain_tags?.length ? quickMeaning.domain_tags : selectedToken?.domain_tags || []
 
     return (
-        <div className="flex h-[calc(100vh-7.5rem)] flex-col overflow-hidden rounded-xl border border-white/60 bg-gradient-to-br from-[#f2f3ff] to-[#faf8ff] shadow-sm dark:border-slate-800 dark:from-slate-950 dark:to-slate-900 md:flex-row">
-            <section className="flex min-h-0 flex-1 flex-col transition-colors">
-                <div className="m-4 flex flex-col gap-3 rounded-full border border-white/60 bg-white/70 px-4 py-2 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/70 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-br from-[#f8fafc] via-[#f0f9f9]/20 to-[#edf8f8] dark:from-[#0b0f19] dark:via-[#090d16] dark:to-[#020617] text-slate-800 dark:text-slate-200 transition-colors selection:bg-[#419488]/20 relative">
+            {/* Custom Reader TopBar matching premium aesthetics */}
+            <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/50 dark:border-slate-800/40 bg-white/70 dark:bg-slate-900/60 px-6 backdrop-blur-xl z-20">
+                <div className="flex items-center gap-8">
+                    <Link to="/" className="flex items-center gap-2 hover:opacity-85 transition-all group">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#0d9488] to-teal-500 text-white shadow-md shadow-teal-500/20 group-hover:scale-105 duration-200">
+                            <span className="font-display font-black text-lg leading-none">H</span>
+                        </div>
+                        <span className="text-xl font-display font-black text-[#102a3a] dark:text-slate-100 tracking-tight ml-1">Hanora NLP</span>
+                    </Link>
+                    <nav className="hidden items-center gap-6 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 md:flex">
+                        <Link to="/upload" className="hover:text-[#419488] dark:hover:text-teal-400 transition-colors">Documents</Link>
+                        <Link to="/vocabulary" className="hover:text-[#419488] dark:hover:text-teal-400 transition-colors">Library</Link>
+                        <Link to="/flashcards" className="hover:text-[#419488] dark:hover:text-teal-400 transition-colors">Study Hub</Link>
+                    </nav>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 rounded-full border border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 px-5 py-2 shadow-lg shadow-slate-100/5 dark:shadow-none">
+                        <button onClick={handleZoomOut} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-350 transition-colors"><Minus className="h-4 w-4" /></button>
+                        <span className="text-xs font-mono font-black text-slate-700 dark:text-slate-300">{pdfZoom}%</span>
+                        <button onClick={handleZoomIn} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-350 transition-colors"><Plus className="h-4 w-4" /></button>
+                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-2" />
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[240px]">
+                            {currentDocument?.title || 'Giáo trình Hán ngữ.pdf'}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <Link to="/settings" className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-250 transition-all border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800">
+                        <Settings className="h-5 w-5" />
+                    </Link>
+                    <Link to="/dashboard" className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-950/40 text-[#0d9488] dark:text-teal-400 font-black text-xs hover:bg-[#eefaf6] dark:hover:bg-teal-950 transition-all border border-teal-100/40 dark:border-teal-900/40">
+                        TL
+                    </Link>
+                </div>
+            </header>
+
+            <div className="flex min-h-0 flex-1 flex-col md:flex-row p-4 gap-4">
+            <section className="flex min-h-0 flex-1 flex-col transition-all rounded-3xl border border-white/60 bg-gradient-to-br from-white/70 to-slate-50/20 shadow-2xl dark:border-slate-800/40 dark:from-slate-900/60 dark:to-slate-950/40 backdrop-blur-xl">
+                <div className="m-4 flex flex-col gap-3 rounded-full border border-white/60 bg-white/70 px-4 py-2 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/70 lg:flex-row lg:items-center lg:justify-between hidden">
+                    {/* Hide old floating bar since we moved items to top bar or they are redundant */}
                     <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#14b8a6]/15 text-[#006b5f]">
                             <BookOpen className="h-5 w-5" />
@@ -302,9 +393,9 @@ export default function ReaderPage() {
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
                         <div className="hidden items-center gap-2 rounded-full border border-white/60 bg-white/65 px-3 py-2 text-xs font-black text-slate-600 backdrop-blur md:flex dark:border-slate-800 dark:bg-slate-900/65 dark:text-slate-300">
-                            <Minus className="h-3.5 w-3.5 text-slate-400" />
-                            100%
-                            <Plus className="h-3.5 w-3.5 text-slate-400" />
+                            <button onClick={handleZoomOut}><Minus className="h-3.5 w-3.5 text-slate-400 hover:text-teal-500 transition-colors" /></button>
+                            <span>{pdfZoom}%</span>
+                            <button onClick={handleZoomIn}><Plus className="h-3.5 w-3.5 text-slate-400 hover:text-teal-500 transition-colors" /></button>
                         </div>
                         <div className="relative">
                             <button
@@ -399,7 +490,78 @@ export default function ReaderPage() {
                     </div>
                 </div>
 
-                <div className="min-h-0 flex-1 overflow-y-auto bg-transparent px-4 py-5 scrollbar-hide md:px-10">
+                <div className={`relative min-h-0 flex-1 overflow-y-auto px-4 py-8 scrollbar-hide md:px-10 transition-colors ${currentDocument?.type === 'pdf' ? 'bg-[#0f172a] dark:bg-[#020617] rounded-3xl mx-4 mb-4 shadow-2xl flex flex-col items-center border border-slate-800/80 w-full' : 'bg-transparent'}`}>
+                    {selectedSurface && popupCoords && (
+                        <div
+                            style={{
+                                position: 'fixed',
+                                left: Math.min(window.innerWidth - 200, Math.max(10, popupCoords.x - 100)),
+                                top: Math.max(10, popupCoords.y - 70),
+                            }}
+                            className="floating-popup z-[100] flex items-center gap-1.5 rounded-2xl border border-white/10 bg-slate-900/95 px-3 py-2 shadow-2xl shadow-black/50 backdrop-blur-xl transition-all"
+                        >
+                            <button
+                                onClick={() => {
+                                    setActiveTab('vocab')
+                                    if (pdfSelection) {
+                                        void (async () => {
+                                            const analysis = await analyzeChineseText({
+                                                selected_text: pdfSelection.selectedText,
+                                                source_sentence: pdfSelection.sourceSentence,
+                                                paragraph_context: pdfSelection.paragraphContext,
+                                                page_context: pdfSelection.pageContext,
+                                                domain_mode: settings.domainMode || 'auto',
+                                                user_level: settings.targetHskLevel || 'HSK4',
+                                            })
+                                            const firstToken = analysis.sentences[0]?.tokens.find(isSelectableToken)
+                                            if (firstToken) setSelectedToken(firstToken)
+                                            setSelectedSentence(analysis.sentences[0] ?? null)
+                                            void recordLookupWord({
+                                                word: pdfSelection.selectedText,
+                                                translation: analysis.quick_meaning?.definitions_vi?.[0] || (firstToken ? getVietnameseDefinition(firstToken) : ''),
+                                                pinyin: analysis.quick_meaning?.pinyin || firstToken?.pinyin || '',
+                                                context: pdfSelection.sourceSentence,
+                                                source_file: currentDocument?.title || '',
+                                                source_document_id: currentDocument?.id || '',
+                                                hsk_level: analysis.quick_meaning?.hsk_level ?? firstToken?.hsk_level ?? null,
+                                                domain_tags: analysis.quick_meaning?.domain_tags || firstToken?.domain_tags || [],
+                                            })
+                                        })()
+                                    }
+                                }}
+                                className="group flex flex-col items-center gap-1 text-teal-300 hover:text-teal-200 px-2"
+                                title="Analyze"
+                            >
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-500/10 transition-colors group-hover:bg-teal-500/20">
+                                    <Brain className="h-4 w-4" />
+                                </span>
+                                <span className="text-[10px] font-black">Analyze</span>
+                            </button>
+                            <div className="h-8 w-px bg-slate-700/60" />
+                            <button
+                                onClick={handleSave}
+                                disabled={!selectedToken && !pdfSelection}
+                                className="group flex flex-col items-center gap-1 text-slate-300 hover:text-white px-2 disabled:cursor-not-allowed disabled:opacity-45"
+                                title="Highlight"
+                            >
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-blue-500/20">
+                                    <Highlighter className="h-4 w-4" />
+                                </span>
+                                <span className="text-[10px] font-black">Highlight</span>
+                            </button>
+                            <div className="h-8 w-px bg-slate-700/60" />
+                            <button
+                                onClick={() => setActiveTab('vocab')}
+                                className="group flex flex-col items-center gap-1 text-slate-300 hover:text-white px-2"
+                                title="Review"
+                            >
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-amber-500/20">
+                                    <BookMarked className="h-4 w-4" />
+                                </span>
+                                <span className="text-[10px] font-black">Review</span>
+                            </button>
+                        </div>
+                    )}
                     {currentDocument?.type === 'pdf' && currentDocument.sourceUrl ? (
                         <PdfDocumentViewer
                             sourceUrl={currentDocument.sourceUrl}
@@ -408,49 +570,7 @@ export default function ReaderPage() {
                         />
                     ) : (
                         <article className="relative mx-auto min-h-[1000px] w-full max-w-[800px] rounded-lg border border-[#bbcac6]/30 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 md:p-12">
-                            {selectedSurface && (
-                                <div className="absolute right-6 top-6 z-20 flex items-center gap-2 rounded-lg border border-white/60 bg-white/85 px-3 py-2 shadow-lg shadow-blue-400/10 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/85">
-                                    <button
-                                        onClick={() => setActiveTab('context')}
-                                        className="group flex flex-col items-center gap-1 text-[#006b5f]"
-                                        title="Analyze"
-                                    >
-                                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#14b8a6]/10 transition-colors group-hover:bg-[#14b8a6]/20">
-                                            <Brain className="h-4 w-4" />
-                                        </span>
-                                        <span className="text-[10px] font-black">Analyze</span>
-                                    </button>
-                                    <div className="h-8 w-px bg-[#bbcac6]/60" />
-                                    <button
-                                        onClick={handleSave}
-                                        disabled={!selectedToken}
-                                        className="group flex flex-col items-center gap-1 text-slate-500 disabled:cursor-not-allowed disabled:opacity-45"
-                                        title="Highlight"
-                                    >
-                                        <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-[#d4e3ff]/60">
-                                            <Highlighter className="h-4 w-4" />
-                                        </span>
-                                        <span className="text-[10px] font-black">Highlight</span>
-                                    </button>
-                                    <div className="h-8 w-px bg-[#bbcac6]/60" />
-                                    <button
-                                        onClick={() => setActiveTab('review')}
-                                        className="group flex flex-col items-center gap-1 text-slate-500"
-                                        title="Review"
-                                    >
-                                        <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover:bg-[#d4e3ff]/60">
-                                            <BookMarked className="h-4 w-4" />
-                                        </span>
-                                        <span className="text-[10px] font-black">Review</span>
-                                    </button>
-                                </div>
-                            )}
-                            {isAnalyzing ? (
-                                <div className="flex h-64 flex-col items-center justify-center gap-3 text-teal-700 dark:text-teal-400">
-                                    <Loader2 className="h-8 w-8 animate-spin" />
-                                    <p className="text-sm font-bold">Đang segment và tạo pinyin...</p>
-                                </div>
-                            ) : isSideBySide ? (
+                            {isSideBySide ? (
                                 <div className="space-y-6">
                                     {sentences.map((sentence, sentenceIndex) => {
                                         const active = selectedSentence?.text === sentence.text
@@ -467,7 +587,7 @@ export default function ReaderPage() {
                                                 }`}
                                             >
                                                 <div
-                                                    onClick={() => handleSentenceClick(sentence)}
+                                                    onClick={(e) => handleSentenceClick(sentence, e)}
                                                     className="cursor-pointer text-left"
                                                 >
                                                     <p className={`chinese-text text-slate-800 dark:text-slate-200 leading-loose reader-size-${settings.fontSize || 'medium'}`}>
@@ -480,19 +600,7 @@ export default function ReaderPage() {
                                                                     onClick={(event) => {
                                                                         event.stopPropagation()
                                                                         if (!selectable) return
-                                                                        setSelectedSentence(sentence)
-                                                                        setSelectedToken(token)
-                                                                        setPdfSelection(null)
-                                                                        setSavedNotice('')
-                                                                        setActiveTab('quick')
-                                                                        void analyzeChineseText({
-                                                                            selected_text: token.surface,
-                                                                            source_sentence: sentence.text,
-                                                                            paragraph_context: currentDocument?.content || sentence.text,
-                                                                            page_context: currentDocument?.content || sentence.text,
-                                                                            domain_mode: settings.domainMode || 'auto',
-                                                                            user_level: settings.targetHskLevel || 'HSK4',
-                                                                        })
+                                                                        void handleTokenSelection(sentence, token, event)
                                                                     }}
                                                                     className={
                                                                         selectable
@@ -512,7 +620,7 @@ export default function ReaderPage() {
                                                 </div>
 
                                                 <div
-                                                    onClick={() => handleSentenceClick(sentence)}
+                                                    onClick={(e) => handleSentenceClick(sentence, e)}
                                                     className="cursor-pointer text-left flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 pt-3 md:pt-0 md:pl-5"
                                                 >
                                                     {active ? (
@@ -546,7 +654,7 @@ export default function ReaderPage() {
                                         return (
                                             <button
                                                 key={`${sentence.text}-${sentenceIndex}`}
-                                                onClick={() => handleSentenceClick(sentence)}
+                                                onClick={(e) => handleSentenceClick(sentence, e)}
                                                 className={`block w-full rounded-2xl border p-5 text-left transition-all ${
                                                     active
                                                         ? 'border-[#14b8a6] bg-[#14b8a6]/10 shadow-sm dark:border-teal-800 dark:bg-teal-950/20'
@@ -563,19 +671,7 @@ export default function ReaderPage() {
                                                                 onClick={(event) => {
                                                                     event.stopPropagation()
                                                                     if (!selectable) return
-                                                                    setSelectedSentence(sentence)
-                                                                    setSelectedToken(token)
-                                                                    setPdfSelection(null)
-                                                                    setSavedNotice('')
-                                                                    setActiveTab('quick')
-                                                                    void analyzeChineseText({
-                                                                        selected_text: token.surface,
-                                                                        source_sentence: sentence.text,
-                                                                        paragraph_context: currentDocument?.content || sentence.text,
-                                                                        page_context: currentDocument?.content || sentence.text,
-                                                                        domain_mode: settings.domainMode || 'auto',
-                                                                        user_level: settings.targetHskLevel || 'HSK4',
-                                                                    })
+                                                                    void handleTokenSelection(sentence, token, event)
                                                                 }}
                                                                 className={
                                                                     selectable
@@ -602,434 +698,243 @@ export default function ReaderPage() {
                 </div>
             </section>
 
-            <aside className="flex h-full w-full flex-col border-l border-white/60 bg-white/65 shadow-xl backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80 md:w-[360px] md:shrink-0">
-                <div className="flex items-center gap-3 border-b border-[#bbcac6]/25 p-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#14b8a6]/20 bg-[#14b8a6]/10">
-                        <img src="/logo.svg" alt="Hanora" className="h-full w-full object-cover" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <h2 className="truncate text-xl font-black leading-tight text-[#006b5f] dark:text-teal-300">NLP Analysis</h2>
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Deep Dive</p>
-                    </div>
-                    <button className="rounded-lg p-2 text-[#006b5f] transition-colors hover:bg-[#14b8a6]/10" title="Reader settings">
-                        <Settings className="h-4 w-4" />
+                        {/* RIGHT PANE: Tabs Workspace for AI chat helper, Quiz, Dictionary */}
+            <aside className="w-full md:w-[400px] lg:w-[420px] shrink-0 rounded-3xl border border-white/60 bg-gradient-to-br from-white/90 to-slate-50/80 p-5 flex flex-col h-full shadow-2xl overflow-hidden backdrop-blur-xl dark:border-slate-800/60 dark:from-slate-900/90 dark:to-slate-950/80 z-20 transition-all">
+                {/* Tab Controllers */}
+                <div className="grid grid-cols-3 gap-1 bg-white dark:bg-slate-900/60 p-1 rounded-2xl border border-slate-100 dark:border-slate-800 mb-4 shadow-inner">
+                    <button
+                        onClick={() => setActiveTab('chat')}
+                        className={`py-2 px-1 text-xs font-bold rounded-xl flex items-center justify-center space-x-1 cursor-pointer transition-all ${
+                            activeTab === 'chat'
+                                ? 'bg-[#0d9488] text-white shadow-md'
+                                : 'text-slate-500 hover:text-[#0d9488] dark:text-slate-400 dark:hover:text-teal-400'
+                        }`}
+                    >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Trò Chuyện AI</span>
                     </button>
-                    <button className="rounded-lg p-2 text-[#006b5f] transition-colors hover:bg-[#14b8a6]/10" title="Local profile">
-                        <UserCircle className="h-4 w-4" />
+                    <button
+                        onClick={() => setActiveTab('quiz')}
+                        className={`py-2 px-1 text-xs font-bold rounded-xl flex items-center justify-center space-x-1 cursor-pointer transition-all ${
+                            activeTab === 'quiz'
+                                ? 'bg-[#0d9488] text-white shadow-md'
+                                : 'text-slate-500 hover:text-[#0d9488] dark:text-slate-400 dark:hover:text-teal-400'
+                        }`}
+                    >
+                        <Award className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Bài Trắc Nghiệm</span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('vocab')}
+                        className={`py-2 px-1 text-xs font-bold rounded-xl flex items-center justify-center space-x-1 cursor-pointer transition-all ${
+                            activeTab === 'vocab'
+                                ? 'bg-[#0d9488] text-white shadow-md'
+                                : 'text-slate-500 hover:text-[#0d9488] dark:text-slate-400 dark:hover:text-teal-400'
+                        }`}
+                    >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Tra Từ Điển</span>
                     </button>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto p-4 scrollbar-hide">
-                    <div className="flex flex-col gap-4">
-                    <div className="rounded-xl border border-white/70 bg-white/70 p-4 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/70">
-                        <div className="mb-4 flex items-center justify-between gap-3 border-b border-[#bbcac6]/25 pb-4">
-                            <div className="flex items-center gap-2">
-                                <Layers className="h-5 w-5 text-[#006b5f] dark:text-teal-400" />
-                                <h2 className="font-black text-slate-900 dark:text-slate-100">Reader Panel</h2>
-                            </div>
-                            {selectedSurface && (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={handleRunAIContext}
-                                        disabled={isGeneratingAIContext}
-                                        className="flex items-center gap-2 rounded-lg border border-amber-250 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900/50 px-3 py-2 text-xs font-black text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 disabled:cursor-wait disabled:opacity-70"
-                                        title="Gọi AI context reading"
-                                    >
-                                        {isGeneratingAIContext ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                                        AI
-                                    </button>
-                                    <button
-                                        onClick={() => speak(selectedSurface)}
-                                        className="rounded-lg border border-teal-100/60 dark:border-slate-800 p-2 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-slate-800"
-                                        title="Nghe phát âm"
-                                    >
-                                        <Volume2 className="h-4 w-4" />
-                                    </button>
-                                </div>
-                            )}
-                        </div>
 
-                        {selectedSentence || selectedSurface ? (
-                            <div className="space-y-4">
-                                <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 p-4">
-                                    <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-wider">
-                                        {pdfSelection && (
-                                            <span className="rounded-full bg-teal-100 dark:bg-teal-900/40 px-2 py-1 text-teal-700 dark:text-teal-300">
-                                                PDF page {pdfSelection.pageNumber}
-                                            </span>
-                                        )}
-                                        <span className="rounded-full bg-amber-50 dark:bg-amber-900/40 px-2 py-1 text-amber-700 dark:text-amber-300">
-                                            {activeAnalysis?.selection?.analysis_mode || (selectedToken ? 'word' : 'sentence')}
-                                        </span>
-                                        <span className="rounded-full bg-cyan-50 dark:bg-cyan-900/40 px-2 py-1 text-cyan-700 dark:text-cyan-300">
-                                            {activeAnalysis?.context?.domain || settings.domainMode || 'auto'}
-                                        </span>
-                                    </div>
-                                    <p className="chinese-text text-3xl font-black leading-loose text-teal-750 dark:text-teal-400">
-                                        {selectedSurface || selectedSentence?.text}
-                                    </p>
-                                    {quickPinyin && <p className="mt-1 text-sm font-semibold italic text-slate-500 dark:text-slate-400">/{quickPinyin}/</p>}
-                                </div>
-
-                                <div className="flex gap-1 overflow-x-auto rounded-lg border border-[#bbcac6]/30 bg-[#f2f3ff] p-1 scrollbar-hide dark:border-slate-800 dark:bg-slate-950/30">
-                                    {panelTabs.map((tab) => (
-                                        <button
-                                            key={tab.id}
-                                            onClick={() => setActiveTab(tab.id)}
-                                            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-black transition-colors ${
-                                                activeTab === tab.id
-                                                    ? 'bg-[#14b8a6] text-[#00423b] shadow-sm'
-                                                    : 'text-slate-500 hover:bg-white/70 hover:text-[#006b5f] dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-teal-400'
-                                            }`}
-                                        >
-                                            {tab.label}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                {activeTab === 'quick' && (
-                                    <div className="space-y-3">
-                                        <div className="grid gap-3 md:grid-cols-2">
-                                            <div className="rounded-xl border-l-4 border-teal-500 bg-teal-50 dark:bg-teal-950/20 p-3">
-                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-teal-800 dark:text-teal-400">
-                                                    Nghĩa Việt
-                                                </h3>
-                                                <p className="font-bold text-slate-800 dark:text-slate-200">
-                                                    {quickVi || 'Chưa có nghĩa Việt trong từ điển cục bộ.'}
-                                                </p>
-                                            </div>
-                                            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 p-3">
-                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-slate-450 dark:text-slate-500">
-                                                    English fallback
-                                                </h3>
-                                                <p className="font-semibold text-slate-700 dark:text-slate-300">{quickEn || 'No fallback available'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="grid gap-3 md:grid-cols-2">
-                                            <div className="rounded-xl border border-teal-100/60 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-3">
-                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-slate-450 dark:text-slate-500">
-                                                    Dịch tự nhiên
-                                                </h3>
-                                                <p className="text-sm font-semibold leading-relaxed text-slate-700 dark:text-slate-300">
-                                                    {naturalTranslation || quickVi || 'Chưa có bản dịch tự nhiên.'}
-                                                </p>
-                                            </div>
-                                            <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-3">
-                                                <h3 className="mb-1 text-xs font-black uppercase tracking-wider text-slate-450 dark:text-slate-500">
-                                                    Dịch sát cấu trúc
-                                                </h3>
-                                                <p className="text-sm font-semibold leading-relaxed text-slate-700 dark:text-slate-300">
-                                                    {literalTranslation || quickVi || 'Chưa có bản dịch sát.'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {quickMeaning?.hsk_level && (
-                                                <span className="rounded-md bg-amber-105 dark:bg-amber-950/35 px-2 py-1 text-xs font-bold text-amber-700 dark:text-amber-400 border border-amber-200/20">
-                                                    HSK {quickMeaning.hsk_level}
-                                                </span>
-                                            )}
-                                            {domainTags.map((tag) => (
-                                                <span key={tag} className="rounded-md bg-cyan-105 dark:bg-cyan-950/35 px-2 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-400 border border-cyan-200/20">
-                                                    {tag}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {activeTab === 'context' && (
-                                    <div className="space-y-3">
-                                        <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 p-4">
-                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-550">Original sentence</h3>
-                                            <p className="chinese-text text-xl leading-loose text-slate-850 dark:text-slate-200">{sourceSentence}</p>
-                                        </div>
-                                        <div className="rounded-xl border border-teal-100/60 dark:border-slate-850 bg-teal-50/40 dark:bg-teal-950/20 p-4">
-                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-teal-700 dark:text-teal-400">
-                                                Vai trò trong câu
-                                            </h3>
-                                            <p className="text-sm font-black text-slate-800 dark:text-slate-200">
-                                                {activeAnalysis?.context?.role_vi || 'Đơn vị được chọn trong câu'}
-                                            </p>
-                                            <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-705 dark:text-slate-300">
-                                                {activeAnalysis?.context?.explanation_vi ||
-                                                    'Chọn từ/cụm trong PDF hoặc văn bản để backend phân tích cùng câu gốc và domain.'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {activeTab === 'ai' && (
-                                    <div className="space-y-3">
-                                        <div className="rounded-xl border border-amber-100/65 dark:border-amber-900 bg-amber-50/45 dark:bg-amber-950/20 p-4">
-                                            <div className="mb-2 flex items-center justify-between gap-3">
-                                                <h3 className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                                                    Google AI context layer
-                                                </h3>
-                                                {aiContext?.status && (
-                                                    <span className="rounded-full bg-white dark:bg-slate-800 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                                                        {aiContext.status}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {isGeneratingAIContext ? (
-                                                <div className="flex items-center gap-2 text-sm font-bold text-amber-700 dark:text-amber-400">
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                    Đang gọi AI context reading...
-                                                </div>
-                                            ) : aiContext?.status === 'ok' && aiContext.response ? (
-                                                <div className="space-y-3">
-                                                    <p className="text-sm font-semibold leading-relaxed text-slate-700 dark:text-slate-350">
-                                                        {aiContext.response.context_explanation_vi || aiContext.response.raw_text}
-                                                    </p>
-                                                    <div className="grid gap-3 md:grid-cols-2">
-                                                        <div className="rounded-lg bg-white dark:bg-slate-900 p-3">
-                                                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                                                                Dịch tự nhiên
-                                                            </p>
-                                                            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-200">
-                                                                {aiContext.response.natural_vi || 'Không có'}
-                                                            </p>
-                                                        </div>
-                                                        <div className="rounded-lg bg-white dark:bg-slate-900 p-3">
-                                                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                                                                Sát cấu trúc
-                                                            </p>
-                                                            <p className="mt-1 text-sm font-bold text-slate-800 dark:text-slate-200">
-                                                                {aiContext.response.literal_vi || 'Không có'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <p className="text-xs font-semibold text-slate-505 dark:text-slate-400">
-                                                    AI chưa được kích hoạt cho selection hiện tại. Hãy bấm nút AI phía trên để giải thích ngữ pháp và sắc thái nâng cao.
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {activeTab === 'grammar' && (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-sm font-black text-slate-700 dark:text-slate-300">
-                                            Ngữ pháp & Cấu trúc liên kết
-                                        </div>
-                                        {grammarPatterns.length > 0 ? (
-                                            grammarPatterns.map((pattern) => (
-                                                <div key={pattern.pattern} className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-sm">
-                                                    <p className="font-bold text-teal-700 dark:text-teal-400">{pattern.pattern}</p>
-                                                    <p className="mt-1 text-xs text-slate-550 dark:text-slate-400 font-semibold">{pattern.meaning_vi}</p>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className="rounded-xl bg-slate-50 dark:bg-slate-950/20 p-4 text-xs font-semibold text-slate-500">
-                                                Chưa phát hiện cấu trúc đặc biệt ở phân khúc này.
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-
-                                {activeTab === 'examples' && (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-sm font-black text-slate-700 dark:text-slate-300">
-                                            Ví dụ minh họa
-                                        </div>
-                                        {exampleList.length > 0 ? (
-                                            exampleList.map((example) => (
-                                                <div key={example} className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                                                    {example}
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className="rounded-xl bg-slate-50 dark:bg-slate-950/20 p-4 text-sm font-semibold text-slate-500">
-                                                Chưa có ví dụ cục bộ cho selection này.
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-
-                                {activeTab === 'note' && (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-sm font-black text-slate-700 dark:text-slate-300">
-                                            <Highlighter className="h-4 w-4 text-teal-600" />
-                                            Personal Note
-                                        </div>
-                                        <textarea
-                                            value={note}
-                                            onChange={(event) => setNote(event.target.value)}
-                                            rows={5}
-                                            placeholder="Ghi chú cá nhân hoặc nghĩa bạn muốn ưu tiên cho ngữ cảnh này..."
-                                            className="w-full resize-none rounded-xl border border-slate-205 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 text-sm outline-none focus:border-teal-400 text-slate-800 dark:text-slate-200"
-                                        />
-                                        <div className="rounded-2xl border border-teal-100/60 dark:border-slate-800 bg-teal-50/40 dark:bg-teal-950/20 p-3">
-                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-teal-700 dark:text-teal-400">
-                                                Ghi đè bản dịch Tiếng Việt
-                                            </h3>
-                                            <div className="flex flex-col gap-2 sm:flex-row">
-                                                <input
-                                                    value={meaningOverride}
-                                                    onChange={(event) => setMeaningOverride(event.target.value)}
-                                                    placeholder="Ví dụ: hệ thống máy tính"
-                                                    className="min-w-0 flex-1 rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold outline-none focus:border-teal-450 text-slate-800 dark:text-slate-200"
-                                                />
-                                                <button
-                                                    onClick={handleSaveCorrection}
-                                                    disabled={!selectedSurface || !meaningOverride.trim()}
-                                                    className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-black text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-500"
-                                                >
-                                                    Lưu nghĩa
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={handleMarkKnown}
-                                            disabled={!selectedSurface}
-                                            className="rounded-xl border border-emerald-205 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-2 text-sm font-black text-emerald-700 dark:text-emerald-400 disabled:cursor-not-allowed disabled:border-slate-100 disabled:bg-slate-50 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
-                                        >
-                                            Đánh dấu: Đã biết từ này
-                                        </button>
-                                    </div>
-                                )}
-
-                                {activeTab === 'review' && (
-                                    <div className="space-y-3">
-                                        <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/30 p-4">
-                                            <h3 className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">
-                                                Đề xuất câu hỏi (SRS)
-                                            </h3>
-                                            <p className="chinese-text text-lg font-black leading-loose text-slate-805 dark:text-slate-200">
-                                                {activeAnalysis?.review_suggestion?.front ||
-                                                    (selectedSurface ? sourceSentence.replace(selectedSurface, '____') : sourceSentence)}
-                                            </p>
-                                            <p className="mt-2 text-sm font-semibold text-slate-600 dark:text-slate-400">
-                                                Đáp án: {activeAnalysis?.review_suggestion?.answer || selectedSurface}
-                                            </p>
-                                        </div>
-                                        <div className="flex flex-wrap items-center gap-3">
-                                            <button
-                                                onClick={handleSave}
-                                                disabled={!selectedToken}
-                                                className={`flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-black shadow-sm ${
-                                                    selectedWordSaved
-                                                        ? 'border border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400'
-                                                        : selectedToken
-                                                          ? 'bg-teal-600 text-white hover:bg-teal-700'
-                                                          : 'cursor-not-allowed bg-slate-200 dark:bg-slate-800 text-slate-500'
+                {/* Active Tab Screen Area */}
+                <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                    {/* TAB 1: AI COACH CHAT BOX */}
+                    {activeTab === 'chat' && (
+                        <div className="h-full flex flex-col justify-between">
+                            <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2">
+                                {chatMessages.map((msg, i) => {
+                                    const isUser = msg.role === 'user';
+                                    return (
+                                        <div key={msg.id || i} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+                                            <div
+                                                className={`max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed shadow-sm ${
+                                                    isUser
+                                                        ? 'bg-[#0d9488] text-white rounded-tr-none'
+                                                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-tl-none'
                                                 }`}
                                             >
-                                                {selectedWordSaved ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                                                {selectedWordSaved ? 'Đã có trong từ vựng' : 'Lưu annotation + review'}
-                                            </button>
-                                            {savedNotice && <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{savedNotice}</span>}
+                                                <div dangerouslySetInnerHTML={{ __html: msg.content }} />
+                                            </div>
+                                            <span className="text-[9px] text-slate-400 mt-1 px-1">{msg.timestamp}</span>
                                         </div>
+                                    );
+                                })}
+                                {chatLoading && (
+                                    <div className="flex items-center space-x-2 text-slate-400 text-xs p-1">
+                                        <Loader2 className="w-4 h-4 animate-spin text-[#0d9488]" />
+                                        <span>Hanora AI đang soạn câu trả lời...</span>
                                     </div>
                                 )}
+                                <div ref={chatBottomRef} />
                             </div>
-                        ) : (
-                            <div className="flex h-56 flex-col items-center justify-center text-center text-slate-500">
-                                <FileText className="mb-3 h-10 w-10 text-slate-300 dark:text-slate-700 animate-bounce" />
-                                <p className="max-w-sm font-semibold text-slate-500 dark:text-slate-450">Bấm chọn một câu hoặc một từ trong tài liệu để hiển thị bảng phân tích ngữ nghĩa chi tiết.</p>
-                            </div>
-                        )}
-                    </div>
 
-                    <div className="rounded-2xl border border-cyan-100/70 bg-white p-5 custom-shadow dark:border-slate-800 dark:bg-slate-900/50">
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                            <div>
-                                <h2 className="font-black text-slate-900 dark:text-slate-100">Từ vựng tự động</h2>
-                                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                    Quét từ/cụm quan trọng rồi tạo flashcards từ backend SQLite.
-                                </p>
-                            </div>
-                            <button
-                                onClick={handleCreateAutoReviewItems}
-                                disabled={!currentDocument || isScanningVocabulary}
-                                className="rounded-xl bg-teal-600 px-3 py-2 text-xs font-black text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 dark:disabled:bg-slate-800"
-                            >
-                                Tạo thẻ
-                            </button>
-                        </div>
-                        <div className="space-y-2">
-                            {vocabularySuggestions.slice(0, 6).map((item) => (
-                                <button
-                                    key={`${item.surface}-${item.source_sentence}`}
-                                    onClick={() => {
-                                        setSelectedSentence({ text: item.source_sentence, tokens: [], grammar_patterns: [] })
-                                        void analyzeChineseText({
-                                            selected_text: item.surface,
-                                            source_sentence: item.source_sentence,
-                                            paragraph_context: currentDocument?.content || item.source_sentence,
-                                            page_context: currentDocument?.content || item.source_sentence,
-                                            domain_mode: item.domain_tags[0] || settings.domainMode || 'auto',
-                                            user_level: settings.targetHskLevel || 'HSK4',
-                                        })
-                                        setSelectedToken(null)
-                                        setPdfSelection(null)
-                                        setActiveTab('quick')
+                            {/* Chat Input */}
+                            <div className="mt-auto">
+                                <form
+                                    onSubmit={(e) => {
+                                        e.preventDefault()
+                                        if (!chatInput.trim() || chatLoading) return
+                                        const newMsg = {
+                                            id: `user-${Date.now()}`,
+                                            role: 'user',
+                                            content: chatInput,
+                                            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                        }
+                                        setChatMessages(prev => [...prev, newMsg])
+                                        setChatInput('')
+                                        // TODO: wire up api
                                     }}
-                                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left transition-colors hover:border-cyan-200 hover:bg-cyan-50 dark:border-slate-800 dark:bg-slate-950/20 dark:hover:bg-slate-800"
+                                    className="relative flex items-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
                                 >
-                                    <div className="min-w-0">
-                                        <p className="chinese-text text-lg font-black text-cyan-700 dark:text-cyan-300">{item.surface}</p>
-                                        <p className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">
-                                            {item.definition_vi || item.definition_en || 'Cần bổ sung nghĩa Việt'} · {item.pinyin}
-                                        </p>
-                                    </div>
-                                    <div className="shrink-0 text-right">
-                                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                            x{item.frequency}
-                                        </p>
-                                        {item.hsk_level && <p className="text-[10px] font-black text-amber-600">HSK {item.hsk_level}</p>}
-                                    </div>
-                                </button>
-                            ))}
-                            {vocabularySuggestions.length === 0 && (
-                                <button
-                                    onClick={handleScanVocabulary}
-                                    disabled={!currentDocument || isScanningVocabulary}
-                                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-cyan-200 bg-cyan-50/50 p-4 text-sm font-black text-cyan-700 hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-cyan-900/50 dark:bg-cyan-950/20 dark:text-cyan-300"
-                                >
-                                    {isScanningVocabulary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                                    Quét từ thông minh
-                                </button>
-                            )}
+                                    <input
+                                        type="text"
+                                        value={chatInput}
+                                        onChange={(e) => setChatInput(e.target.value)}
+                                        placeholder="Hỏi về văn bản này..."
+                                        className="w-full py-3 pl-4 pr-12 text-sm outline-none bg-transparent dark:text-slate-200"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={chatLoading || !chatInput.trim()}
+                                        className="absolute right-2 p-2 bg-[#0d9488] hover:bg-[#0f766e] text-white rounded-xl transition-colors disabled:opacity-50"
+                                    >
+                                        <Send className="w-4 h-4" />
+                                    </button>
+                                </form>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
-                    <div className="rounded-2xl border border-teal-100/60 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5 custom-shadow">
-                        <h2 className="mb-3 font-black text-slate-900 dark:text-slate-100">Annotation gần đây</h2>
-                        <div className="space-y-2">
-                            {annotations.slice(0, 4).map((annotation) => (
-                                <div key={annotation.id} className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/20 p-3">
-                                    <div>
-                                        <p className="chinese-text text-lg font-black text-teal-700 dark:text-teal-400">{annotation.selected_text}</p>
-                                        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate max-w-[200px]">{annotation.explanation_vi || annotation.selected_meaning_vi}</p>
+                    {/* TAB 2: SMART QUIZ */}
+                    {activeTab === 'quiz' && (
+                        <div className="h-full flex flex-col justify-between">
+                            {quizQuestions.length === 0 ? (
+                                <div className="bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 text-center space-y-4 shadow-sm">
+                                    <div className="w-12 h-12 rounded-full bg-teal-50 ml-auto mr-auto flex items-center justify-center text-[#0d9488]">
+                                        <Award className="w-6 h-6 animate-pulse" />
                                     </div>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-550">
-                                        {annotation.hsk_level ? `HSK ${annotation.hsk_level}` : 'Custom'}
-                                    </span>
+                                    <div>
+                                        <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">Tạo trắc nghiệm thông minh</h3>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            Hệ thống sẽ quét bài khóa hiện tại và soạn ngẫu nhiên 5 câu hỏi ngữ pháp, phiên âm, ngữ nghĩa giúp bạn ghi nhớ sâu.
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => {}}
+                                        className="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow shadow-[#0d9488]/10"
+                                    >
+                                        Bắt đầu tạo câu hỏi
+                                    </button>
                                 </div>
-                            ))}
-                            {annotations.length === 0 && (
-                                <p className="rounded-xl bg-slate-50 dark:bg-slate-950/20 p-4 text-sm font-semibold text-slate-500">
-                                    Chưa có ghi chú lưu trữ.
-                                </p>
+                            ) : quizFinished ? (
+                                <div className="bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 text-center space-y-4 shadow-sm">
+                                    <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-500 ml-auto mr-auto flex items-center justify-center text-xl font-black shadow-inner">
+                                        🎉
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-base text-slate-800 dark:text-slate-200">Hoàn thành thử thách!</h3>
+                                        <p className="text-sm font-semibold text-slate-500 mt-1">
+                                            Kết quả: <span className="text-[#0d9488] font-bold">{quizScore} / {quizQuestions.length}</span> câu chính xác
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 space-y-4 shadow-sm">
+                                    <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+                                        <span className="text-[11px] font-bold text-[#0d9488] bg-teal-50 px-2 py-0.5 rounded-full">
+                                            Câu hỏi {currentQuestionIndex + 1} / {quizQuestions.length}
+                                        </span>
+                                        <span className="text-[11px] text-slate-400">Score: {quizScore}</span>
+                                    </div>
+                                    <h4 className="font-bold text-xs md:text-sm text-slate-800 dark:text-slate-200 leading-snug">
+                                        {quizQuestions[currentQuestionIndex]?.question}
+                                    </h4>
+                                    <div className="space-y-2 pt-1">
+                                        {quizQuestions[currentQuestionIndex]?.options.map((option: string, oIdx: number) => (
+                                            <button
+                                                key={oIdx}
+                                                className="w-full text-left p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-xs transition-colors hover:border-[#0d9488]/30 dark:hover:border-[#0d9488]/30 hover:bg-teal-50/50 dark:hover:bg-teal-900/30"
+                                            >
+                                                {option}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             )}
                         </div>
-                    </div>
-                    </div>
-                </div>
-                <div className="flex gap-2 border-t border-[#bbcac6]/25 p-3">
-                    <button className="flex flex-1 flex-col items-center justify-center rounded-lg p-2 text-slate-500 transition-colors hover:bg-[#d4e3ff]/40 hover:text-[#006b5f] dark:text-slate-400 dark:hover:bg-slate-800">
-                        <Bookmark className="mb-1 h-4 w-4" />
-                        <span className="text-[10px] font-black">Saved</span>
-                    </button>
-                    <button className="flex flex-1 flex-col items-center justify-center rounded-lg p-2 text-slate-500 transition-colors hover:bg-[#d4e3ff]/40 hover:text-[#006b5f] dark:text-slate-400 dark:hover:bg-slate-800">
-                        <History className="mb-1 h-4 w-4" />
-                        <span className="text-[10px] font-black">History</span>
-                    </button>
+                    )}
+
+                    {/* TAB 3: DICTIONARY VOCAB */}
+                    {activeTab === 'vocab' && (
+                        <div className="space-y-4">
+                            {!selectedToken && !selectedSurface ? (
+                                <div className="h-[200px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/30">
+                                    <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-sm flex items-center justify-center mb-3">
+                                        <FileText className="w-5 h-5 text-slate-300" />
+                                    </div>
+                                    <p className="text-xs font-medium text-center px-6">
+                                        Bấm chọn một câu hoặc một từ trong tài liệu để hiển thị bảng phân tích ngữ nghĩa chi tiết.
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 break-words">
+                                                    {selectedSurface}
+                                                </h2>
+                                                {quickPinyin && (
+                                                    <p className="text-sm font-semibold text-[#0d9488] mt-1">
+                                                        {quickPinyin}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <button
+                                                onClick={() => speak(selectedSurface)}
+                                                className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-[#0d9488] hover:text-white transition-colors"
+                                            >
+                                                <Volume2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {quickVi && (
+                                                <div className="bg-teal-50/50 dark:bg-teal-950/30 rounded-xl p-3 border border-teal-100/50 dark:border-teal-900/30">
+                                                    <h3 className="text-[10px] font-bold text-teal-600 uppercase tracking-wider mb-1">Nghĩa tiếng Việt</h3>
+                                                    <p className="text-sm text-slate-700 dark:text-slate-300">{quickVi}</p>
+                                                </div>
+                                            )}
+
+                                            {quickEn && (
+                                                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800">
+                                                    <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nghĩa tiếng Anh</h3>
+                                                    <p className="text-sm text-slate-600 dark:text-slate-400">{quickEn}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Google AI Context Layer */}
+                                    <div className="rounded-2xl border border-amber-100 dark:border-amber-900/30 bg-gradient-to-br from-amber-50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10 p-5 shadow-sm">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h3 className="text-[11px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                                                <Sparkles className="w-3.5 h-3.5" />
+                                                Google AI Context
+                                            </h3>
+                                        </div>
+                                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                                            {aiContext?.response?.context_explanation_vi || sourceSentence}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </aside>
+            </div>
         </div>
     )
 }
@@ -1038,10 +943,12 @@ function PdfDocumentViewer({
     sourceUrl,
     onSelection,
     annotations,
+    zoom = 100,
 }: {
     sourceUrl: string
-    onSelection: (selection: PdfSelection) => void
+    onSelection: (selection: PdfSelection | null) => void
     annotations: AnnotationRecord[]
+    zoom?: number
 }) {
     const [pdfDocument, setPdfDocument] = useState<any>(null)
     const [pageNumbers, setPageNumbers] = useState<number[]>([])
@@ -1073,7 +980,10 @@ function PdfDocumentViewer({
     const handleMouseUp = () => {
         const selection = window.getSelection()
         const selectedText = selection?.toString().replace(/\s+/g, '').trim()
-        if (!selection || !selectedText || selection.rangeCount === 0) return
+        if (!selection || !selectedText || selection.rangeCount === 0) {
+            onSelection(null)
+            return
+        }
 
         const range = selection.getRangeAt(0)
         const rangeRect = range.getBoundingClientRect()
@@ -1141,10 +1051,12 @@ function PdfPage({
     pdfDocument,
     pageNumber,
     annotations,
+    zoom = 100,
 }: {
     pdfDocument: any
     pageNumber: number
     annotations: AnnotationRecord[]
+    zoom?: number
 }) {
     const pageRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -1160,8 +1072,8 @@ function PdfPage({
             if (cancelled) return
 
             const baseViewport = page.getViewport({ scale: 1 })
-            const targetWidth = Math.min(760, Math.max(320, window.innerWidth - 380))
-            const scale = targetWidth / baseViewport.width
+            const targetWidth = Math.min(760, Math.max(320, window.innerWidth - 480))
+            const scale = (targetWidth / baseViewport.width) * (zoom / 100)
             const viewport = page.getViewport({ scale })
             setSize({ width: viewport.width, height: viewport.height })
 
@@ -1218,7 +1130,7 @@ function PdfPage({
             cancelled = true
             renderTask?.cancel?.()
         }
-    }, [pdfDocument, pageNumber])
+    }, [pdfDocument, pageNumber, zoom])
 
     return (
         <div

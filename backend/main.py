@@ -185,6 +185,26 @@ class KnownWordRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+class VocabularyItemRecord(Base):
+    __tablename__ = "vocabulary_items"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    word: Mapped[str] = mapped_column(String(128), index=True)
+    translation: Mapped[str] = mapped_column(Text, default="")
+    pinyin: Mapped[str] = mapped_column(String(256), default="")
+    context: Mapped[str] = mapped_column(Text, default="")
+    source_file: Mapped[str] = mapped_column(String(256), default="")
+    source_document_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    hsk_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    domain_tags_json: Mapped[str] = mapped_column(Text, default="[]")
+    topic: Mapped[str] = mapped_column(String(64), default="general")
+    favorite: Mapped[bool] = mapped_column(Boolean, default=False)
+    learned: Mapped[bool] = mapped_column(Boolean, default=False)
+    lookup_count: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
 class UserCorrectionRecord(Base):
     __tablename__ = "user_corrections"
 
@@ -341,7 +361,7 @@ def max_upload_bytes() -> int:
 
 def allowed_upload_extensions() -> set[str]:
     configured = parse_key_list(app_config("ALLOWED_UPLOAD_EXTENSIONS"))
-    extensions = configured or [".pdf", ".txt", ".md", ".docx"]
+    extensions = configured or [".pdf", ".txt", ".md", ".docx", ".png", ".jpg", ".jpeg", ".webp"]
     return {item.lower() if item.startswith(".") else f".{item.lower()}" for item in extensions}
 
 
@@ -856,6 +876,7 @@ def ensure_runtime_schema() -> None:
     with engine.connect() as connection:
         document_columns = {row[1] for row in connection.execute(sql_text("PRAGMA table_info(documents)")).fetchall()}
         dictionary_columns = {row[1] for row in connection.execute(sql_text("PRAGMA table_info(dictionary_entries)")).fetchall()}
+        vocabulary_columns = {row[1] for row in connection.execute(sql_text("PRAGMA table_info(vocabulary_items)")).fetchall()}
     required_document_columns = {
         "original_filename": "VARCHAR(256) DEFAULT ''",
         "stored_filename": "VARCHAR(256) DEFAULT ''",
@@ -868,6 +889,13 @@ def ensure_runtime_schema() -> None:
         "license": "VARCHAR(128) DEFAULT ''",
         "raw_line": "TEXT DEFAULT ''",
     }
+    required_vocabulary_columns = {
+        "source_document_id": "VARCHAR(64) DEFAULT ''",
+        "topic": "VARCHAR(64) DEFAULT 'general'",
+        "favorite": "BOOLEAN DEFAULT 0",
+        "learned": "BOOLEAN DEFAULT 0",
+        "lookup_count": "INTEGER DEFAULT 1",
+    }
     with engine.begin() as connection:
         for column_name, column_type in required_document_columns.items():
             if column_name not in document_columns:
@@ -875,10 +903,16 @@ def ensure_runtime_schema() -> None:
         for column_name, column_type in required_dictionary_columns.items():
             if column_name not in dictionary_columns:
                 connection.execute(sql_text(f"ALTER TABLE dictionary_entries ADD COLUMN {column_name} {column_type}"))
+        if vocabulary_columns:
+            for column_name, column_type in required_vocabulary_columns.items():
+                if column_name not in vocabulary_columns:
+                    connection.execute(sql_text(f"ALTER TABLE vocabulary_items ADD COLUMN {column_name} {column_type}"))
         connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_dictionary_entries_source ON dictionary_entries (source)"))
         connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_pages_document_page ON pages (document_id, page_number)"))
         connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_annotations_document_page ON annotations (document_id, page_number)"))
         connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_review_items_due_at ON review_items (due_at)"))
+        connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_vocabulary_items_word ON vocabulary_items (word)"))
+        connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_vocabulary_items_source_document_id ON vocabulary_items (source_document_id)"))
 
 
 def review_suggestion(selected_text: str, source_sentence: str, translation: str, selected_tokens: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1058,6 +1092,25 @@ class UserCorrectionCreateRequest(BaseModel):
 class KnownWordCreateRequest(BaseModel):
     word: str
     confidence: float = Field(0.5, ge=0, le=1)
+
+
+class VocabularyUpsertRequest(BaseModel):
+    word: str
+    translation: str = ""
+    pinyin: str = ""
+    context: str = ""
+    source_file: str = ""
+    source_document_id: str = ""
+    hsk_level: int | None = None
+    domain_tags: list[str] = Field(default_factory=list)
+    topic: str = "general"
+
+
+class VocabularyPatchRequest(BaseModel):
+    translation: str | None = None
+    topic: str | None = None
+    favorite: bool | None = None
+    learned: bool | None = None
 
 
 class BackupRestoreRequest(BaseModel):
@@ -1886,6 +1939,20 @@ def create_annotation(payload: AnnotationCreateRequest, session: Session = Depen
         domain_tag=payload.domain_tag,
     )
     session.merge(record)
+    document = session.get(DocumentRecord, payload.document_id)
+    upsert_vocabulary_item(
+        VocabularyUpsertRequest(
+            word=payload.selected_text,
+            translation=payload.selected_meaning_vi or payload.explanation_vi or "",
+            pinyin=payload.pinyin or "",
+            context=payload.source_sentence,
+            source_file=document.title if document else payload.document_id,
+            source_document_id=payload.document_id,
+            hsk_level=payload.hsk_level,
+            domain_tags=[payload.domain_tag] if payload.domain_tag else [],
+        ),
+        session,
+    )
     session.commit()
     return {"id": annotation_id, "annotation_id": annotation_id, "status": "saved"}
 
@@ -2057,7 +2124,7 @@ def dashboard_summary(session: Session = Depends(db_session)) -> dict[str, Any]:
     total_reviews = session.scalar(select(func.count(ReviewEventRecord.id))) or 0
     good_reviews = session.scalar(select(func.count(ReviewEventRecord.id)).where(ReviewEventRecord.rating >= 3)) or 0
     due_today = session.scalar(select(func.count(ReviewItemRecord.id)).where(ReviewItemRecord.due_at <= now_utc())) or 0
-    known_words = session.scalar(select(func.count(func.distinct(AnnotationRecord.selected_text)))) or 0
+    known_words = session.scalar(select(func.count(func.distinct(VocabularyItemRecord.word)))) or 0
     return {
         "documents_count": session.scalar(select(func.count(DocumentRecord.id))) or 0,
         "annotations_count": session.scalar(select(func.count(AnnotationRecord.id))) or 0,
@@ -2140,6 +2207,130 @@ def create_user_correction(payload: UserCorrectionCreateRequest, session: Sessio
     session.add(correction)
     session.commit()
     return {"status": "saved", "correction": {"id": correction.id, "original_term": correction.original_term}}
+
+
+def vocabulary_item_to_dict(item: VocabularyItemRecord) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "word": item.word,
+        "translation": item.translation,
+        "pinyin": item.pinyin,
+        "context": item.context,
+        "source_file": item.source_file,
+        "source_document_id": item.source_document_id,
+        "hsk_level": item.hsk_level,
+        "domain_tags": json_loads(item.domain_tags_json, []),
+        "topic": item.topic,
+        "favorite": item.favorite,
+        "learned": item.learned,
+        "lookup_count": item.lookup_count,
+        "created_at": item.created_at.isoformat(),
+        "updated_at": item.updated_at.isoformat(),
+    }
+
+
+def infer_vocabulary_topic(domain_tags: list[str], source_file: str = "") -> str:
+    if domain_tags:
+        primary = domain_tags[0]
+        return {
+            "economics": "Kinh tế",
+            "business": "Kinh tế",
+            "computer_science": "Công nghệ",
+            "education": "Giáo trình",
+            "academic": "Học thuật",
+        }.get(primary, primary)
+    lower_source = source_file.lower()
+    if "hán ngữ" in lower_source or "hsk" in lower_source:
+        return "Giáo trình"
+    return "general"
+
+
+def upsert_vocabulary_item(payload: VocabularyUpsertRequest, session: Session) -> VocabularyItemRecord:
+    word = payload.word.strip()
+    if not word:
+        raise HTTPException(status_code=400, detail="word is required.")
+    existing = session.execute(select(VocabularyItemRecord).where(VocabularyItemRecord.word == word)).scalar_one_or_none()
+    now = now_utc()
+    topic = payload.topic if payload.topic and payload.topic != "general" else infer_vocabulary_topic(payload.domain_tags, payload.source_file)
+    if existing:
+        if payload.translation:
+            existing.translation = payload.translation
+        if payload.pinyin:
+            existing.pinyin = payload.pinyin
+        if payload.context:
+            existing.context = payload.context
+        if payload.source_file:
+            existing.source_file = payload.source_file
+        if payload.source_document_id:
+            existing.source_document_id = payload.source_document_id
+        if payload.hsk_level is not None:
+            existing.hsk_level = payload.hsk_level
+        if payload.domain_tags:
+            existing.domain_tags_json = json_dumps(payload.domain_tags)
+        existing.topic = topic or existing.topic or "general"
+        existing.lookup_count += 1
+        existing.updated_at = now
+        return existing
+
+    item = VocabularyItemRecord(
+        id=make_id("voc"),
+        word=word,
+        translation=payload.translation,
+        pinyin=payload.pinyin,
+        context=payload.context,
+        source_file=payload.source_file,
+        source_document_id=payload.source_document_id,
+        hsk_level=payload.hsk_level,
+        domain_tags_json=json_dumps(payload.domain_tags),
+        topic=topic,
+        lookup_count=1,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(item)
+    return item
+
+
+@app.post("/api/vocabulary/lookup", status_code=201)
+def record_vocabulary_lookup(payload: VocabularyUpsertRequest, session: Session = Depends(db_session)) -> dict[str, Any]:
+    item = upsert_vocabulary_item(payload, session)
+    session.commit()
+    session.refresh(item)
+    return {"status": "saved", "item": vocabulary_item_to_dict(item)}
+
+
+@app.get("/api/vocabulary")
+def list_vocabulary_items(session: Session = Depends(db_session)) -> dict[str, Any]:
+    items = session.execute(select(VocabularyItemRecord).order_by(VocabularyItemRecord.updated_at.desc())).scalars()
+    return {"items": [vocabulary_item_to_dict(item) for item in items]}
+
+
+@app.patch("/api/vocabulary/{item_id}")
+def update_vocabulary_item(item_id: str, payload: VocabularyPatchRequest, session: Session = Depends(db_session)) -> dict[str, Any]:
+    item = session.get(VocabularyItemRecord, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Vocabulary item not found.")
+    if payload.translation is not None:
+        item.translation = payload.translation
+    if payload.topic is not None:
+        item.topic = payload.topic
+    if payload.favorite is not None:
+        item.favorite = payload.favorite
+    if payload.learned is not None:
+        item.learned = payload.learned
+    item.updated_at = now_utc()
+    session.commit()
+    return {"status": "updated", "item": vocabulary_item_to_dict(item)}
+
+
+@app.delete("/api/vocabulary/{item_id}")
+def delete_vocabulary_item(item_id: str, session: Session = Depends(db_session)) -> dict[str, Any]:
+    item = session.get(VocabularyItemRecord, item_id)
+    deleted = bool(item)
+    if item:
+        session.delete(item)
+        session.commit()
+    return {"id": item_id, "deleted": deleted}
 
 
 @app.post("/api/known-words", status_code=201)
@@ -2276,6 +2467,7 @@ def admin_export_data(
     pages = session.execute(select(PageRecord).order_by(PageRecord.document_id, PageRecord.page_number)).scalars()
     review_events = session.execute(select(ReviewEventRecord).order_by(ReviewEventRecord.reviewed_at.desc())).scalars()
     known_words = list_known_words(session)["words"]
+    vocabulary_items = list_vocabulary_items(session)["items"]
     corrections = list_user_corrections(session)["corrections"]
 
     payload: dict[str, Any] = {
@@ -2307,6 +2499,7 @@ def admin_export_data(
             for event in review_events
         ],
         "known_words": known_words,
+        "vocabulary_items": vocabulary_items,
         "user_corrections": corrections,
     }
 
@@ -2336,6 +2529,7 @@ def debug_db_stats(session: Session = Depends(db_session)) -> dict[str, Any]:
         "review_items": session.scalar(select(func.count(ReviewItemRecord.id))) or 0,
         "review_events": session.scalar(select(func.count(ReviewEventRecord.id))) or 0,
         "known_words": session.scalar(select(func.count(KnownWordRecord.id))) or 0,
+        "vocabulary_items": session.scalar(select(func.count(VocabularyItemRecord.id))) or 0,
         "user_corrections": session.scalar(select(func.count(UserCorrectionRecord.id))) or 0,
     }
 
@@ -2349,6 +2543,7 @@ def debug_reset_demo(session: Session = Depends(db_session)) -> dict[str, str]:
         ReviewItemRecord,
         ReviewEventRecord,
         KnownWordRecord,
+        VocabularyItemRecord,
         UserCorrectionRecord,
     ]:
         session.execute(delete(model))
@@ -2410,6 +2605,12 @@ def pinyin_endpoint(payload: TextRequest) -> dict[str, str]:
 
 def extract_file_text(file_name: str, data: bytes) -> str:
     lower_name = file_name.lower()
+    if lower_name.endswith((".png", ".jpg", ".jpeg", ".webp")):
+        try:
+            from ocr_service import ocr_chinese_image_bytes
+            return ocr_chinese_image_bytes(data)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Image OCR failed: {exc}") from exc
     if lower_name.endswith(".pdf"):
         if PdfReader is None:
             raise HTTPException(status_code=500, detail="pypdf is not installed.")
