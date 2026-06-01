@@ -35,7 +35,7 @@ export default function DashboardPage() {
   savedWords.forEach(w => {
     if (w.hskLevel && w.hskLevel > highestHsk) highestHsk = w.hskLevel;
   });
-  const hskLevelText = `HSK ${highestHsk}`;
+  const hskLevelText = highestHsk === 7 ? 'HSK 7–9' : `HSK ${highestHsk}`;
 
   const dueReviews = reviewItems.filter((item) => new Date(item.due_at).getTime() <= Date.now());
 
@@ -139,12 +139,12 @@ export default function DashboardPage() {
       <div className="w-full lg:w-2/3 space-y-8">
 
         {/* Welcome Block + Animated Panda Mascot side-by-side */}
-        <div className="flex flex-col sm:flex-row items-center justify-between bg-gradient-to-tr from-teal-50/60 to-white/40 dark:from-slate-900/60 dark:to-slate-950/30 rounded-3xl p-8 border border-white/60 dark:border-slate-800/40 shadow-xl relative overflow-hidden backdrop-blur-md">
+        <div className="flex flex-col sm:flex-row items-center justify-between bg-gradient-to-tr from-[#f0f9f9]/80 to-white/60 dark:from-slate-900/60 dark:to-slate-950/30 rounded-3xl p-8 border border-white/40 dark:border-slate-800/40 shadow-xl relative overflow-hidden backdrop-blur-md">
           {/* Blurred decorative accent glow */}
-          <div className="absolute top-0 right-0 w-36 h-36 bg-teal-500/10 dark:bg-teal-500/5 rounded-full filter blur-xl" />
+          <div className="absolute top-0 right-0 w-36 h-36 bg-[#006b5f]/5 dark:bg-[#006b5f]/5 rounded-full filter blur-xl" />
 
           <div className="space-y-4 max-w-md text-center sm:text-left">
-            <h1 className="text-3xl md:text-4xl font-display font-black text-[#102a3a] dark:text-slate-100 tracking-tight leading-none">
+            <h1 className="text-3xl md:text-4xl font-display font-black text-[#131b2e] dark:text-slate-100 tracking-tight leading-none">
               Chào mừng quay lại!
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
@@ -160,8 +160,8 @@ export default function DashboardPage() {
 
         {/* Upload documents dasher element */}
         <div className="space-y-4">
-          <h2 className="font-display font-bold text-lg md:text-xl text-slate-800 dark:text-slate-150 tracking-tight flex items-center">
-            <Upload className="w-5 h-5 text-[#0d9488] mr-2 animate-bounce" />
+          <h2 className="font-display font-bold text-lg md:text-xl text-[#006b5f] dark:text-teal-400 tracking-tight flex items-center">
+            <Upload className="w-5 h-5 mr-2 animate-bounce" />
             <span>Tải Tài Liệu Mới</span>
           </h2>
 
@@ -170,9 +170,9 @@ export default function DashboardPage() {
             onDragOver={handleDrag}
             onDragLeave={handleDrag}
             onDrop={handleDrop}
-            className={`group cursor-pointer border-2 border-dashed rounded-3xl p-10 text-center transition-all duration-300 bg-white/60 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800 shadow-xl flex flex-col items-center justify-center relative min-h-[240px] hover:border-teal-400/40 hover:-translate-y-0.5 ${
+            className={`group cursor-pointer border-2 border-dashed rounded-3xl p-10 text-center transition-all duration-300 bg-white/60 dark:bg-slate-900/40 border-teal-200/80 dark:border-slate-800 shadow-xl flex flex-col items-center justify-center relative min-h-[240px] hover:border-[#006b5f]/40 hover:-translate-y-0.5 ${
               dragActive
-                ? 'border-[#14b8a6] bg-teal-50/20 dark:bg-teal-950/20'
+                ? 'border-[#006b5f] bg-[#f0f9f9]/20 dark:bg-teal-950/20'
                 : ''
             }`}
             onClick={() => fileInputRef.current?.click()}
@@ -188,22 +188,22 @@ export default function DashboardPage() {
 
             {isUploading && (
               <div className="absolute inset-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md rounded-[28px] flex flex-col items-center justify-center z-20">
-                <Loader2 className="w-10 h-10 text-[#14b8a6] animate-spin mb-4" />
+                <Loader2 className="w-10 h-10 text-[#006b5f] animate-spin mb-4" />
                 <p className="text-sm font-bold text-slate-600 dark:text-slate-350">Đang xử lý & phân tích tài liệu...</p>
               </div>
             )}
 
-            <div className="p-4 bg-teal-50 dark:bg-teal-950/40 rounded-2xl text-[#0d9488] mb-4 group-hover:scale-110 transition-transform duration-300">
+            <div className="p-4 bg-[#f0f9f9] dark:bg-teal-950/40 rounded-2xl text-[#006b5f] mb-4 group-hover:scale-110 transition-transform duration-300">
               <Upload className="w-6 h-6" />
             </div>
 
             <h3 className="font-display font-bold text-base text-slate-800 dark:text-slate-150 mb-1">Kéo thả tài liệu tiếng Trung</h3>
             <p className="text-xs text-slate-400 dark:text-slate-400 mb-6">Định dạng hỗ trợ: PDF, DOCX, TXT, PNG/JPG/WEBP</p>
 
-            <div className="flex space-x-3 items-center">
+            <div className="flex gap-x-3 items-center">
               <button
                 type="button"
-                className="bg-[#0d9488] hover:bg-teal-600 text-white font-bold text-xs px-6 py-3 rounded-xl transition-all shadow-md shadow-teal-500/10 cursor-pointer active:scale-95 duration-100"
+                className="bg-[#006b5f] hover:bg-[#005048] text-white font-bold text-xs px-6 py-3 rounded-xl transition-all shadow-md shadow-teal-500/10 cursor-pointer active:scale-95 duration-100"
                 onClick={(e) => {
                   e.stopPropagation();
                   fileInputRef.current?.click();
@@ -214,7 +214,7 @@ export default function DashboardPage() {
 
               <button
                 type="button"
-                className="bg-slate-50 dark:bg-slate-950 hover:bg-teal-50/50 dark:hover:bg-slate-800 text-slate-500 hover:text-[#0d9488] dark:text-slate-400 font-bold text-xs px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 transition-all cursor-pointer"
+                className="bg-slate-50 dark:bg-slate-950 hover:bg-[#006b5f]/5 dark:hover:bg-slate-800 text-slate-500 hover:text-[#006b5f] hover:border-[#006b5f]/30 dark:text-slate-400 font-bold text-xs px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 transition-all cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowPasteModal(true);
@@ -239,7 +239,7 @@ export default function DashboardPage() {
       <div className="w-full lg:w-1/3 space-y-8">
 
         {/* HSK Progress Wheel Circle Indicator */}
-        <div className="bg-white/60 dark:bg-slate-900/60 rounded-3xl border border-white/60 dark:border-slate-800/40 shadow-xl p-6 space-y-5 backdrop-blur-md">
+        <div className="bg-white/70 dark:bg-slate-900/70 border border-white/40 dark:border-slate-800/40 rounded-3xl p-6 space-y-5 shadow-lg backdrop-blur-md">
           <h2 className="font-display font-bold text-base md:text-lg text-slate-800 dark:text-slate-150 tracking-tight">
             Tiến Độ Học Tập HSK
           </h2>
@@ -274,8 +274,8 @@ export default function DashboardPage() {
                 {/* Gradation definitions inside SVG */}
                 <defs>
                   <linearGradient id="progress-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#0d9488" />
-                    <stop offset="100%" stopColor="#06b6d4" />
+                    <stop offset="0%" stopColor="#006b5f" />
+                    <stop offset="100%" stopColor="#0060ac" />
                   </linearGradient>
                 </defs>
               </svg>
@@ -292,24 +292,24 @@ export default function DashboardPage() {
                 Mục tiêu học tập hôm nay
               </p>
               <p className="text-[11px] text-slate-400 dark:text-slate-400">
-                Hoàn thành thêm <span className="font-bold text-teal-600 dark:text-teal-400">{Math.max(0, learningProgress.dailyGoal - learningProgress.todayProgress)}</span> từ mới để hoàn thiện 100% mục tiêu!
+                Hoàn thành thêm <span className="font-bold text-[#006b5f] dark:text-teal-400">{Math.max(0, learningProgress.dailyGoal - learningProgress.todayProgress)}</span> từ mới để hoàn thiện 100% mục tiêu!
               </p>
             </div>
           </div>
         </div>
 
         {/* Daily review Deck component */}
-        <div className="bg-gradient-to-b from-teal-50/50 via-white to-cyan-50/10 dark:from-slate-900/40 dark:to-slate-950/20 border border-teal-100/60 dark:border-slate-800/40 rounded-3xl p-8 text-center relative overflow-hidden shadow-xl backdrop-blur-md group hover:border-teal-400/20 duration-300">
+        <div className="bg-gradient-to-br from-[#f0f9f9]/80 via-white/80 to-[#eaedff]/30 dark:from-slate-900/40 dark:to-slate-950/20 border border-[#006b5f]/20 dark:border-slate-800/40 rounded-3xl p-8 text-center relative overflow-hidden shadow-lg backdrop-blur-md group hover:border-[#006b5f]/30 duration-300">
           {/* Accent light aura */}
-          <div className="absolute top-[-50px] left-[-50px] w-24 h-24 bg-teal-400/5 rounded-full filter blur-xl" />
+          <div className="absolute top-[-50px] left-[-50px] w-24 h-24 bg-[#006b5f]/5 rounded-full filter blur-xl" />
 
           {/* Card Graphic */}
           <div className="relative w-16 h-16 mx-auto mb-5 flex items-center justify-center">
             {/* Back stacked cards */}
-            <div className="absolute top-1.5 left-3.5 w-10 h-12 bg-white/50 dark:bg-slate-950/50 border border-teal-100 dark:border-slate-800 rounded-xl transform rotate-12 group-hover:rotate-[16deg] duration-300" />
-            <div className="absolute top-0.5 left-2 w-10 h-12 bg-white/70 dark:bg-slate-950/70 border border-teal-100/40 dark:border-slate-800 rounded-xl transform -rotate-6 group-hover:-rotate-[10deg] duration-300" />
+            <div className="absolute top-1.5 left-3.5 w-10 h-12 bg-white/60 dark:bg-slate-950/60 border border-[#006b5f]/20 dark:border-slate-800 rounded-xl transform rotate-12 group-hover:rotate-[16deg] duration-300" />
+            <div className="absolute top-0.5 left-2 w-10 h-12 bg-white/80 dark:bg-slate-950/85 border border-[#006b5f]/10 dark:border-slate-800 rounded-xl transform -rotate-6 group-hover:-rotate-[10deg] duration-300" />
             {/* Front card */}
-            <div className="relative w-10 h-12 bg-gradient-to-br from-[#0d9488] to-teal-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/25 border border-teal-600/10 transform duration-300 group-hover:scale-105">
+            <div className="relative w-10 h-12 bg-gradient-to-br from-[#006b5f] to-[#0060ac] text-white rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/25 border border-teal-600/10 transform duration-300 group-hover:scale-105">
               <Zap className="w-5 h-5 fill-amber-300 stroke-amber-300 text-amber-300" />
             </div>
           </div>
@@ -324,7 +324,7 @@ export default function DashboardPage() {
           <button
             onClick={handleStartReview}
             disabled={dueReviews.length === 0 && reviewItems.length === 0}
-            className="w-full mt-6 bg-[#0d9488] hover:bg-teal-600 text-white font-extrabold text-xs py-3.5 rounded-2xl shadow-lg shadow-teal-500/15 transition-all cursor-pointer flex items-center justify-center space-x-1.5 disabled:bg-slate-200 dark:disabled:bg-slate-900 disabled:text-slate-400 dark:disabled:text-slate-700 disabled:shadow-none disabled:cursor-not-allowed transform active:scale-95 duration-100"
+            className="w-full mt-6 bg-[#006b5f] hover:bg-[#005048] text-white font-extrabold text-xs py-3.5 rounded-2xl shadow-lg shadow-teal-500/15 transition-all cursor-pointer flex items-center justify-center gap-x-1.5 disabled:bg-slate-200 dark:disabled:bg-slate-900 disabled:text-slate-400 dark:disabled:text-slate-700 disabled:shadow-none disabled:cursor-not-allowed transform active:scale-95 duration-100"
           >
             <span>BẮT ĐẦU ÔN TẬP</span>
           </button>
@@ -350,11 +350,11 @@ export default function DashboardPage() {
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative bg-white/95 dark:bg-slate-900/95 border border-white/60 dark:border-slate-800/60 rounded-3xl w-full max-w-xl p-8 shadow-2xl space-y-5 backdrop-blur-xl"
+              className="relative bg-white/85 dark:bg-slate-900/85 border border-white/40 dark:border-slate-800/40 rounded-3xl w-full max-w-xl p-8 shadow-2xl space-y-5 backdrop-blur-xl"
             >
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <h3 className="font-display font-bold text-slate-800 dark:text-slate-100 text-base flex items-center">
-                  <FileText className="w-5 h-5 text-[#0d9488] mr-2" />
+                  <FileText className="w-5 h-5 text-[#006b5f] mr-2" />
                   <span>Nhập nội dung văn bản mới</span>
                 </h3>
                 <button
@@ -374,7 +374,7 @@ export default function DashboardPage() {
                     placeholder="Ví dụ: Đoạn văn mẫu ôn thi HSK 3"
                     value={pasteTitle}
                     onChange={(e) => setPasteTitle(e.target.value)}
-                    className="w-full text-xs p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-transparent focus:border-[#14b8a6] focus:ring-1 focus:ring-[#14b8a6] focus:outline-none dark:text-slate-100"
+                    className="w-full text-xs p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-transparent focus:border-[#006b5f] focus:ring-1 focus:ring-[#006b5f] focus:outline-none dark:text-slate-100"
                   />
                 </div>
                 <div>
@@ -385,20 +385,20 @@ export default function DashboardPage() {
                     placeholder="Dán nội dung chữ Hán học tập của bạn tại đây..."
                     value={pasteContent}
                     onChange={(e) => setPasteContent(e.target.value)}
-                    className="w-full text-xs p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-transparent focus:border-[#14b8a6] focus:ring-1 focus:ring-[#14b8a6] focus:outline-none custom-scrollbar dark:text-slate-100 leading-relaxed"
+                    className="w-full text-xs p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-transparent focus:border-[#006b5f] focus:ring-1 focus:ring-[#006b5f] focus:outline-none custom-scrollbar dark:text-slate-100 leading-relaxed"
                   />
                 </div>
-                <div className="flex space-x-3 pt-2">
+                <div className="flex gap-x-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setShowPasteModal(false)}
-                    className="flex-1 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl py-3 text-xs font-bold cursor-pointer transition-all border border-slate-200 dark:border-slate-800"
+                    className="flex-1 bg-slate-50 dark:bg-slate-950 hover:bg-[#006b5f]/5 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-xl py-3 text-xs font-bold cursor-pointer transition-all border border-slate-200 dark:border-slate-800"
                   >
                     Bỏ qua
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-[#14b8a6] hover:bg-[#0d9488] text-white rounded-xl py-3 text-xs font-bold cursor-pointer transition-all shadow-md shadow-[#14b8a6]/20"
+                    className="flex-1 bg-[#006b5f] hover:bg-[#005048] text-white rounded-xl py-3 text-xs font-bold cursor-pointer transition-all shadow-md shadow-[#006b5f]/20"
                   >
                     Lưu & Phân tích
                   </button>

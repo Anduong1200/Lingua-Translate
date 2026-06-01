@@ -22,10 +22,10 @@ export default function RecentDocuments({
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-bold text-lg md:text-xl text-slate-800 tracking-tight flex items-center">
-          <Book className="w-5 h-5 text-[#0d9488] mr-2" />
+          <Book className="w-5 h-5 text-[#006b5f] mr-2" />
           <span>Recent Documents</span>
         </h2>
-        <span className="text-xs text-[#0a7a7a] font-medium bg-[#14b8a6]/10 px-2.5 py-1 rounded-full">
+        <span className="text-xs text-[#006b5f] font-semibold bg-[#006b5f]/10 px-2.5 py-1 rounded-full">
           {documents.length} File{documents.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -40,7 +40,7 @@ export default function RecentDocuments({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.1 }}
               whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="bg-white rounded-2xl border border-slate-100 hover:border-[#14b8a6]/20 shadow-md p-4 flex flex-col justify-between relative overflow-hidden group select-none"
+              className="bg-white rounded-2xl border border-slate-100 hover:border-[#006b5f]/20 shadow-md p-4 flex flex-col justify-between relative overflow-hidden group select-none"
             >
               {/* Optional: Delete button */}
               <button
@@ -78,14 +78,14 @@ export default function RecentDocuments({
                   // Spreadsheet or structured document thumbnail (for vocabulary sheets)
                   <div className="w-[85%] h-[85%] bg-white rounded-lg shadow-md border border-slate-100 p-2.5 flex flex-col justify-between">
                     <div className="flex items-center justify-between border-b border-indigo-100 pb-1.5">
-                      <div className="flex space-x-1.5">
+                      <div className="flex gap-x-1.5">
                         <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                         <span className="w-6 h-1.5 rounded bg-slate-200" />
                       </div>
                       <span className="text-[8px] bg-blue-100 text-blue-700 px-1 rounded font-bold">DOC</span>
                     </div>
                     {/* Rows breakdown */}
-                    <div className="space-y-1.5 flex-1 py-2">
+                    <div className="gap-y-1.5 flex-1 py-2">
                       {[1, 2, 3].map((v) => (
                         <div key={v} className="flex justify-between items-center text-[8px]">
                           <span className="w-8 h-1 bg-slate-100 rounded" />
@@ -93,7 +93,7 @@ export default function RecentDocuments({
                         </div>
                       ))}
                     </div>
-                    <div className="text-[8px] text-indigo-400 border-t border-slate-50 pt-1 font-semibold flex items-center space-x-1">
+                    <div className="text-[8px] text-indigo-400 border-t border-slate-50 pt-1 font-semibold flex items-center gap-x-1">
                       <BarChart className="w-3.5 h-3.5 text-blue-500" />
                       <span className="text-[7px]">Vocabulary list details</span>
                     </div>
@@ -132,16 +132,16 @@ export default function RecentDocuments({
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-600 mb-1.5">
                   <div className="w-2/3 bg-slate-100 h-1.5 rounded-full overflow-hidden">
                     <div
-                      className="bg-[#14b8a6] h-full rounded-full"
+                      className="bg-[#006b5f] h-full rounded-full"
                       style={{ width: `${doc.readingProgress || 0}%` }}
                     />
                   </div>
-                  <span className="text-[#0d9488] ml-2 text-xs font-bold">{doc.readingProgress || 0}%</span>
+                  <span className="text-[#006b5f] ml-2 text-xs font-bold">{doc.readingProgress || 0}%</span>
                 </div>
 
                 <button
                   onClick={() => onSelectDocument(doc)}
-                  className="w-full mt-2 bg-[#14b8a6]/5 hover:bg-[#14b8a6] text-[#0d9488] hover:text-white transition-all duration-200 rounded-xl py-2.5 px-4 font-bold text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm hover:shadow-md active:scale-98"
+                  className="w-full mt-2 bg-[#006b5f]/5 hover:bg-[#006b5f] text-[#006b5f] hover:text-white transition-all duration-200 rounded-xl py-2.5 px-4 font-bold text-xs flex items-center justify-center gap-x-1.5 cursor-pointer shadow-sm hover:shadow-md active:scale-98"
                 >
                   <span>Continue Reading</span>
                   <ArrowRight className="w-3.5 h-3.5" />

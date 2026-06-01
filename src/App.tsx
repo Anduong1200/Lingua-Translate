@@ -4,19 +4,18 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Header from '@/components/layout/Header'
 import { useStore } from '@/store/useStore'
 
-const LandingPage = lazy(() => import('@/pages/LandingPage'))
-const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
-const ReaderPage = lazy(() => import('@/pages/ReaderPage'))
-const VocabularyPage = lazy(() => import('@/pages/VocabularyPage'))
-const UploadPage = lazy(() => import('@/pages/UploadPage'))
-const SettingsPage = lazy(() => import('@/pages/SettingsPage'))
-const FlashCardsPage = lazy(() => import('@/pages/FlashCardsPage'))
+const LandingPage = lazy(() => import('@/features/dashboard/LandingPage'))
+const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
+const ReaderPage = lazy(() => import('@/features/reader/ReaderPage'))
+const VocabularyPage = lazy(() => import('@/features/dictionary/VocabularyPage'))
+const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
+const FlashCardsPage = lazy(() => import('@/features/review/FlashCardsPage'))
 
 function RouteFallback() {
     return (
         <div className="flex h-full min-h-[500px] items-center justify-center">
             <div className="flex flex-col items-center gap-5">
-                <div className="h-12 w-12 animate-spin rounded-full border-[3px] border-teal-100 border-t-[#419488]" />
+                <div className="h-12 w-12 animate-spin rounded-full border-[3px] border-teal-100 border-t-[#006b5f]" />
                 <p className="text-base font-semibold text-slate-400">Loading...</p>
             </div>
         </div>
@@ -53,7 +52,7 @@ export default function App() {
     const isLanding = location.pathname === '/';
 
     return (
-        <div className="min-h-screen w-full bg-gradient-to-br from-[#f8fafc] via-[#f0f9f9]/40 to-[#edf8f8] dark:from-[#0b0f19] dark:via-[#090d16] dark:to-[#020617] text-slate-800 dark:text-slate-200 transition-colors selection:bg-[#419488]/20 relative overflow-x-hidden flex flex-col items-center">
+        <div className="min-h-screen w-full bg-gradient-to-br from-[#eef0ff] via-[#d4e3ff]/60 to-[#faf8ff] dark:from-[#0b0f19] dark:via-[#090d16] dark:to-[#020617] text-slate-800 dark:text-slate-200 transition-colors selection:bg-[#006b5f]/20 relative overflow-x-hidden flex flex-col items-center">
 
             {/* Absolute top decorative design spots */}
             <div className="absolute top-[-10%] left-[-10%] w-[45vw] h-[45vw] bg-teal-200/20 dark:bg-teal-500/5 rounded-full filter blur-[120px] pointer-events-none" />
@@ -69,7 +68,6 @@ export default function App() {
                             <Route path="/" element={<PageTransition><LandingPage /></PageTransition>} />
                             <Route path="/dashboard" element={<PageTransition><DashboardPage /></PageTransition>} />
                             <Route path="/reader" element={<PageTransition isReader={isReader}><ReaderPage /></PageTransition>} />
-                            <Route path="/upload" element={<PageTransition><UploadPage /></PageTransition>} />
                             <Route path="/vocabulary" element={<PageTransition><VocabularyPage /></PageTransition>} />
                             <Route path="/flashcards" element={<PageTransition><FlashCardsPage /></PageTransition>} />
                             <Route path="/settings" element={<PageTransition><SettingsPage /></PageTransition>} />

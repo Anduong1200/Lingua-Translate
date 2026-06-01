@@ -7,47 +7,65 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import main as backend_main  # noqa: E402
-from main import (  # noqa: E402
+from fastapi import HTTPException
+from db.config import SessionLocal
+import db.config
+import services.nlp_service
+import routers.admin
+import routers.documents
+import routers.nlp
+from schemas import (
     AIContextRequest,
     AnnotationCreateRequest,
     AutoReviewCreateRequest,
     DocumentCreateRequest,
     ReviewEventCreateRequest,
     ReviewItemCreateRequest,
-    SessionLocal,
     UserCorrectionCreateRequest,
-    admin_backup_database,
-    admin_export_data,
-    ai_context_reading,
-    ai_status,
-    create_annotation,
-    create_document,
-    create_review_event,
-    create_review_item,
-    create_user_correction,
-    debug_reset_demo,
-    delete_document,
-    dictionary_search,
-    due_review_items,
-    health_deep,
-    get_document_file,
-    health,
-    list_known_words,
-    list_documents,
-    nlp_analyze,
     NlpAnalyzeRequest,
+    VocabularyPatchRequest,
+    VocabularyUpsertRequest,
+    KnownWordCreateRequest,
+)
+from routers.admin import (
+    health,
+    health_deep,
+    system_config,
+    admin_backup_database,
+    restore_database_backup,
+    admin_export_data,
+    debug_reset_demo,
+)
+from routers.nlp import (
+    ai_status,
+    ai_context_reading,
+    nlp_analyze,
+)
+from routers.documents import (
+    create_document,
+    delete_document,
+    get_document_file,
+    list_documents,
     scan_document_vocabulary,
     translate_document,
     upload_document,
-    system_config,
     create_document_auto_review_items,
+)
+from routers.dictionary import dictionary_search
+from routers.annotations import create_annotation
+from routers.review import (
+    create_review_item,
+    create_review_event,
+    due_review_items,
+)
+from routers.user import (
+    create_user_correction,
+    list_known_words,
     record_vocabulary_lookup,
     list_vocabulary_items,
     update_vocabulary_item,
     delete_vocabulary_item,
-    VocabularyPatchRequest,
-    VocabularyUpsertRequest,
-    restore_database_backup,
+    create_known_word,
 )
 from starlette.requests import Request
 
@@ -236,7 +254,7 @@ def test_user_correction_takes_priority_in_analyze_and_search(session) -> None:
 
 
 def test_known_words_can_be_marked_and_listed(session) -> None:
-    response = backend_main.create_known_word(backend_main.KnownWordCreateRequest(word="市场需求", confidence=0.9), session)
+    response = create_known_word(KnownWordCreateRequest(word="市场需求", confidence=0.9), session)
     listed = list_known_words(session)
 
     assert response["status"] == "saved"
@@ -365,7 +383,7 @@ def test_delete_document_cleans_dependent_learning_data(session) -> None:
 
 
 def test_document_upload_rejects_unsupported_file_type(session) -> None:
-    with pytest.raises(backend_main.HTTPException) as exc:
+    with pytest.raises(HTTPException) as exc:
         resolve_immediate_coroutine(upload_document(file=UnsupportedUploadFile(), language="zh-CN", session=session))
 
     assert exc.value.status_code == 415
@@ -373,14 +391,15 @@ def test_document_upload_rejects_unsupported_file_type(session) -> None:
 
 def test_document_upload_enforces_size_limit(session, monkeypatch) -> None:
     monkeypatch.setenv("MAX_UPLOAD_BYTES", "1048576")
-    with pytest.raises(backend_main.HTTPException) as exc:
+    with pytest.raises(HTTPException) as exc:
         resolve_immediate_coroutine(upload_document(file=LargeUploadFile(), language="zh-CN", session=session))
 
     assert exc.value.status_code == 413
 
 
 def test_admin_backup_and_export_are_sanitized(session, monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(backend_main, "BACKUP_DIR", tmp_path)
+    monkeypatch.setattr(db.config, "BACKUP_DIR", tmp_path)
+    monkeypatch.setattr(routers.admin, "BACKUP_DIR", tmp_path)
     document = create_document(DocumentCreateRequest(title="Demo", file_name="demo.pdf", source_type="pdf", language="zh-CN"), session)
     create_annotation(
         AnnotationCreateRequest(
@@ -393,7 +412,6 @@ def test_admin_backup_and_export_are_sanitized(session, monkeypatch, tmp_path) -
 
     backup = admin_backup_database()
     exported = admin_export_data(session=session)
-
     assert backup["status"] == "created"
     assert Path(backup["path"]).exists()
     assert Path(backup["path"]).is_relative_to(tmp_path)
@@ -403,7 +421,8 @@ def test_admin_backup_and_export_are_sanitized(session, monkeypatch, tmp_path) -
 
 
 def test_admin_restore_replaces_database_from_safe_backup(session, monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(backend_main, "BACKUP_DIR", tmp_path)
+    monkeypatch.setattr(db.config, "BACKUP_DIR", tmp_path)
+    monkeypatch.setattr(routers.admin, "BACKUP_DIR", tmp_path)
     document = create_document(DocumentCreateRequest(title="Restore Demo", file_name="restore.pdf", source_type="pdf"), session)
     backup = admin_backup_database()
     debug_reset_demo(session)
@@ -419,11 +438,13 @@ def test_admin_restore_replaces_database_from_safe_backup(session, monkeypatch, 
 
 def test_upload_rate_limit_returns_429(session, monkeypatch) -> None:
     monkeypatch.setenv("UPLOAD_RATE_LIMIT_PER_MINUTE", "1")
-    monkeypatch.setattr(backend_main, "rate_limiter", backend_main.InMemoryRateLimiter())
+    new_limiter = db.config.InMemoryRateLimiter()
+    monkeypatch.setattr(db.config, "rate_limiter", new_limiter)
+    monkeypatch.setattr(routers.documents, "rate_limiter", new_limiter)
     request = make_request("rate-limit-upload")
 
     resolve_immediate_coroutine(upload_document(file=DummyUploadFile(), language="zh-CN", session=session, request=request))
-    with pytest.raises(backend_main.HTTPException) as exc:
+    with pytest.raises(HTTPException) as exc:
         resolve_immediate_coroutine(upload_document(file=DummyUploadFile(), language="zh-CN", session=session, request=request))
 
     assert exc.value.status_code == 429
@@ -431,13 +452,15 @@ def test_upload_rate_limit_returns_429(session, monkeypatch) -> None:
 
 def test_ai_rate_limit_returns_429(session, monkeypatch) -> None:
     monkeypatch.setenv("AI_RATE_LIMIT_PER_MINUTE", "1")
-    monkeypatch.setattr(backend_main, "load_google_api_keys", lambda: [])
-    monkeypatch.setattr(backend_main, "rate_limiter", backend_main.InMemoryRateLimiter())
+    monkeypatch.setattr(services.nlp_service, "load_google_api_keys", lambda: [])
+    new_limiter = db.config.InMemoryRateLimiter()
+    monkeypatch.setattr(db.config, "rate_limiter", new_limiter)
+    monkeypatch.setattr(routers.nlp, "rate_limiter", new_limiter)
     request = make_request("rate-limit-ai")
     payload = AIContextRequest(selected_text="市场需求")
 
     first = ai_context_reading(payload, session, request)
-    with pytest.raises(backend_main.HTTPException) as exc:
+    with pytest.raises(HTTPException) as exc:
         ai_context_reading(payload, session, request)
 
     assert first["ai"]["status"] == "missing_api_key"
@@ -445,8 +468,8 @@ def test_ai_rate_limit_returns_429(session, monkeypatch) -> None:
 
 
 def test_google_ai_context_uses_rotating_keys_without_exposing_secret(session, monkeypatch) -> None:
-    monkeypatch.setattr(backend_main, "load_google_api_keys", lambda: ["key-one", "key-two"])
-    backend_main.google_key_pool._index = 0
+    monkeypatch.setattr(services.nlp_service, "load_google_api_keys", lambda: ["key-one", "key-two"])
+    services.nlp_service.google_key_pool._index = 0
     used_keys: list[str] = []
 
     def fake_post_google_generate_content(api_key: str, model: str, prompt: str, temperature: float) -> dict[str, Any]:
@@ -473,7 +496,7 @@ def test_google_ai_context_uses_rotating_keys_without_exposing_secret(session, m
             "usageMetadata": {"totalTokenCount": 12},
         }
 
-    monkeypatch.setattr(backend_main, "post_google_generate_content", fake_post_google_generate_content)
+    monkeypatch.setattr(services.nlp_service, "post_google_generate_content", fake_post_google_generate_content)
 
     payload = AIContextRequest(
         selected_text="市场需求下降",
@@ -489,7 +512,7 @@ def test_google_ai_context_uses_rotating_keys_without_exposing_secret(session, m
     assert used_keys == ["key-one", "key-two"]
     assert first["ai"]["status"] == "ok"
     assert first["ai"]["response"]["natural_vi"] == "nhu cầu thị trường giảm"
-    assert first["ai"]["key_fingerprint"] == backend_main.secret_fingerprint("key-one")
+    assert first["ai"]["key_fingerprint"] == services.nlp_service.secret_fingerprint("key-one")
     assert "key-one" not in str(first)
     assert "key-two" not in str(second)
 

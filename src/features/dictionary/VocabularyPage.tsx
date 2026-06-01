@@ -40,10 +40,10 @@ export default function VocabularyPage() {
     return (
         <div className="flex min-h-full flex-col gap-6 pb-8 transition-colors duration-300">
             {/* Page Header */}
-            <section className="glass border border-white/60 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-6 custom-shadow rounded-[2rem] backdrop-blur-md">
+            <section className="glass-card border border-white/40 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-6 shadow-lg rounded-[2rem] backdrop-blur-md">
                 <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
                     <div className="flex items-start gap-4">
-                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0d9488] to-teal-500 text-white shadow-lg shadow-teal-500/20">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#006b5f] to-[#0060ac] text-white shadow-lg shadow-teal-500/20">
                             <BookMarked className="h-6 w-6" />
                         </div>
                         <div>
@@ -56,7 +56,7 @@ export default function VocabularyPage() {
 
                     {/* Header stats metrics */}
                     <div className="grid grid-cols-3 gap-4 text-center">
-                        <div className="rounded-2xl border border-teal-100/50 dark:border-slate-800 bg-white dark:bg-slate-950 px-5 py-3 shadow-md">
+                        <div className="rounded-2xl border border-[#006b5f]/15 dark:border-slate-800 bg-white dark:bg-slate-950 px-5 py-3 shadow-md">
                             <p className="text-2xl font-display font-black text-slate-900 dark:text-slate-100">{savedWords.length}</p>
                             <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">TỔNG SỐ TỪ</p>
                         </div>
@@ -75,8 +75,8 @@ export default function VocabularyPage() {
             {/* Main Content Grid */}
             <section className="grid gap-6 xl:grid-cols-[1.5fr_0.9fr]">
                 {/* Left Column: Word Table container */}
-                <div className="custom-shadow overflow-hidden rounded-[2rem] border border-teal-100/40 dark:border-slate-800/40 bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl">
-                    <div className="flex flex-col justify-between gap-4 border-b border-teal-100/40 dark:border-slate-800 bg-teal-50/20 dark:bg-slate-950/20 p-5 md:flex-row md:items-center">
+                <div className="glass-card overflow-hidden rounded-[2rem] border border-white/40 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 shadow-lg">
+                    <div className="flex flex-col justify-between gap-4 border-b border-slate-150/40 dark:border-slate-800 bg-[#006b5f]/5 dark:bg-slate-950/20 p-5 md:flex-row md:items-center">
                         <div className="flex flex-wrap gap-2">
                             {(['all', 'due', 'learned', 'favorite'] as const).map((item) => (
                                 <button
@@ -84,8 +84,8 @@ export default function VocabularyPage() {
                                     onClick={() => setFilter(item)}
                                     className={`rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                                         filter === item
-                                            ? 'bg-[#0d9488] text-white shadow-lg shadow-teal-500/10'
-                                            : 'border border-teal-100/50 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 hover:bg-teal-50 dark:hover:bg-slate-900'
+                                            ? 'bg-[#006b5f] text-white shadow-lg shadow-[#006b5f]/25'
+                                             : 'border border-[#006b5f]/15 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 hover:bg-[#006b5f]/5 hover:text-[#006b5f]'
                                     }`}
                                 >
                                     {item === 'all' ? 'Tất cả' : item === 'due' ? 'Chưa thuộc' : item === 'learned' ? 'Đã thuộc' : 'Yêu thích'}
@@ -98,14 +98,14 @@ export default function VocabularyPage() {
                                 value={search}
                                 onChange={(event) => setSearch(event.target.value)}
                                 placeholder="Tìm kiếm từ vựng, pinyin, Việt..."
-                                className="w-full rounded-xl border border-teal-100/60 dark:border-slate-800 bg-white dark:bg-slate-950 py-3 pl-11 pr-4 text-xs font-semibold outline-none focus:border-teal-400 dark:focus:border-slate-700 text-slate-800 dark:text-slate-200"
+                                className="w-full rounded-xl border border-[#006b5f]/15 dark:border-slate-800 bg-white dark:bg-slate-950 py-3 pl-11 pr-4 text-xs font-semibold outline-none focus:border-[#006b5f] focus:ring-1 focus:ring-[#006b5f] text-slate-800 dark:text-slate-200"
                             />
                         </div>
                     </div>
 
                     <div className="overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left text-sm">
-                            <thead className="border-b border-teal-100/30 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                            <thead className="border-b border-slate-150/40 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
                                 <tr>
                                     <th className="px-6 py-4">Từ vựng (Hanzi)</th>
                                     <th className="px-6 py-4">Pinyin</th>
@@ -115,12 +115,12 @@ export default function VocabularyPage() {
                                     <th className="px-6 py-4 text-right">Tương tác</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-teal-50/30 dark:divide-slate-800/40">
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40">
                                 {filteredWords.map((word) => (
-                                    <tr key={word.id} className="group transition-colors hover:bg-teal-50/15 dark:hover:bg-slate-800/10">
+                                    <tr key={word.id} className="group transition-colors hover:bg-[#006b5f]/5 dark:hover:bg-slate-800/10">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <span className="chinese-text text-2xl font-black text-teal-700 dark:text-teal-400">{word.word}</span>
+                                                <span className="chinese-text text-2xl font-black text-[#006b5f] dark:text-[#006b5f]/90">{word.word}</span>
                                                 {word.isFavorite && <Star className="h-4 w-4 fill-amber-400 text-amber-400" />}
                                                 {word.learned && (
                                                     <span className="rounded-full bg-emerald-100 dark:bg-emerald-950/40 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 border border-emerald-200/20">
@@ -135,7 +135,7 @@ export default function VocabularyPage() {
                                             {word.context && <p className="mt-1 line-clamp-2 text-[10px] font-semibold text-slate-400 dark:text-slate-500 italic">"{word.context}"</p>}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="inline-flex items-center gap-1 rounded-lg border border-teal-100/40 dark:border-teal-900/30 bg-teal-50/40 dark:bg-teal-950/20 px-2.5 py-1 text-[10px] font-bold text-teal-700 dark:text-teal-400">
+                                            <span className="inline-flex items-center gap-1 rounded-lg border border-[#006b5f]/15 dark:border-slate-800 bg-[#006b5f]/5 dark:bg-[#006b5f]/10 px-2.5 py-1 text-[10px] font-bold text-[#006b5f] dark:text-[#006b5f]/90">
                                                 <FileText className="h-3 w-3" />
                                                 {word.sourceFile || word.topic || 'Tra cứu rời'}
                                             </span>
@@ -149,8 +149,7 @@ export default function VocabularyPage() {
                                                             : word.hskLevel <= 4
                                                                 ? 'bg-amber-50 text-amber-700 border-amber-100/50 dark:bg-amber-950/30 dark:text-amber-450 dark:border-amber-900/30'
                                                                 : 'bg-red-50 text-red-700 border-red-100/50 dark:bg-red-950/30 dark:text-red-450 dark:border-red-900/30'
-                                                    }`}>
-                                                        HSK {word.hskLevel}
+                                                    }`}>                                                        {word.hskLevel === 7 ? 'HSK 7–9' : 'HSK ' + word.hskLevel}
                                                     </span>
                                                 )}
                                                 {word.domainTags?.slice(0, 2).map((tag) => (
@@ -164,7 +163,7 @@ export default function VocabularyPage() {
                                             <div className="flex justify-end gap-2">
                                                 <button
                                                     onClick={() => speak(word.word)}
-                                                    className="rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 text-slate-500 dark:text-slate-400 hover:border-teal-400 hover:text-[#0d9488] dark:hover:bg-slate-800 active:scale-95 duration-100 cursor-pointer"
+                                                    className="rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 text-slate-500 dark:text-slate-400 hover:border-[#006b5f] hover:text-[#006b5f] dark:hover:bg-slate-800 active:scale-95 duration-100 cursor-pointer"
                                                     title="Nghe phát âm"
                                                 >
                                                     <Volume2 className="h-4 w-4" />
@@ -217,7 +216,7 @@ export default function VocabularyPage() {
 
                 {/* Right Column: User Corrections & Known Words */}
                 <aside className="flex flex-col gap-6">
-                    <div className="custom-shadow rounded-[2rem] border border-amber-100/40 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-6 backdrop-blur-xl">
+                    <div className="glass-card rounded-[2rem] border border-white/40 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-6 shadow-lg">
                         <div className="mb-5 flex items-center justify-between">
                             <div>
                                 <h2 className="font-display font-bold text-slate-900 dark:text-slate-100">Kho cá nhân theo chủ đề</h2>
@@ -241,19 +240,19 @@ export default function VocabularyPage() {
                     </div>
 
                     {/* Corrections Card */}
-                    <div className="custom-shadow rounded-[2rem] border border-teal-100/40 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-6 backdrop-blur-xl">
+                    <div className="glass-card rounded-[2rem] border border-white/40 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-6 shadow-lg">
                         <div className="mb-5 flex items-center justify-between">
                             <div>
                                 <h2 className="font-display font-bold text-slate-900 dark:text-slate-100">Hiệu đính bản dịch</h2>
                                 <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1">Các điều chỉnh nghĩa tiếng Việt ưu tiên do bạn tùy biến.</p>
                             </div>
-                            <PencilLine className="h-5 w-5 text-teal-700 dark:text-teal-400" />
+                            <PencilLine className="h-5 w-5 text-[#006b5f] dark:text-[#006b5f]/90" />
                         </div>
                         <div className="space-y-4">
                             {userCorrections.map((correction) => (
                                 <div key={correction.id} className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-950/50 p-4 shadow-sm relative overflow-hidden group">
                                     <div className="flex items-center justify-between gap-2">
-                                        <p className="chinese-text text-xl font-black text-teal-700 dark:text-teal-400">{correction.original_term}</p>
+                                        <p className="chinese-text text-xl font-black text-[#006b5f] dark:text-[#006b5f]/90">{correction.original_term}</p>
                                         <span className="rounded-lg bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-100/50 px-2 py-0.5 text-[9px] font-black text-cyan-700 dark:text-cyan-400">
                                             {correction.domain}
                                         </span>
@@ -271,7 +270,7 @@ export default function VocabularyPage() {
                     </div>
 
                     {/* Known Words Card */}
-                    <div className="custom-shadow rounded-[2rem] border border-emerald-100/40 dark:border-slate-800 bg-white/70 dark:bg-slate-900/40 p-6 backdrop-blur-xl">
+                    <div className="glass-card rounded-[2rem] border border-white/40 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-6 shadow-lg">
                         <div className="mb-5">
                             <h2 className="font-display font-bold text-slate-900 dark:text-slate-100">Các từ đã biết (Known)</h2>
                             <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1">Hệ thống sẽ tự động lọc bớt phiên âm pinyin cho các từ đã thuộc này.</p>

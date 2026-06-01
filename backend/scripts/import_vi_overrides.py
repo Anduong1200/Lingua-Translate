@@ -7,7 +7,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from main import DictionaryEntryRecord, SessionLocal, configure_jieba, json_dumps, pinyin_display, pinyin_numbered
+from models import DictionaryEntryRecord
+from db.config import SessionLocal, json_dumps, pinyin_display, pinyin_numbered
+from services.nlp_service import configure_jieba
 
 
 def import_vi_overrides(path: Path) -> int:

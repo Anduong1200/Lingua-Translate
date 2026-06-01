@@ -7,7 +7,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from main import DictionaryEntryRecord, SessionLocal, debug_db_stats
+from models import DictionaryEntryRecord
+from db.config import SessionLocal
+from routers.admin import debug_db_stats
 from scripts.import_cc_cedict import import_cc_cedict
 from scripts.import_hsk_vocab import import_hsk
 

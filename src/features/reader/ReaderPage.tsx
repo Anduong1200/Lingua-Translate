@@ -274,21 +274,49 @@ export default function ReaderPage() {
     }
 
     const handleSave = async () => {
-        if (!selectedToken || !selectedSentence) return
-        const tokenToSave: ChineseToken = {
-            ...selectedToken,
-            surface: selectedSurface || selectedToken.surface,
-            pinyin: quickPinyin || selectedToken.pinyin,
+        if (!selectedToken && !pdfSelection) return
+
+        let tokenToSave: ChineseToken
+        let sentenceText = ''
+
+        if (selectedToken) {
+            tokenToSave = {
+                ...selectedToken,
+                surface: selectedSurface || selectedToken.surface,
+                pinyin: quickPinyin || selectedToken.pinyin,
+            }
+            sentenceText = selectedSentence?.text || ''
+        } else if (pdfSelection) {
+            const surface = selectedSurface || pdfSelection.selectedText
+            tokenToSave = {
+                surface,
+                pinyin: quickPinyin || activeAnalysis?.quick_meaning?.pinyin || '',
+                definitions_vi: activeAnalysis?.quick_meaning?.definitions_vi || [],
+                definitions_en: activeAnalysis?.quick_meaning?.definitions_en || [],
+                hsk_level: activeAnalysis?.quick_meaning?.hsk_level || null,
+                domain_tags: activeAnalysis?.quick_meaning?.domain_tags || [],
+                confidence: activeAnalysis?.quick_meaning?.confidence || 0.5,
+                normalized: surface,
+                definitions: [],
+            }
+            sentenceText = pdfSelection.sourceSentence
+        } else {
+            return
         }
+
+        const sentenceId = activeSentenceIndex !== undefined && activeSentenceIndex >= 0
+            ? `${currentDocument?.id || 'doc'}-${activeSentenceIndex + 1}`
+            : `${currentDocument?.id || 'doc'}-pdf-${pdfSelection?.pageNumber || 1}-${Date.now()}`
+
         const annotation = await saveChineseAnnotation({
             token: tokenToSave,
-            sentenceText: selectedSentence.text,
+            sentenceText: sentenceText,
             note,
             documentId: currentDocument?.id,
             pageId: 'page-1',
-            pageNumber: pdfSelection?.pageNumber,
+            pageNumber: pdfSelection?.pageNumber || 1,
             bboxJson: pdfSelection?.bboxJson,
-            sentenceId: `${currentDocument?.id || 'doc'}-${activeSentenceIndex + 1}`,
+            sentenceId: sentenceId,
         })
         setSavedNotice(`Đã lưu annotation ${annotation.selected_text}`)
     }
@@ -502,20 +530,20 @@ export default function ReaderPage() {
     const domainTags = quickMeaning?.domain_tags?.length ? quickMeaning.domain_tags : selectedToken?.domain_tags || []
 
     return (
-        <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-br from-[#f8fafc] via-[#f0f9f9]/20 to-[#edf8f8] dark:from-[#0b0f19] dark:via-[#090d16] dark:to-[#020617] text-slate-800 dark:text-slate-200 transition-colors selection:bg-[#419488]/20 relative">
+        <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-br from-[#f8fafc] via-[#f0f9f9]/20 to-[#edf8f8] dark:from-[#0b0f19] dark:via-[#090d16] dark:to-[#020617] text-slate-800 dark:text-slate-200 transition-colors selection:bg-[#006b5f]/20 relative">
             {/* Custom Reader TopBar matching premium aesthetics */}
             <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/50 dark:border-slate-800/40 bg-white/70 dark:bg-slate-900/60 px-6 backdrop-blur-xl z-20">
                 <div className="flex items-center gap-8">
                     <Link to="/" className="flex items-center gap-2 hover:opacity-85 transition-all group">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#0d9488] to-teal-500 text-white shadow-md shadow-teal-500/20 group-hover:scale-105 duration-200">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#006b5f] to-[#0060ac] text-white shadow-md shadow-[#006b5f]/25 group-hover:scale-105 duration-200">
                             <span className="font-display font-black text-lg leading-none">H</span>
                         </div>
                         <span className="text-xl font-display font-black text-[#102a3a] dark:text-slate-100 tracking-tight ml-1">Hanora NLP</span>
                     </Link>
                     <nav className="hidden items-center gap-6 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 md:flex">
-                        <Link to="/upload" className="hover:text-[#419488] dark:hover:text-teal-400 transition-colors">Documents</Link>
-                        <Link to="/vocabulary" className="hover:text-[#419488] dark:hover:text-teal-400 transition-colors">Library</Link>
-                        <Link to="/flashcards" className="hover:text-[#419488] dark:hover:text-teal-400 transition-colors">Study Hub</Link>
+                        <Link to="/dashboard" className="hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors">Documents</Link>
+                        <Link to="/vocabulary" className="hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors">Library</Link>
+                        <Link to="/flashcards" className="hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors">Study Hub</Link>
                     </nav>
                 </div>
 
@@ -535,7 +563,7 @@ export default function ReaderPage() {
                     <Link to="/settings" className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-250 transition-all border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800">
                         <Settings className="h-5 w-5" />
                     </Link>
-                    <Link to="/dashboard" className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-950/40 text-[#0d9488] dark:text-teal-400 font-black text-xs hover:bg-[#eefaf6] dark:hover:bg-teal-950 transition-all border border-teal-100/40 dark:border-teal-900/40">
+                    <Link to="/dashboard" className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#006b5f]/10 dark:bg-[#006b5f]/20 text-[#006b5f] dark:text-teal-400 font-black text-xs hover:bg-[#006b5f]/15 dark:hover:bg-teal-950 transition-all border border-[#006b5f]/20 dark:border-[#006b5f]/40">
                         TL
                     </Link>
                 </div>
@@ -546,7 +574,7 @@ export default function ReaderPage() {
                 <div className="m-4 flex flex-col gap-3 rounded-full border border-white/60 bg-white/70 px-4 py-2 shadow-sm backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/70 lg:flex-row lg:items-center lg:justify-between hidden">
                     {/* Hide old floating bar since we moved items to top bar or they are redundant */}
                     <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#14b8a6]/15 text-[#006b5f]">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#006b5f]/15 text-[#006b5f]">
                             <BookOpen className="h-5 w-5" />
                         </div>
                         <div className="min-w-0">
@@ -561,9 +589,9 @@ export default function ReaderPage() {
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
                         <div className="hidden items-center gap-2 rounded-full border border-white/60 bg-white/65 px-3 py-2 text-xs font-black text-slate-600 backdrop-blur md:flex dark:border-slate-800 dark:bg-slate-900/65 dark:text-slate-300">
-                            <button onClick={handleZoomOut}><Minus className="h-3.5 w-3.5 text-slate-400 hover:text-teal-500 transition-colors" /></button>
+                            <button onClick={handleZoomOut}><Minus className="h-3.5 w-3.5 text-slate-400 hover:text-[#006b5f] transition-colors" /></button>
                             <span>{pdfZoom}%</span>
-                            <button onClick={handleZoomIn}><Plus className="h-3.5 w-3.5 text-slate-400 hover:text-teal-500 transition-colors" /></button>
+                            <button onClick={handleZoomIn}><Plus className="h-3.5 w-3.5 text-slate-400 hover:text-[#006b5f] transition-colors" /></button>
                         </div>
                         <div className="relative">
                             <button
@@ -574,7 +602,7 @@ export default function ReaderPage() {
                                 <Type className="h-4 w-4" />
                             </button>
                             {showFontSizeMenu && (
-                                <div className="absolute right-0 mt-2 z-50 w-36 rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 shadow-xl">
+                                <div className="absolute right-0 mt-2 z-50 w-36 rounded-xl border border-[#006b5f]/15 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 shadow-xl">
                                     <p className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Cỡ chữ đầu đọc</p>
                                     {(['small', 'medium', 'large'] as const).map((sz) => (
                                         <button
@@ -585,7 +613,7 @@ export default function ReaderPage() {
                                             }}
                                             className={`block w-full text-left rounded-lg px-2.5 py-2 text-xs font-black capitalize ${
                                                 settings.fontSize === sz
-                                                    ? 'bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-400'
+                                                    ? 'bg-[#006b5f]/10 text-[#006b5f] dark:bg-[#006b5f]/20 dark:text-[#006b5f]/90'
                                                     : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                                             }`}
                                         >
@@ -609,7 +637,7 @@ export default function ReaderPage() {
                         <button
                             onClick={handleScanVocabulary}
                             disabled={!currentDocument || isScanningVocabulary}
-                            className="flex h-9 items-center gap-1.5 rounded-lg border border-white/60 bg-white/75 px-3 text-xs font-black text-[#006b5f] transition-all hover:bg-[#71f8e4]/25 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-teal-300 dark:hover:bg-slate-800"
+                            className="flex h-9 items-center gap-1.5 rounded-lg border border-white/60 bg-white/75 px-3 text-xs font-black text-[#006b5f] transition-all hover:bg-[#006b5f]/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-teal-300 dark:hover:bg-slate-800"
                             title="Tra từ thông minh trong tài liệu"
                         >
                             {isScanningVocabulary ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -631,8 +659,8 @@ export default function ReaderPage() {
                                 onClick={toggleSideBySide}
                                 className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-black transition-all ${
                                     isSideBySide
-                                        ? 'border-[#14b8a6] bg-[#14b8a6]/15 text-[#006b5f] dark:border-teal-800 dark:bg-teal-950/45 dark:text-teal-400'
-                                        : 'border-white/60 bg-white/75 text-slate-500 hover:bg-[#71f8e4]/20 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'border-[#006b5f] bg-[#006b5f]/15 text-[#006b5f] dark:border-teal-800 dark:bg-[#006b5f]/25 dark:text-teal-400'
+                                        : 'border-white/60 bg-white/75 text-slate-500 hover:bg-[#006b5f]/10 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800'
                                 }`}
                                 title="Xem bản dịch song song"
                             >
@@ -647,7 +675,7 @@ export default function ReaderPage() {
                                 const doc = documents.find((item) => item.id === event.target.value) ?? null
                                 setCurrentDocument(doc)
                             }}
-                            className="max-w-[180px] rounded-lg border border-white/60 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition-all focus:border-[#14b8a6] dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:focus:border-slate-700"
+                            className="max-w-[180px] rounded-lg border border-white/60 bg-white/80 px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition-all focus:border-[#006b5f] dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:focus:border-slate-700"
                         >
                             {documents.map((doc) => (
                                 <option key={doc.id} value={doc.id}>
@@ -738,7 +766,7 @@ export default function ReaderPage() {
                             zoom={pdfZoom}
                         />
                     ) : (
-                        <article className="relative mx-auto min-h-[1000px] w-full max-w-[800px] rounded-lg border border-[#bbcac6]/30 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/70 md:p-12">
+                        <article className="relative mx-auto min-h-[1000px] w-full max-w-[800px] rounded-3xl border border-white/40 bg-white/70 dark:border-slate-800/80 dark:bg-slate-900/70 p-8 shadow-xl backdrop-blur-xl md:p-12 glass-card">
                             {isSideBySide ? (
                                 <div className="space-y-6">
                                     {sentences.map((sentence, sentenceIndex) => {
@@ -751,7 +779,7 @@ export default function ReaderPage() {
                                                 key={`sbs-${sentence.text}-${sentenceIndex}`}
                                                 className={`grid grid-cols-1 md:grid-cols-2 gap-5 p-4 rounded-2xl border transition-all ${
                                                     active
-                                                        ? 'border-[#14b8a6] bg-[#14b8a6]/10 shadow-sm dark:border-teal-800 dark:bg-teal-950/20'
+                                                        ? 'border-[#006b5f] bg-[#006b5f]/10 shadow-sm dark:border-teal-800 dark:bg-[#006b5f]/20'
                                                         : 'border-transparent hover:border-[#bbcac6]/40 hover:bg-[#f2f3ff]/60 dark:hover:border-slate-800 dark:hover:bg-slate-900/30'
                                                 }`}
                                             >
@@ -775,8 +803,8 @@ export default function ReaderPage() {
                                                                         selectable
                                                                             ? `cursor-pointer rounded px-0.5 transition-colors ${
                                                                                  tokenActive
-                                                                                      ? 'bg-[#14b8a6]/20 text-[#00423b] ring-2 ring-[#14b8a6] dark:bg-teal-800 dark:text-teal-50 dark:ring-teal-700'
-                                                                                      : 'hover:bg-[#14b8a6]/15 hover:text-[#00423b] dark:hover:bg-teal-900/60 dark:hover:text-teal-200'
+                                                                                      ? 'bg-[#006b5f]/20 text-[#00423b] ring-2 ring-[#006b5f] dark:bg-[#006b5f]/30 dark:text-teal-50 dark:ring-teal-700'
+                                                                                      : 'hover:bg-[#006b5f]/15 hover:text-[#00423b] dark:hover:bg-[#006b5f]/25 dark:hover:text-teal-200'
                                                                               }`
                                                                             : 'text-slate-500 dark:text-slate-400'
                                                                     }
@@ -794,10 +822,10 @@ export default function ReaderPage() {
                                                 >
                                                     {active ? (
                                                         <div className="space-y-1.5 animate-fadeIn">
-                                                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-black uppercase text-teal-700 dark:text-teal-400">
+                                                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-black uppercase text-[#006b5f] dark:text-teal-400">
                                                                 <span>Bản dịch chi tiết</span>
                                                             </div>
-                                                            <p className="text-sm font-black text-teal-800 dark:text-teal-300 leading-relaxed">
+                                                            <p className="text-sm font-black text-[#006b5f] dark:text-teal-300 leading-relaxed">
                                                                 {naturalTranslation || sentenceNaturalTranslation}
                                                             </p>
                                                             {(literalTranslation || sentenceLiteralTranslation) && (
@@ -826,7 +854,7 @@ export default function ReaderPage() {
                                                 onClick={(e) => handleSentenceClick(sentence, e)}
                                                 className={`block w-full rounded-2xl border p-5 text-left transition-all ${
                                                     active
-                                                        ? 'border-[#14b8a6] bg-[#14b8a6]/10 shadow-sm dark:border-teal-800 dark:bg-teal-950/20'
+                                                        ? 'border-[#006b5f] bg-[#006b5f]/10 shadow-sm dark:border-teal-800 dark:bg-[#006b5f]/20'
                                                         : 'border-transparent bg-white hover:border-[#bbcac6]/50 hover:bg-[#f2f3ff]/70 dark:bg-transparent dark:hover:border-slate-800 dark:hover:bg-slate-900/30'
                                                 }`}
                                             >
@@ -846,8 +874,8 @@ export default function ReaderPage() {
                                                                     selectable
                                                                         ? `cursor-pointer rounded px-0.5 transition-colors ${
                                                                               tokenActive
-                                                                                  ? 'bg-[#14b8a6]/20 text-[#00423b] ring-2 ring-[#14b8a6] dark:bg-teal-800 dark:text-teal-50 dark:ring-teal-700'
-                                                                                  : 'hover:bg-[#14b8a6]/15 hover:text-[#00423b] dark:hover:bg-teal-900/60 dark:hover:text-teal-200'
+                                                                                  ? 'bg-[#006b5f]/20 text-[#00423b] ring-2 ring-[#006b5f] dark:bg-[#006b5f]/30 dark:text-teal-50 dark:ring-teal-700'
+                                                                                  : 'hover:bg-[#006b5f]/15 hover:text-[#00423b] dark:hover:bg-[#006b5f]/25 dark:hover:text-teal-200'
                                                                           }`
                                                                         : 'text-slate-500 dark:text-slate-400'
                                                                 }
@@ -868,15 +896,15 @@ export default function ReaderPage() {
             </section>
 
                         {/* RIGHT PANE: Tabs Workspace for AI chat helper, Quiz, Dictionary */}
-            <aside className="w-full md:w-[400px] lg:w-[420px] shrink-0 rounded-3xl border border-white/60 bg-gradient-to-br from-white/90 to-slate-50/80 p-5 flex flex-col h-full shadow-2xl overflow-hidden backdrop-blur-xl dark:border-slate-800/60 dark:from-slate-900/90 dark:to-slate-950/80 z-20 transition-all">
+            <aside className="w-full md:w-[400px] lg:w-[420px] shrink-0 rounded-3xl border border-white/40 bg-white/70 p-5 flex flex-col h-full shadow-2xl overflow-hidden backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-900/70 z-20 transition-all glass-card">
                 {/* Tab Controllers */}
                 <div className="grid grid-cols-3 gap-1 bg-white dark:bg-slate-900/60 p-1 rounded-2xl border border-slate-100 dark:border-slate-800 mb-4 shadow-inner">
                     <button
                         onClick={() => setActiveTab('chat')}
-                        className={`py-2 px-1 text-xs font-bold rounded-xl flex items-center justify-center space-x-1 cursor-pointer transition-all ${
+                        className={`py-2 px-1 text-xs font-bold rounded-xl flex items-center justify-center gap-x-1 cursor-pointer transition-all ${
                             activeTab === 'chat'
-                                ? 'bg-[#0d9488] text-white shadow-md'
-                                : 'text-slate-500 hover:text-[#0d9488] dark:text-slate-400 dark:hover:text-teal-400'
+                                ? 'bg-[#006b5f] text-white shadow-md'
+                                : 'text-slate-500 hover:text-[#006b5f] dark:text-slate-400 dark:hover:text-[#006b5f]'
                         }`}
                     >
                         <MessageSquare className="w-3.5 h-3.5" />
@@ -884,10 +912,10 @@ export default function ReaderPage() {
                     </button>
                     <button
                         onClick={() => setActiveTab('quiz')}
-                        className={`py-2 px-1 text-xs font-bold rounded-xl flex items-center justify-center space-x-1 cursor-pointer transition-all ${
+                        className={`py-2 px-1 text-xs font-bold rounded-xl flex items-center justify-center gap-x-1 cursor-pointer transition-all ${
                             activeTab === 'quiz'
-                                ? 'bg-[#0d9488] text-white shadow-md'
-                                : 'text-slate-500 hover:text-[#0d9488] dark:text-slate-400 dark:hover:text-teal-400'
+                                ? 'bg-[#006b5f] text-white shadow-md'
+                                : 'text-slate-500 hover:text-[#006b5f] dark:text-slate-400 dark:hover:text-[#006b5f]'
                         }`}
                     >
                         <Award className="w-3.5 h-3.5" />
@@ -895,10 +923,10 @@ export default function ReaderPage() {
                     </button>
                     <button
                         onClick={() => setActiveTab('vocab')}
-                        className={`py-2 px-1 text-xs font-bold rounded-xl flex items-center justify-center space-x-1 cursor-pointer transition-all ${
+                        className={`py-2 px-1 text-xs font-bold rounded-xl flex items-center justify-center gap-x-1 cursor-pointer transition-all ${
                             activeTab === 'vocab'
-                                ? 'bg-[#0d9488] text-white shadow-md'
-                                : 'text-slate-500 hover:text-[#0d9488] dark:text-slate-400 dark:hover:text-teal-400'
+                                ? 'bg-[#006b5f] text-white shadow-md'
+                                : 'text-slate-500 hover:text-[#006b5f] dark:text-slate-400 dark:hover:text-[#006b5f]'
                         }`}
                     >
                         <Sparkles className="w-3.5 h-3.5" />
@@ -911,7 +939,7 @@ export default function ReaderPage() {
                     {/* TAB 1: AI COACH CHAT BOX */}
                     {activeTab === 'chat' && (
                         <div className="h-full flex flex-col justify-between">
-                            <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2">
+                            <div className="flex-1 overflow-y-auto gap-y-3 mb-4 pr-2">
                                 {chatMessages.map((msg, i) => {
                                     const isUser = msg.role === 'user';
                                     return (
@@ -919,7 +947,7 @@ export default function ReaderPage() {
                                             <div
                                                 className={`max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed shadow-sm ${
                                                     isUser
-                                                        ? 'bg-[#0d9488] text-white rounded-tr-none'
+                                                        ? 'bg-[#006b5f] text-white rounded-tr-none'
                                                         : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-tl-none'
                                                 }`}
                                             >
@@ -930,7 +958,7 @@ export default function ReaderPage() {
                                     );
                                 })}
                                 {chatLoading && (
-                                    <div className="flex items-center space-x-2 text-slate-400 text-xs p-1">
+                                    <div className="flex items-center gap-x-2 text-slate-400 text-xs p-1">
                                         <Loader2 className="w-4 h-4 animate-spin text-[#0d9488]" />
                                         <span>Hanora AI đang soạn câu trả lời...</span>
                                     </div>
@@ -954,7 +982,7 @@ export default function ReaderPage() {
                                     <button
                                         type="submit"
                                         disabled={chatLoading || !chatInput.trim()}
-                                        className="absolute right-2 p-2 bg-[#0d9488] hover:bg-[#0f766e] text-white rounded-xl transition-colors disabled:opacity-50"
+                                        className="absolute right-2 p-2 bg-[#006b5f] hover:bg-[#005048] text-white rounded-xl transition-colors disabled:opacity-50"
                                     >
                                         <Send className="w-4 h-4" />
                                     </button>
@@ -968,7 +996,7 @@ export default function ReaderPage() {
                         <div className="h-full flex flex-col justify-between">
                             {quizQuestions.length === 0 ? (
                                 <div className="bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 text-center space-y-4 shadow-sm">
-                                    <div className="w-12 h-12 rounded-full bg-teal-50 ml-auto mr-auto flex items-center justify-center text-[#0d9488]">
+                                    <div className="w-12 h-12 rounded-full bg-[#006b5f]/10 ml-auto mr-auto flex items-center justify-center text-[#006b5f]">
                                         <Award className="w-6 h-6 animate-pulse" />
                                     </div>
                                     <div>
@@ -980,7 +1008,7 @@ export default function ReaderPage() {
                                     <button
                                         onClick={handleGenerateQuiz}
                                         disabled={quizLoading}
-                                        className="w-full bg-[#0d9488] hover:bg-[#0f766e] text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow shadow-[#0d9488]/10 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                        className="w-full bg-[#006b5f] hover:bg-[#005048] text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow shadow-[#006b5f]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                     >
                                         {quizLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                                         Bắt đầu tạo câu hỏi
@@ -994,14 +1022,14 @@ export default function ReaderPage() {
                                     <div>
                                         <h3 className="font-bold text-base text-slate-800 dark:text-slate-200">Hoàn thành thử thách!</h3>
                                         <p className="text-sm font-semibold text-slate-500 mt-1">
-                                            Kết quả: <span className="text-[#0d9488] font-bold">{quizScore} / {quizQuestions.length}</span> câu chính xác
+                                            Kết quả: <span className="text-[#006b5f] font-bold">{quizScore} / {quizQuestions.length}</span> câu chính xác
                                         </p>
                                     </div>
                                 </div>
                             ) : (
                                 <div className="bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 space-y-4 shadow-sm">
                                     <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                                        <span className="text-[11px] font-bold text-[#0d9488] bg-teal-50 px-2 py-0.5 rounded-full">
+                                        <span className="text-[11px] font-bold text-[#006b5f] bg-[#006b5f]/10 px-2 py-0.5 rounded-full">
                                             Câu hỏi {currentQuestionIndex + 1} / {quizQuestions.length}
                                         </span>
                                         <span className="text-[11px] text-slate-400">Score: {quizScore}</span>
@@ -1017,7 +1045,7 @@ export default function ReaderPage() {
                                                 disabled={selectedAnswerIndex !== null}
                                                 className={`w-full text-left p-3 rounded-xl border text-xs transition-colors disabled:cursor-not-allowed ${
                                                     selectedAnswerIndex === null
-                                                        ? 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:border-[#0d9488]/30 dark:hover:border-[#0d9488]/30 hover:bg-teal-50/50 dark:hover:bg-teal-900/30'
+                                                        ? 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:border-[#006b5f]/30 dark:hover:border-[#006b5f]/30 hover:bg-[#006b5f]/5 dark:hover:bg-teal-900/30'
                                                         : oIdx === quizQuestions[currentQuestionIndex]?.answerIndex
                                                             ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300'
                                                             : selectedAnswerIndex === oIdx
@@ -1030,7 +1058,7 @@ export default function ReaderPage() {
                                         ))}
                                     </div>
                                     {selectedAnswerIndex !== null && quizQuestions[currentQuestionIndex]?.explanation && (
-                                        <p className="rounded-xl bg-teal-50/70 p-3 text-[11px] font-semibold text-teal-800 dark:bg-teal-950/30 dark:text-teal-300">
+                                        <p className="rounded-xl bg-[#006b5f]/10 p-3 text-[11px] font-semibold text-[#006b5f] dark:bg-teal-950/30 dark:text-teal-300">
                                             {quizQuestions[currentQuestionIndex].explanation}
                                         </p>
                                     )}
@@ -1060,14 +1088,14 @@ export default function ReaderPage() {
                                                     {selectedSurface}
                                                 </h2>
                                                 {quickPinyin && (
-                                                    <p className="text-sm font-semibold text-[#0d9488] mt-1">
+                                                    <p className="text-sm font-semibold text-[#006b5f] mt-1">
                                                         {quickPinyin}
                                                     </p>
                                                 )}
                                             </div>
                                             <button
                                                 onClick={() => speak(selectedSurface)}
-                                                className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-[#0d9488] hover:text-white transition-colors"
+                                                className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-[#006b5f] hover:text-white transition-colors"
                                             >
                                                 <Volume2 className="w-4 h-4" />
                                             </button>
@@ -1075,8 +1103,8 @@ export default function ReaderPage() {
 
                                         <div className="space-y-4">
                                             {quickVi && (
-                                                <div className="bg-teal-50/50 dark:bg-teal-950/30 rounded-xl p-3 border border-teal-100/50 dark:border-teal-900/30">
-                                                    <h3 className="text-[10px] font-bold text-teal-600 uppercase tracking-wider mb-1">Nghĩa tiếng Việt</h3>
+                                                <div className="bg-[#006b5f]/5 dark:bg-[#006b5f]/10 rounded-xl p-3 border border-[#006b5f]/20 dark:border-[#006b5f]/40">
+                                                    <h3 className="text-[10px] font-bold text-[#006b5f] uppercase tracking-wider mb-1">Nghĩa tiếng Việt</h3>
                                                     <p className="text-sm text-slate-700 dark:text-slate-300">{quickVi}</p>
                                                 </div>
                                             )}
@@ -1174,10 +1202,10 @@ function PdfDocumentViewer({
         const pageContext = resolvedPage.dataset.pageText || selectedText
         const sourceSentence = findSentenceForSelection(pageContext, selectedText)
         const bbox = {
-            x: Math.round(rangeRect.left - pageRect.left),
-            y: Math.round(rangeRect.top - pageRect.top),
-            width: Math.round(rangeRect.width),
-            height: Math.round(rangeRect.height),
+            x_ratio: (rangeRect.left - pageRect.left) / pageRect.width,
+            y_ratio: (rangeRect.top - pageRect.top) / pageRect.height,
+            w_ratio: rangeRect.width / pageRect.width,
+            h_ratio: rangeRect.height / pageRect.height,
         }
 
         onSelection({
@@ -1200,7 +1228,7 @@ function PdfDocumentViewer({
 
     if (!pdfDocument) {
         return (
-            <div className="flex h-64 flex-col items-center justify-center gap-3 text-teal-700">
+            <div className="flex h-64 flex-col items-center justify-center gap-3 text-[#006b5f]">
                 <Loader2 className="h-8 w-8 animate-spin" />
                 <p className="text-sm font-bold">PDF.js đang render canvas + text layer...</p>
             </div>
@@ -1208,7 +1236,7 @@ function PdfDocumentViewer({
     }
 
     return (
-        <div ref={viewerRef} onMouseUp={handleMouseUp} className="mx-auto flex max-w-4xl flex-col gap-6">
+        <div ref={viewerRef} onMouseUp={handleMouseUp} className="mx-auto flex w-full min-w-fit flex-col gap-6 items-center">
             {pageNumbers.map((pageNumber) => (
                 <PdfPage
                     key={pageNumber}
@@ -1316,7 +1344,7 @@ function PdfPage({
         >
             <canvas ref={canvasRef} className="absolute inset-0" />
             {annotations.map((annotation) => {
-                const bbox = safeBbox(annotation.bbox_json)
+                const bbox = safeBbox(annotation.bbox_json, size.width, size.height)
                 if (!bbox) return null
                 return (
                     <div
@@ -1346,19 +1374,32 @@ function PdfPage({
     )
 }
 
-function safeBbox(value?: string) {
+function safeBbox(value?: string, pageWidth: number = 1, pageHeight: number = 1) {
     if (!value) return null
     try {
-        const bbox = JSON.parse(value) as { x?: number; y?: number; width?: number; height?: number }
+        const bbox = JSON.parse(value) as any
         if (
-            typeof bbox.x !== 'number' ||
-            typeof bbox.y !== 'number' ||
-            typeof bbox.width !== 'number' ||
-            typeof bbox.height !== 'number'
+            typeof bbox.x_ratio === 'number' &&
+            typeof bbox.y_ratio === 'number' &&
+            typeof bbox.w_ratio === 'number' &&
+            typeof bbox.h_ratio === 'number'
         ) {
-            return null
+            return {
+                x: bbox.x_ratio * pageWidth,
+                y: bbox.y_ratio * pageHeight,
+                width: bbox.w_ratio * pageWidth,
+                height: bbox.h_ratio * pageHeight,
+            }
         }
-        return bbox as { x: number; y: number; width: number; height: number }
+        if (
+            typeof bbox.x === 'number' &&
+            typeof bbox.y === 'number' &&
+            typeof bbox.width === 'number' &&
+            typeof bbox.height === 'number'
+        ) {
+            return bbox as { x: number; y: number; width: number; height: number }
+        }
+        return null
     } catch {
         return null
     }

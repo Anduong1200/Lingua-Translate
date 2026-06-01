@@ -32,7 +32,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
         <button
             onClick={onChange}
             className={`relative h-6 w-12 rounded-full transition-colors duration-250 cursor-pointer focus:outline-none ${
-                checked ? 'bg-gradient-to-r from-teal-500 to-[#0d9488] shadow-md shadow-teal-500/10' : 'bg-slate-200 dark:bg-slate-800'
+                checked ? 'bg-gradient-to-r from-[#006b5f] to-[#0060ac] shadow-md shadow-[#006b5f]/15' : 'bg-slate-200 dark:bg-slate-800'
             }`}
             title={checked ? 'Đang bật' : 'Đang tắt'}
         >
@@ -141,7 +141,7 @@ export default function SettingsPage() {
             {/* Page Header */}
             <section className="glass border border-white/60 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-7 custom-shadow rounded-[2rem] backdrop-blur-md">
                 <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0d9488] to-teal-500 text-white shadow-lg shadow-teal-500/20">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#006b5f] to-[#0060ac] text-white shadow-lg shadow-[#006b5f]/25">
                         <Settings className="h-6 w-6" />
                     </div>
                     <div>
@@ -158,14 +158,14 @@ export default function SettingsPage() {
                 {/* Local Profile Panel */}
                 <div className="custom-shadow overflow-hidden rounded-[2rem] border border-teal-100/40 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl flex flex-col">
                     <div className="border-b border-teal-100/40 dark:border-slate-800 bg-teal-50/10 dark:bg-slate-950/20 px-6 py-4 flex items-center gap-2">
-                        <User className="h-5 w-5 text-[#0d9488] dark:text-teal-400" />
+                        <User className="h-5 w-5 text-[#006b5f] dark:text-[#006b5f]/90" />
                         <h2 className="font-display font-bold text-slate-900 dark:text-slate-100 text-base">Hồ sơ cá nhân local</h2>
                     </div>
 
-                    <div className="p-6 flex-1 space-y-6">
+                    <div className="p-6 flex-1 gap-y-6">
                         <div className="rounded-2xl bg-slate-50/50 dark:bg-slate-950/30 p-4 border border-slate-100 dark:border-slate-800/80">
                             <div className="flex items-start gap-3">
-                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#0d9488] to-teal-500 text-white shadow-sm">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#006b5f] to-[#0060ac] text-white shadow-sm">
                                     <HardDrive className="h-5 w-5" />
                                 </div>
                                 <div className="space-y-1">
@@ -189,7 +189,7 @@ export default function SettingsPage() {
 
                         <div className="rounded-2xl border border-slate-100 dark:border-slate-800/80 p-5 bg-white/40 dark:bg-slate-950/20">
                             <div className="flex items-center gap-2">
-                                <ShieldCheck className="h-4 w-4 text-[#0d9488] dark:text-teal-400" />
+                                <ShieldCheck className="h-4 w-4 text-[#006b5f] dark:text-[#006b5f]/90" />
                                 <span className="text-xs font-black text-slate-800 dark:text-slate-300 uppercase tracking-wider">Cấu hình từ điển bổ sung</span>
                             </div>
                             <p className="mt-2 text-xs font-semibold leading-relaxed text-slate-500 dark:text-slate-405">
@@ -213,7 +213,7 @@ export default function SettingsPage() {
                 {/* Spaced Repetition Configuration */}
                 <div className="custom-shadow overflow-hidden rounded-[2rem] border border-teal-100/40 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl">
                     <div className="border-b border-teal-100/40 dark:border-slate-800 bg-teal-50/10 dark:bg-slate-950/20 px-6 py-4 flex items-center gap-2">
-                        <Key className="h-5 w-5 text-[#0d9488] dark:text-teal-400" />
+                        <Key className="h-5 w-5 text-[#006b5f] dark:text-[#006b5f]/90" />
                         <h2 className="font-display font-bold text-slate-900 dark:text-slate-100 text-base">Thuật toán ghi nhớ Simple SRS</h2>
                     </div>
                     <div className="divide-y divide-teal-50/30 dark:divide-slate-800/50">
@@ -221,7 +221,7 @@ export default function SettingsPage() {
                             <select
                                 value={settings.desiredRetention ?? 0.90}
                                 onChange={(event) => updateSettings({ desiredRetention: Number(event.target.value) })}
-                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#0d9488] text-slate-700 dark:text-slate-300 cursor-pointer"
+                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#006b5f] text-slate-700 dark:text-slate-300 cursor-pointer"
                             >
                                 <option value="0.80">80% (Dãn cách dài)</option>
                                 <option value="0.85">85% (Trung bình)</option>
@@ -234,7 +234,7 @@ export default function SettingsPage() {
                             <select
                                 value={settings.learningSteps ?? '1m 5m 15m'}
                                 onChange={(event) => updateSettings({ learningSteps: event.target.value })}
-                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#0d9488] text-slate-700 dark:text-slate-300 cursor-pointer"
+                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#006b5f] text-slate-700 dark:text-slate-300 cursor-pointer"
                             >
                                 <option value="1m 5m 15m">1 phút · 5 phút · 15 phút</option>
                                 <option value="5m 15m 30m">5 phút · 15 phút · 30 phút</option>
@@ -260,7 +260,7 @@ export default function SettingsPage() {
                             <select
                                 value={settings.targetHskLevel || 'HSK4'}
                                 onChange={(event) => updateSettings({ targetHskLevel: event.target.value })}
-                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#0d9488] text-slate-700 dark:text-slate-300 cursor-pointer"
+                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#006b5f] text-slate-700 dark:text-slate-300 cursor-pointer"
                             >
                                 {['HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'HSK7-9'].map((level) => (
                                     <option key={level} value={level}>
@@ -274,7 +274,7 @@ export default function SettingsPage() {
                             <select
                                 value={settings.domainMode || 'auto'}
                                 onChange={(event) => updateSettings({ domainMode: event.target.value as any })}
-                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#0d9488] text-slate-700 dark:text-slate-300 cursor-pointer"
+                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#006b5f] text-slate-700 dark:text-slate-300 cursor-pointer"
                             >
                                 <option value="auto">Tự động quét (Auto)</option>
                                 <option value="general">Kinh tế & Đời sống</option>
@@ -288,7 +288,7 @@ export default function SettingsPage() {
                             <select
                                 value={settings.showPinyinMode || 'always'}
                                 onChange={(event) => updateSettings({ showPinyinMode: event.target.value as any })}
-                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#0d9488] text-slate-700 dark:text-slate-300 cursor-pointer"
+                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#006b5f] text-slate-700 dark:text-slate-300 cursor-pointer"
                             >
                                 <option value="always">Luôn luôn hiển thị</option>
                                 <option value="unknown_only">Chỉ hiện từ mới tra</option>
@@ -300,7 +300,7 @@ export default function SettingsPage() {
                             <select
                                 value={settings.translationStyle || 'both'}
                                 onChange={(event) => updateSettings({ translationStyle: event.target.value as any })}
-                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#0d9488] text-slate-700 dark:text-slate-300 cursor-pointer"
+                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#006b5f] text-slate-700 dark:text-slate-300 cursor-pointer"
                             >
                                 <option value="both">Dịch sát + Dịch thoát nghĩa</option>
                                 <option value="natural">Dịch thoát nghĩa tự nhiên</option>
@@ -324,7 +324,7 @@ export default function SettingsPage() {
                             <select
                                 value={settings.fontSize}
                                 onChange={(event) => updateSettings({ fontSize: event.target.value as any })}
-                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#0d9488] text-slate-700 dark:text-slate-300 cursor-pointer"
+                                className="rounded-xl border border-teal-100 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-bold outline-none focus:border-[#006b5f] text-slate-700 dark:text-slate-300 cursor-pointer"
                             >
                                 <option value="small">Thon gọn</option>
                                 <option value="medium">Tiêu chuẩn</option>
@@ -360,7 +360,7 @@ export default function SettingsPage() {
                         <button
                             onClick={createBackup}
                             disabled={isAdminBusy}
-                            className="inline-flex items-center gap-2 rounded-xl bg-[#0d9488] px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#006b5f] px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-[#005048] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             <Archive className="h-4 w-4" />
                             Tạo backup

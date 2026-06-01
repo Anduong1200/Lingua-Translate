@@ -4,46 +4,34 @@ Offline-first Chinese context reader for Vietnamese learners.
 
 Core MVP flow:
 
+
+Core MVP flow:
+
 ```text
 PDF -> Text Layer -> Selection -> NLP Analyze -> Dictionary Lookup -> Context/Grammar Panel -> Annotation/Review
 ```
 
 The app keeps learning data in local SQLite. Cloud AI is optional and only used as an explanation layer when enabled.
 
-## Current Scope
+## Current Scope (MVP 0.1)
 
-Implemented:
+Hanora is a **stable MVP 0.1 candidate** designed as a Vietnamese-first Chinese academic reading companion.
 
-- React + Vite + TypeScript frontend
-- PDF.js text-layer reader
-- FastAPI backend on `127.0.0.1:3001`
-- SQLite source of truth in `backend/data/hanora.sqlite3`
-- jieba segmentation and pypinyin
-- CC-CEDICT import pipeline
-- HSK 1-9 PDF vocabulary import pipeline
-- Vietnamese custom dictionary and user corrections
-- Contextual NLP analyze endpoint
-- Annotation persistence with PDF overlay metadata
-- Review item and simple SRS scheduler
-- User profile/settings sync
-- Optional Google Gemini context-reading API with rotating keys
-- Production hardening basics: explicit CORS config, upload/rate limits, deep health, backup/restore/export APIs, Alembic migrations, Docker Compose, and CI build/test workflow
-- OCR for scanned PDFs (integrated with OpenCV preprocessing and Tesseract OCR fallback)
-- Local full-document translation endpoint for side-by-side reading
-- Automatic vocabulary scan and flashcard creation from imported documents
+### Technical Capabilities & Limitations:
+- **Vietnamese Lexical Coverage**: Currently stands at **~38.8%** (~61,346 entries with pure, clean Vietnamese translations) with absolute high coverage for core HSK Level 1-7/9 words (81% to 93% Vietnamese coverage). Words outside this core fallback to JIEBA/CC-CEDICT English meanings.
+- **Experimental OCR Support**: Optical Character Recognition (OCR) is integrated as an alpha preview using OpenCV and Tesseract, but is not officially supported or guaranteed for production-grade low-quality scanned documents. Selectable text layers remain the gold standard.
+- **HSK 7-9 Advanced Grouping**: Maps Level 7 database schemas to render correctly as `HSK 7–9` on user interfaces, matching standard HSK 3.0 advanced guidelines.
+- **Personalization Priority**: Incorporates a highly optimized ranking system where user-registered vocab corrections (`user_corrections`) strictly take precedence over all dictionary seed levels.
 
 ## Not in Production v1.0 / Next Steps:
 
+- Full 100% Chinese-Vietnamese dictionary coverage (gradually stripping remaining English fallbacks)
+- Production-grade multi-layer OCR engine support
 - Full-document AI translation beyond the local rule-based layer
-- Login/auth with a real identity provider
-- Remote sync with a real backend service
-- Payment / SaaS features
-- FSRS tuning (Free Spaced Repetition Scheduler)
 
 ## Stack
 
 Frontend:
-
 - React
 - Vite
 - TypeScript
@@ -52,7 +40,6 @@ Frontend:
 - Zustand
 
 Backend:
-
 - Python
 - FastAPI
 - Pydantic
@@ -65,7 +52,6 @@ Backend:
 - httpx
 
 Data:
-
 - CC-CEDICT
 - HSK vocabulary PDFs
 - Custom Vietnamese dictionary

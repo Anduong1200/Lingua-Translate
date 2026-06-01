@@ -6,7 +6,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from main import DictionaryEntryRecord, SessionLocal, configure_jieba, parse_cedict_line
+from models import DictionaryEntryRecord
+from db.config import SessionLocal
+from services.nlp_service import configure_jieba
+from routers.dictionary import parse_cedict_line
 
 
 def import_cc_cedict(path: Path, source: str) -> tuple[int, int, int]:

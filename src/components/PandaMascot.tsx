@@ -104,9 +104,9 @@ export default function PandaMascot() {
         {/* Wizard Pointy Hat with Yellow Star */}
         <g id="wizard-hat">
           {/* Main Cone */}
-          <path d="M68 64 L100 24 L132 64 Z" fill="#115e59" stroke="#1e293b" strokeWidth="2.5" />
+          <path d="M68 64 L100 24 L132 64 Z" fill="#005048" stroke="#1e293b" strokeWidth="2.5" />
           {/* Hat brim curved */}
-          <path d="M62 62 Q100 52 138 62 L132 68 Q100 58 68 68 Z" fill="#0d9488" stroke="#1e293b" strokeWidth="2" />
+          <path d="M62 62 Q100 52 138 62 L132 68 Q100 58 68 68 Z" fill="#006b5f" stroke="#1e293b" strokeWidth="2" />
 
           {/* Yellow Star on Point */}
           <motion.polygon
@@ -122,22 +122,22 @@ export default function PandaMascot() {
         {/* Front Teal Cardboard Box Flaps (Panda is tucked behind them) */}
         <g id="box-front">
           {/* Inner shade */}
-          <path d="M50 115 L100 135 L150 115 V155 L100 180 L50 155 Z" fill="#134e4a" />
+          <path d="M50 115 L100 135 L150 115 V155 L100 180 L50 155 Z" fill="#00201c" />
 
           {/* Box face left */}
-          <path d="M50 115 L100 135 V178 L50 155 Z" fill="#0d9488" stroke="#115e59" strokeWidth="2.5" />
+          <path d="M50 115 L100 135 V178 L50 155 Z" fill="#006b5f" stroke="#005048" strokeWidth="2.5" />
 
           {/* Box face right */}
-          <path d="M100 135 L150 115 V155 L100 178 Z" fill="#14b8a6" stroke="#115e59" strokeWidth="2.5" />
+          <path d="M100 135 L150 115 V155 L100 178 Z" fill="#0060ac" stroke="#005048" strokeWidth="2.5" />
 
           {/* Lighter lid edges / highlights */}
-          <line x1="100" y1="135" x2="100" y2="178" stroke="#115e59" strokeWidth="2.5" />
+          <line x1="100" y1="135" x2="100" y2="178" stroke="#005048" strokeWidth="2.5" />
 
           {/* Front Left Flap hanging down */}
-          <path d="M50 115 L40 140 L90 150 L100 135 Z" fill="#0f766e" stroke="#115e59" strokeWidth="1.5" />
+          <path d="M50 115 L40 140 L90 150 L100 135 Z" fill="#005048" stroke="#005048" strokeWidth="1.5" />
 
           {/* Front Right Flap hanging down */}
-          <path d="M150 115 L160 140 L110 150 L100 135 Z" fill="#0d9488" stroke="#115e59" strokeWidth="1.5" />
+          <path d="M150 115 L160 140 L110 150 L100 135 Z" fill="#006b5f" stroke="#005048" strokeWidth="1.5" />
         </g>
       </svg>
     </div>
