@@ -29,6 +29,9 @@ venv
 backend/data
 uploads
 backend/uploads
+release/
+scratch/
+*.zip
 
 # Editor directories and files
 .vscode/*

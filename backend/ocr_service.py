@@ -6,13 +6,7 @@ from pdf2image import convert_from_bytes
 from PIL import Image
 from io import BytesIO
 
-# Make it configurable for cross-platform/server deployment
-# Default to "tesseract" which uses system PATH on Linux/Servers
 tesseract_path = os.environ.get("TESSERACT_CMD", "tesseract")
-# Fallback to the known local dev path if it exists and TESSERACT_CMD isn't explicitly set
-if tesseract_path == "tesseract" and os.path.exists(r"D:\exe\tesseract-5.5.2\tesseract.exe"):
-    tesseract_path = r"D:\exe\tesseract-5.5.2\tesseract.exe"
-
 pytesseract.pytesseract.tesseract_cmd = tesseract_path
 
 def preprocess_for_ocr(pil_image):

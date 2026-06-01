@@ -3,10 +3,12 @@ import { Bell, HelpCircle, Activity, Star, Award, Sparkles, Moon, Sun } from 'lu
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
+import BugReportModal from '@/components/BugReportModal';
 
 export default function Header() {
   const [showNotification, setShowNotification] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showBugReport, setShowBugReport] = useState(false);
   const { isDarkMode, toggleDarkMode } = useStore();
   const location = useLocation();
 
@@ -17,7 +19,8 @@ export default function Header() {
     { path: '/dashboard', label: 'Dashboard' },
     { path: '/reader', label: 'Reader' },
     { path: '/vocabulary', label: 'Library' },
-    { path: '/flashcards', label: 'Study Hub' }
+    { path: '/flashcards', label: 'Study Hub' },
+    { path: '/store', label: 'Store' }
   ];
 
   return (
@@ -130,12 +133,21 @@ export default function Header() {
                     <HelpCircle className="w-4 h-4 text-[#006b5f] dark:text-teal-400" />
                     <span>How to Use Hanora</span>
                   </div>
+                  <div
+                    onClick={() => { setShowProfileMenu(false); setShowBugReport(true); }}
+                    className="flex items-center gap-2 p-2 hover:bg-amber-50 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-500 rounded-lg cursor-pointer"
+                  >
+                    <HelpCircle className="w-4 h-4 text-amber-600 dark:text-amber-500" />
+                    <span>Góp ý & Báo lỗi</span>
+                  </div>
                 </div>
               </motion.div>
             </>
           )}
         </AnimatePresence>
       </div>
+
+      <BugReportModal isOpen={showBugReport} onClose={() => setShowBugReport(false)} />
     </header>
   );
 }

@@ -91,7 +91,7 @@ The app still performs small runtime schema checks for local upgrades, but produ
 For CI/staging, point Alembic at a separate SQLite database:
 
 ```bash
-set DATABASE_URL=sqlite:///D:/tmp/hanora_migration_check.sqlite3
+export DATABASE_URL=sqlite:////tmp/hanora_migration_check.sqlite3
 cd backend
 alembic upgrade head
 ```
@@ -99,9 +99,10 @@ alembic upgrade head
 ## Import Data
 
 ```bash
-python backend\scripts\import_cc_cedict.py path\to\cedict_ts.u8
-python backend\scripts\import_hsk_vocab.py path\to\hsk_folder
-python backend\scripts\bootstrap_data.py
+python backend/scripts/import_cc_cedict.py path/to/cedict_ts.u8
+python backend/scripts/import_hsk_vocab.py path/to/hsk_folder
+python backend/scripts/import_trungviet_dict.py --stardict-dir path/to/TrungViet --hsk-dir path/to/hsk --phrase-dir path/to/phrase
+python backend/scripts/bootstrap_data.py
 ```
 
 ## Operations

@@ -166,6 +166,7 @@ const defaultSettings: AppSettings = {
     translationStyle: 'both',
     desiredRetention: 0.90,
     learningSteps: '1m 5m 15m',
+    hasCompletedOnboarding: false,
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://127.0.0.1:3001/api'

@@ -130,6 +130,7 @@ export interface AppSettings {
     translationStyle?: 'natural' | 'literal' | 'both'
     desiredRetention?: number
     learningSteps?: string
+    hasCompletedOnboarding?: boolean
 }
 
 export interface ChineseDefinition {

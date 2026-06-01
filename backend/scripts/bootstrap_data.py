@@ -69,7 +69,7 @@ def main() -> None:
         else:
             results["cc_cedict"] = {"path": str(cedict_path), "status": "skipped_existing"}
     else:
-        results["cc_cedict"] = {"status": "not_found", "hint": "Set CEDICT_PATH or pass --cedict path\\to\\cedict_ts.u8."}
+        results["cc_cedict"] = {"status": "not_found", "hint": "Set CEDICT_PATH or pass --cedict path/to/cedict_ts.u8."}
 
     if hsk_path and hsk_path.exists():
         if args.force or count_by_source("hsk_vocab") == 0:
@@ -79,7 +79,7 @@ def main() -> None:
         else:
             results["hsk_vocab"] = {"path": str(hsk_path), "status": "skipped_existing"}
     else:
-        results["hsk_vocab"] = {"status": "not_found", "hint": "Set HSK_VOCAB_PATH or pass --hsk path\\to\\hsk_folder."}
+        results["hsk_vocab"] = {"status": "not_found", "hint": "Set HSK_VOCAB_PATH or pass --hsk path/to/hsk_folder."}
 
     with SessionLocal() as session:
         results["db_stats"] = debug_db_stats(session)

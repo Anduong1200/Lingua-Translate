@@ -23,6 +23,7 @@ from routers.annotations import router as ann_router
 from routers.review import router as rev_router
 from routers.user import router as usr_router
 from routers.admin import router as adm_router
+from routers.ai import router as ai_router
 
 # Background database schema initialization
 if os.environ.get("HANORA_SKIP_CREATE_ALL") != "1":
@@ -52,3 +53,4 @@ app.include_router(ann_router)
 app.include_router(rev_router)
 app.include_router(usr_router)
 app.include_router(adm_router)
+app.include_router(ai_router)

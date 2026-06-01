@@ -122,7 +122,7 @@ export default function LandingPage() {
         </section>
 
         {/* Features Bento Grid */}
-        <section id="features" className="w-full max-w-7xl mx-auto px-6 md:px-10 pt-10 pb-24 relative z-20 scroll-mt-20">
+        <section id="features" className="w-full max-w-7xl mx-auto px-6 md:px-10 pt-24 pb-24 relative z-20 scroll-mt-20 mt-8">
           <div className="text-center mb-16">
             <span className="inline-flex items-center gap-1 rounded-full bg-[#006b5f]/10 dark:bg-[#006b5f]/25 px-4 py-1.5 text-xs font-extrabold uppercase tracking-widest text-[#006b5f] dark:text-teal-400 mb-4">
               Tính năng cốt lõi
@@ -184,7 +184,7 @@ export default function LandingPage() {
               Học tập không giới hạn, mọi lúc mọi nơi
             </h2>
             
-            <p className="text-base text-slate-500 dark:text-slate-400 max-w-3xl mx-auto font-medium leading-relaxed mb-10">
+            <p className="text-base text-slate-500 dark:text-slate-400 max-w-3xl mx-auto font-medium leading-relaxed mb-16 mt-4">
               Hanora được thiết kế để đồng hành cùng bạn mọi lúc. Tính năng Offline-First đảm bảo bạn luôn có thể tra cứu và học từ vựng ngay cả khi không có kết nối internet, kết hợp cùng AI Context Explanations giúp hiểu sâu sắc ý nghĩa từ trong từng hoàn cảnh cụ thể.
             </p>
             

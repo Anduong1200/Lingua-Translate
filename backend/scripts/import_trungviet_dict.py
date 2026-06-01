@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import argparse
 import os
 import re
 import struct
@@ -108,7 +109,7 @@ def extract_hsk_level(file_name: str) -> int | None:
 
 def import_hsk_csvs(session, hsk_dir: Path, stardict: dict[str, str]) -> int:
     """
-    Imports HSK words from CSV files in D:\exe\hsk
+    Imports HSK words from CSV files in the configured HSK directory.
     """
     if not hsk_dir.exists():
         print(f"[-] HSK Directory not found: {hsk_dir}")
@@ -170,7 +171,7 @@ def import_hsk_csvs(session, hsk_dir: Path, stardict: dict[str, str]) -> int:
 
 def import_phrases_csvs(session, phrase_dir: Path, stardict: dict[str, str]) -> int:
     """
-    Imports 56,000 common phrases from CSV files in D:\exe\phrase
+    Imports common phrase CSV files from the configured phrase directory.
     """
     if not phrase_dir.exists():
         print(f"[-] Phrase Directory not found: {phrase_dir}")
@@ -227,15 +228,47 @@ def import_phrases_csvs(session, phrase_dir: Path, stardict: dict[str, str]) -> 
     return imported
 
 
+def resolve_stardict_paths(args: argparse.Namespace) -> tuple[Path, Path]:
+    if args.stardict_idx and args.stardict_dict:
+        return Path(args.stardict_idx).expanduser(), Path(args.stardict_dict).expanduser()
+
+    stardict_dir = args.stardict_dir or os.environ.get("TRUNGVIET_STARDICT_DIR")
+    if stardict_dir:
+        directory = Path(stardict_dir).expanduser()
+        return directory / "star_trungviet.idx", directory / "star_trungviet.dict"
+
+    env_idx = os.environ.get("TRUNGVIET_STARDICT_IDX")
+    env_dict = os.environ.get("TRUNGVIET_STARDICT_DICT")
+    if env_idx and env_dict:
+        return Path(env_idx).expanduser(), Path(env_dict).expanduser()
+
+    raise SystemExit(
+        "Missing StarDict input. Pass --stardict-dir or both --stardict-idx and --stardict-dict. "
+        "You can also set TRUNGVIET_STARDICT_DIR."
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Import Chinese-Vietnamese StarDict, HSK CSV, and phrase CSV data.")
+    parser.add_argument("--stardict-dir", help="Directory containing star_trungviet.idx and star_trungviet.dict.")
+    parser.add_argument("--stardict-idx", help="Path to star_trungviet.idx.")
+    parser.add_argument("--stardict-dict", help="Path to star_trungviet.dict.")
+    parser.add_argument("--hsk-dir", default=os.environ.get("HSK_VOCAB_DIR") or os.environ.get("HSK_VOCAB_PATH"), help="Directory containing HSK CSV files.")
+    parser.add_argument("--phrase-dir", default=os.environ.get("PHRASE_DIR") or os.environ.get("PHRASE_PATH"), help="Directory containing phrase CSV files.")
+    parser.add_argument("--skip-hsk", action="store_true", help="Skip HSK CSV import.")
+    parser.add_argument("--skip-phrases", action="store_true", help="Skip phrase CSV import.")
+    return parser
+
+
 def main():
+    args = build_parser().parse_args()
     print("="*50)
     print("Hanora Chinese-Vietnamese Local Seeding System")
     print("="*50)
-    
-    stardict_idx = Path("D:\\exe\\TrungViet\\TrungViet\\star_trungviet.idx")
-    stardict_dict = Path("D:\\exe\\TrungViet\\TrungViet\\star_trungviet.dict")
-    hsk_dir = Path("D:\\exe\\hsk")
-    phrase_dir = Path("D:\\exe\\phrase")
+
+    stardict_idx, stardict_dict = resolve_stardict_paths(args)
+    hsk_dir = Path(args.hsk_dir).expanduser() if args.hsk_dir else None
+    phrase_dir = Path(args.phrase_dir).expanduser() if args.phrase_dir else None
     
     if not stardict_idx.exists() or not stardict_dict.exists():
         print(f"[!] StarDict files not found at: {stardict_idx.parent}")
@@ -249,10 +282,16 @@ def main():
         enrich_existing_dictionary(session, stardict)
         
         # 2. Import levels from HSK CSVs
-        import_hsk_csvs(session, hsk_dir, stardict)
-        
-        # 3. Import 56,000 phrases matching StarDict
-        import_phrases_csvs(session, phrase_dir, stardict)
+        if not args.skip_hsk and hsk_dir:
+            import_hsk_csvs(session, hsk_dir, stardict)
+        else:
+            print("[*] Skipping HSK CSV import. Pass --hsk-dir to enable it.")
+
+        # 3. Import phrases matching StarDict
+        if not args.skip_phrases and phrase_dir:
+            import_phrases_csvs(session, phrase_dir, stardict)
+        else:
+            print("[*] Skipping phrase CSV import. Pass --phrase-dir to enable it.")
         
         # 4. Trigger JIEBA dictionary rebuild
         print("[*] Rebuilding JIEBA segmenter dictionary mapping...")

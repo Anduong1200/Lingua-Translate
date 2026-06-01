@@ -4,6 +4,7 @@ import {
     Globe,
     Palette,
     Settings,
+    Settings2,
     Sun,
     Volume2,
     User,
@@ -136,19 +137,58 @@ export default function SettingsPage() {
         }
     }
 
+    const exportDiagnostics = () => {
+        const diagnosticData = {
+            appVersion: '1.0.0-beta',
+            os: navigator.userAgent,
+            timestamp: new Date().toISOString(),
+            dbStats: {
+                documents: documents.length,
+                annotations: annotations.length,
+                reviewItems: reviewItems.length,
+                knownWords: knownWords.length,
+                userCorrections: userCorrections.length,
+            },
+            logs: JSON.parse(localStorage.getItem('hanora_error_logs') || '[]')
+        };
+        const blob = new Blob([JSON.stringify(diagnosticData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `hanora_diagnostics_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+    }
+
+    const handleFactoryReset = () => {
+        if (window.confirm('CẢNH BÁO: Hành động này sẽ xoá TOÀN BỘ dữ liệu local của bạn (từ vựng, flashcard, cài đặt) và khôi phục app về trạng thái ban đầu. Bạn có chắc chắn không?')) {
+            localStorage.clear();
+            indexedDB.deleteDatabase('hanora_db');
+            window.location.reload();
+        }
+    };
+
     return (
         <div className="mx-auto flex max-w-5xl flex-col gap-6 pb-8 transition-colors duration-300">
             {/* Page Header */}
             <section className="glass border border-white/60 dark:border-slate-800/80 bg-white/70 dark:bg-slate-900/70 p-7 custom-shadow rounded-[2rem] backdrop-blur-md">
                 <div className="flex items-start gap-4">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#006b5f] to-[#0060ac] text-white shadow-lg shadow-[#006b5f]/25">
-                        <Settings className="h-6 w-6" />
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-[#006b5f] text-white shadow-lg shadow-teal-500/25">
+                        <Settings2 className="h-6 w-6" />
                     </div>
-                    <div>
-                        <h1 className="text-3xl font-display font-black tracking-tight text-slate-900 dark:text-slate-100">Cài đặt hệ thống</h1>
-                        <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
-                            Tùy chỉnh hồ sơ học tập local SQLite, từ điển cá nhân và lịch ôn tập Simple SRS.
-                        </p>
+                    <div className="flex-1 flex justify-between items-center">
+                        <div>
+                            <h1 className="text-3xl font-display font-black tracking-tight text-slate-900 dark:text-slate-100">Cài đặt hệ thống</h1>
+                            <p className="mt-1 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                Quản lý từ điển, dữ liệu và giao diện học tập của bạn
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleFactoryReset}
+                            className="px-4 py-2 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 rounded-xl text-xs font-bold shadow-sm hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+                        >
+                            Factory Reset
+                        </button>
                     </div>
                 </div>
             </section>
@@ -418,16 +458,27 @@ export default function SettingsPage() {
             </section>
 
             <section className="custom-shadow rounded-[2rem] border border-teal-100/40 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl p-6">
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center border-b border-slate-100 dark:border-slate-800 pb-5">
                     <div>
-                        <h2 className="font-display font-bold text-slate-900 dark:text-slate-100">Local System Stack</h2>
-                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed">
-                            React/Vite + PDFJS Frontend, FastAPI + SQLite + jieba/pypinyin Backend. Đăng nhập và đồng bộ chỉ khi có API thực tế.
+                        <h2 className="font-display font-bold text-slate-900 dark:text-slate-100">Local System Stack & Privacy</h2>
+                        <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl">
+                            Hệ thống hoạt động theo cơ chế <strong className="text-[#006b5f]">Offline-first</strong>. Chúng tôi không thu thập Telemetry (dữ liệu sử dụng) mà không có sự cho phép. Nội dung PDF của bạn hoàn toàn nằm ở Local.
+                            <br/><br/>
+                            <em className="text-amber-600 dark:text-amber-500">Known Limitations: Tính năng OCR trên PDF quét (scan) đang là thử nghiệm. Đồng bộ đa thiết bị hiện chỉ chạy qua việc Backup/Restore file JSON thủ công.</em>
                         </p>
                     </div>
-                    <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/20 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-450 shadow-inner">
-                        Offline first active
-                    </span>
+                    <div className="flex flex-col items-end gap-3 shrink-0">
+                        <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/20 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-450 shadow-inner">
+                            Offline first active
+                        </span>
+                        <button
+                            onClick={exportDiagnostics}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 shadow-sm"
+                        >
+                            <Download className="h-4 w-4" />
+                            Export Diagnostics JSON
+                        </button>
+                    </div>
                 </div>
             </section>
         </div>

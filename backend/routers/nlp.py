@@ -9,41 +9,18 @@ from pypinyin import Style, lazy_pinyin
 from db.config import db_session, current_request, rate_limiter, ai_rate_limit_per_minute, pinyin_display, pinyin_numbered
 from schemas import NlpAnalyzeRequest, AIContextRequest, TextRequest, TranslateRequest
 from services.nlp_service import (
-    ai_status_payload,
     build_contextual_analysis,
     analyze_chinese,
-    generate_google_ai_context,
     tokenize_chinese,
     local_translation_payload
 )
+from services.ai.orchestrator import handle_context_reading
 from services.dictionary_service import contains_chinese
 
 router = APIRouter(tags=["nlp"])
 
 
-@router.get("/api/ai/status")
-def ai_status() -> dict[str, Any]:
-    return ai_status_payload()
 
-
-@router.post("/api/ai/context-reading")
-def ai_context_reading(
-    payload: AIContextRequest,
-    session: Session = Depends(db_session),
-    request: Request = Depends(current_request),
-) -> dict[str, Any]:
-    if isinstance(request, Request):
-        rate_limiter.check(request, name="ai", limit=ai_rate_limit_per_minute())
-    text = (payload.selected_text or payload.text or "").strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="Text parameter is required.")
-    rule_based = build_contextual_analysis(payload, session) if (
-        payload.selected_text or payload.source_sentence or payload.paragraph_context or payload.page_context
-    ) else analyze_chinese(text, session)
-    return {
-        "rule_based": rule_based,
-        "ai": generate_google_ai_context(payload, rule_based, session),
-    }
 
 
 @router.post("/api/nlp/analyze")
@@ -62,7 +39,7 @@ def nlp_analyze(
     if payload.ai_enabled:
         if isinstance(request, Request):
             rate_limiter.check(request, name="ai", limit=ai_rate_limit_per_minute())
-        analysis["ai_context"] = generate_google_ai_context(payload, analysis, session)
+        analysis["ai_context"] = handle_context_reading(payload, analysis, session)
     return analysis
 
 

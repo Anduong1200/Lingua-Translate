@@ -45,11 +45,18 @@ from models import (
     UserCorrectionRecord
 )
 from schemas import BackupRestoreRequest
-from services.nlp_service import ai_status_payload, configure_jieba
+from services.nlp_service import configure_jieba
+from services.ai.client import google_key_status
 from services.user_profile_service import get_profile
 
 router = APIRouter(tags=["admin"])
 
+def check_ai_status() -> dict[str, Any]:
+    status = google_key_status()
+    return {
+        **status,
+        "status": "ok" if status["enabled"] else "missing_api_key",
+    }
 
 @router.get("/api/health")
 def health() -> dict[str, str]:
@@ -63,7 +70,7 @@ def health_deep(session: Session = Depends(db_session)) -> dict[str, Any]:
         "uploads": {"ok": UPLOAD_DIR.exists(), "path": str(UPLOAD_DIR)},
         "backups": {"ok": BACKUP_DIR.exists(), "path": str(BACKUP_DIR)},
         "dictionary": {"ok": False, "entries": 0, "cc_cedict_entries": 0, "hsk_vocab_entries": 0},
-        "ai": ai_status_payload(),
+        "ai": check_ai_status(),
     }
     try:
         session.execute(sql_text("SELECT 1")).scalar_one()
@@ -120,7 +127,7 @@ def system_config() -> dict[str, Any]:
             "upload_per_minute": upload_rate_limit_per_minute(),
         },
         "backup_dir": str(BACKUP_DIR),
-        "ai": ai_status_payload(),
+        "ai": check_ai_status(),
         "warnings": runtime_config_warnings(),
     }
 

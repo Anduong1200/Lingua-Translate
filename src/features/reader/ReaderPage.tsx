@@ -29,82 +29,22 @@ import {
     Send,
 } from 'lucide-react'
 import { useStore } from '@/store/useStore'
-import { AIContextReadingResult, AnnotationRecord, ChineseSentenceAnalysis, ChineseToken } from '@/types'
+import { AnnotationRecord, ChineseSentenceAnalysis, ChineseToken } from '@/types'
 import { estimateHskLabel, getVietnameseDefinition } from '@/lib/chinese'
+import {
+    buildQuizQuestions,
+    ChatMessage,
+    findSentenceForSelection,
+    formatAiChatReply,
+    isSelectableToken,
+    messageTime,
+    PanelTab,
+    PdfSelection,
+    QuizQuestion,
+    speakChinese,
+} from './readerUtils'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).toString()
-
-type PdfSelection = {
-    selectedText: string
-    pageNumber: number
-    bboxJson: string
-    sourceSentence: string
-    paragraphContext: string
-    pageContext: string
-}
-
-type PanelTab = 'chat' | 'quiz' | 'vocab'
-
-type ChatMessage = {
-    id: string
-    role: 'user' | 'assistant'
-    content: string
-    timestamp: string
-}
-
-type QuizQuestion = {
-    question: string
-    options: string[]
-    answerIndex: number
-    explanation: string
-}
-
-function isSelectableToken(token: ChineseToken) {
-    return token.definitions.length > 0 && token.pos !== 'punctuation' && token.surface.trim().length > 0
-}
-
-function speak(text: string) {
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'zh-CN'
-    speechSynthesis.speak(utterance)
-}
-
-function findSentenceForSelection(context: string, selectedText: string) {
-    const selected = selectedText.trim()
-    if (!context.trim()) return selected
-    const sentence = context
-        .replace(/\r/g, '')
-        .split(/(?<=[。！？!?])\s*|\n+/)
-        .map((item) => item.trim())
-        .find((item) => item.includes(selected))
-    return sentence || selected
-}
-
-function messageTime() {
-    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-function formatAiChatReply(result: AIContextReadingResult | null) {
-    if (!result) return 'Không tạo được phản hồi AI lúc này.'
-    const ai = result.ai
-    const response = ai.response
-    if (ai.status !== 'ok' || !response) {
-        const fallback = result.rule_based.context?.explanation_vi || result.rule_based.translations?.natural_vi || result.rule_based.text
-        return [
-            ai.message || 'AI chưa sẵn sàng hoặc chưa cấu hình API key.',
-            fallback ? `Phân tích local: ${fallback}` : '',
-        ].filter(Boolean).join('\n\n')
-    }
-
-    return [
-        response.natural_vi ? `Dịch tự nhiên: ${response.natural_vi}` : '',
-        response.context_explanation_vi ? `Ngữ cảnh: ${response.context_explanation_vi}` : '',
-        response.grammar_notes?.length
-            ? `Ngữ pháp: ${response.grammar_notes.map((note) => `${note.pattern} - ${note.meaning_vi}`).join('; ')}`
-            : '',
-        response.nuance_vi ? `Sắc thái: ${response.nuance_vi}` : '',
-    ].filter(Boolean).join('\n\n') || response.raw_text || 'AI đã phản hồi nhưng không có nội dung có cấu trúc.'
-}
 
 export default function ReaderPage() {
     const {
@@ -233,6 +173,15 @@ export default function ReaderPage() {
         setPdfSelection(selection)
         if (selection) {
             setSavedNotice('')
+
+            // Check garbled text or unselectable scan
+            const isGarbled = selection.selectedText.includes('\uFFFD') || /^[^\w\u4e00-\u9fa5]+$/.test(selection.selectedText)
+            if (isGarbled) {
+                setSavedNotice('PDF text layer không sạch. Hãy chọn đoạn ngắn hơn.')
+            } else if (selection.selectedText.trim().length === 0) {
+                setSavedNotice('PDF này không có selectable text. OCR hiện là experimental.')
+            }
+
             const sel = window.getSelection()
             if (sel && sel.rangeCount > 0) {
                 const rect = sel.getRangeAt(0).getBoundingClientRect()
@@ -408,43 +357,6 @@ export default function ReaderPage() {
         } finally {
             setChatLoading(false)
         }
-    }
-
-    const buildQuizQuestions = (sourceSentences: ChineseSentenceAnalysis[]): QuizQuestion[] => {
-        const tokenRows = sourceSentences.flatMap((sentence) =>
-            sentence.tokens
-                .filter(isSelectableToken)
-                .map((token) => ({
-                    token,
-                    sentence: sentence.text,
-                    answer: getVietnameseDefinition(token),
-                })),
-        )
-        const uniqueRows = Array.from(new Map(tokenRows.filter((row) => row.answer).map((row) => [row.token.surface, row])).values())
-        const fallbackAnswers = ['từ/cụm trong ngữ cảnh', 'cấu trúc ngữ pháp', 'trạng thái hoàn thành', 'từ chỉ quan hệ logic']
-
-        return uniqueRows.slice(0, 5).map((row, index) => {
-            const distractors = uniqueRows
-                .filter((item) => item.token.surface !== row.token.surface)
-                .map((item) => item.answer)
-                .filter((answer, answerIndex, answers) => answer && answers.indexOf(answer) === answerIndex)
-            const options = [row.answer, ...distractors, ...fallbackAnswers]
-                .filter((answer, answerIndex, answers) => answer && answers.indexOf(answer) === answerIndex)
-                .slice(0, 4)
-            while (options.length < 4) {
-                options.push(`Gợi ý khác ${options.length}`)
-            }
-            const answerIndex = index % options.length
-            const correctAnswer = options[0]
-            options[0] = options[answerIndex]
-            options[answerIndex] = correctAnswer
-            return {
-                question: `Trong câu "${row.sentence}", nghĩa phù hợp của "${row.token.surface}" là gì?`,
-                options,
-                answerIndex,
-                explanation: `${row.token.surface} (${row.token.pinyin}) = ${row.answer}`,
-            }
-        })
     }
 
     const handleGenerateQuiz = async () => {
@@ -709,9 +621,10 @@ export default function ReaderPage() {
                                                 domain_mode: settings.domainMode || 'auto',
                                                 user_level: settings.targetHskLevel || 'HSK4',
                                             })
-                                            const firstToken = analysis.sentences[0]?.tokens.find(isSelectableToken)
+                                            const firstSentence = analysis.sentences?.[0] ?? null
+                                            const firstToken = firstSentence?.tokens.find(isSelectableToken)
                                             if (firstToken) setSelectedToken(firstToken)
-                                            setSelectedSentence(analysis.sentences[0] ?? null)
+                                            setSelectedSentence(firstSentence)
                                             void recordLookupWord({
                                                 word: pdfSelection.selectedText,
                                                 translation: analysis.quick_meaning?.definitions_vi?.[0] || (firstToken ? getVietnameseDefinition(firstToken) : ''),
@@ -934,6 +847,12 @@ export default function ReaderPage() {
                     </button>
                 </div>
 
+                {savedNotice && (
+                    <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        {savedNotice}
+                    </div>
+                )}
+
                 {/* Active Tab Screen Area */}
                 <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                     {/* TAB 1: AI COACH CHAT BOX */}
@@ -1094,7 +1013,7 @@ export default function ReaderPage() {
                                                 )}
                                             </div>
                                             <button
-                                                onClick={() => speak(selectedSurface)}
+                                                onClick={() => speakChinese(selectedSurface)}
                                                 className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-[#006b5f] hover:text-white transition-colors"
                                             >
                                                 <Volume2 className="w-4 h-4" />
@@ -1111,7 +1030,15 @@ export default function ReaderPage() {
 
                                             {quickEn && (
                                                 <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800">
-                                                    <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Nghĩa tiếng Anh</h3>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nghĩa tiếng Anh</h3>
+                                                        <span className="text-[9px] px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded font-semibold">CC-CEDICT</span>
+                                                    </div>
+                                                    {!quickVi && (
+                                                        <p className="text-xs text-amber-600 dark:text-amber-500 mb-2 font-medium flex items-center gap-1.5">
+                                                            <AlertCircle className="w-3.5 h-3.5" /> Chưa có nghĩa Việt đáng tin. Hiển thị English fallback.
+                                                        </p>
+                                                    )}
                                                     <p className="text-sm text-slate-600 dark:text-slate-400">{quickEn}</p>
                                                 </div>
                                             )}

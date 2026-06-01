@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Header from '@/components/layout/Header'
 import { useStore } from '@/store/useStore'
+import OnboardingModal from '@/features/onboarding/OnboardingModal'
 
 const LandingPage = lazy(() => import('@/features/dashboard/LandingPage'))
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
@@ -10,6 +11,7 @@ const ReaderPage = lazy(() => import('@/features/reader/ReaderPage'))
 const VocabularyPage = lazy(() => import('@/features/dictionary/VocabularyPage'))
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
 const FlashCardsPage = lazy(() => import('@/features/review/FlashCardsPage'))
+const StorePage = lazy(() => import('@/features/dashboard/StorePage'))
 
 function RouteFallback() {
     return (
@@ -50,6 +52,7 @@ export default function App() {
 
     const isReader = location.pathname === '/reader';
     const isLanding = location.pathname === '/';
+    const isDashboard = location.pathname === '/dashboard';
 
     return (
         <div className="min-h-screen w-full bg-gradient-to-br from-[#eef0ff] via-[#d4e3ff]/60 to-[#faf8ff] dark:from-[#0b0f19] dark:via-[#090d16] dark:to-[#020617] text-slate-800 dark:text-slate-200 transition-colors selection:bg-[#006b5f]/20 relative overflow-x-hidden flex flex-col items-center">
@@ -60,6 +63,7 @@ export default function App() {
 
             {/* Conditionally render Header on non-reader pages */}
             {!isReader && !isLanding && <Header />}
+            {isDashboard && <OnboardingModal />}
 
             <main className={`flex-1 w-full mx-auto font-sans relative z-10 ${isReader ? 'p-0 h-[calc(100vh-64px)]' : isLanding ? 'p-0 max-w-full' : 'max-w-7xl px-6 py-6'}`}>
                 <Suspense fallback={<RouteFallback />}>
@@ -70,6 +74,7 @@ export default function App() {
                             <Route path="/reader" element={<PageTransition isReader={isReader}><ReaderPage /></PageTransition>} />
                             <Route path="/vocabulary" element={<PageTransition><VocabularyPage /></PageTransition>} />
                             <Route path="/flashcards" element={<PageTransition><FlashCardsPage /></PageTransition>} />
+                            <Route path="/store" element={<PageTransition><StorePage /></PageTransition>} />
                             <Route path="/settings" element={<PageTransition><SettingsPage /></PageTransition>} />
                         </Routes>
                     </AnimatePresence>

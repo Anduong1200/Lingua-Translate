@@ -1,420 +1,151 @@
-# Hanora
+<div align="center">
+  <img src="docs/assets/logo.png" alt="Hanora Logo" width="120" />
+  <h1>Hanora Context Reader</h1>
+  <p><strong>A Dictionary-backed, Offline-first Chinese Reading Assistant tailored for Vietnamese learners.</strong></p>
 
-Offline-first Chinese context reader for Vietnamese learners.
+  [![React](https://img.shields.io/badge/React-19.x-61DAFB?logo=react&logoColor=black)](#)
+  [![Vite](https://img.shields.io/badge/Vite-8.x-646CFF?logo=vite&logoColor=white)](#)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?logo=fastapi&logoColor=white)](#)
+  [![Playwright](https://img.shields.io/badge/Tested_with-Playwright-2EAD33?logo=playwright&logoColor=white)](#)
+</div>
 
-Core MVP flow:
+---
 
+## 1. The Problem
+Learning Chinese through reading is highly effective, but current tools fall short:
+- **PDF Translation Tools** often destroy the original layout or just paste raw translated text, removing the opportunity to *learn* the source language.
+- **Generic GenAI (ChatGPT/Claude)** are great at translation but terrible at structured vocabulary building. They require constant prompt engineering and don't natively integrate with Flashcard/Spaced Repetition Systems (SRS).
+- **Popup Dictionaries** (browser extensions) only work on web pages, fail miserably on PDF/scanned documents, and lack contextual awareness (word boundary detection in Chinese is notoriously hard).
 
-Core MVP flow:
+**Hanora** solves this by providing a unified workspace where reading, contextual lookup, and vocabulary retention happen seamlessly.
 
-```text
-PDF -> Text Layer -> Selection -> NLP Analyze -> Dictionary Lookup -> Context/Grammar Panel -> Annotation/Review
+## 2. Target Users
+- **HSK 3 - HSK 6 Learners**: Intermediate to advanced learners who want to consume native Chinese materials (news, academic papers, books).
+- **Domain Experts**: Professionals (Economics, IT, Education) who need to read specialized Chinese documents and require domain-specific terminology.
+
+## 3. Core Workflow
+The application is designed around a strictly enforced, 5-step high-retention loop:
+1. **Read**: Upload any PDF/TXT document. Text layer is parsed and rendered preserving structure.
+2. **Look up**: Highlight any word or sentence. The NLP engine detects word boundaries and provides definitions.
+3. **Understand**: Contextual AI explains grammar patterns and nuances based on the specific sentence.
+4. **Save**: One-click annotation saves the token, its pinyin, meaning, and exact contextual source sentence.
+5. **Review**: The built-in SRS (Spaced Repetition System) automatically schedules flashcard reviews to guarantee long-term memory.
+
+## 4. Architecture
+
+```mermaid
+graph TD
+    %% Frontend Layer
+    subgraph Frontend [Frontend (React + Zustand)]
+        UI[React UI Components]
+        Store[Zustand State Manager]
+        IDB[(IndexedDB Cache)]
+        PDF[PDF.js Renderer]
+    end
+
+    %% Backend Layer
+    subgraph Backend [Backend (FastAPI)]
+        Router[API Routers]
+        NLP[NLP Service / Jieba]
+        Dict[Dictionary Service]
+        DB[(SQLite / PostgreSQL)]
+    end
+
+    %% External
+    subgraph External [External Services]
+        LLM[Google Gemini API]
+    end
+
+    %% Connections
+    UI <--> Store
+    Store <--> IDB
+    Store <--> PDF
+    Store <--> Router
+    Router <--> NLP
+    Router <--> Dict
+    Router <--> DB
+    NLP <--> LLM
 ```
 
-The app keeps learning data in local SQLite. Cloud AI is optional and only used as an explanation layer when enabled.
+## 5. Tech Stack
+- **Frontend**: React 19, Vite, TypeScript, TailwindCSS, Zustand (State Management), PDF.js (Document Rendering), Framer Motion (Animations).
+- **Backend**: Python 3.11, FastAPI, SQLAlchemy, Alembic (Migrations), Jieba (Chinese Tokenization).
+- **Testing**: Vitest (Unit/Component), Playwright (End-to-End Testing).
+- **Data**: SQLite (dev) / PostgreSQL (prod), CC-CEDICT (Dictionary).
 
-## Current Scope (MVP 0.1)
+## 6. Dictionary & NLP Pipeline
+The application uses a hybrid approach to ensure speed and accuracy:
+1. **Tokenization**: `Jieba` segments the Chinese sentence into tokens.
+2. **Local Lookup (O(1))**: Tokens are mapped against the local CC-CEDICT database to instantly fetch basic English/Vietnamese meanings and Pinyin.
+3. **Contextual Enrichment**: For complex sentences or user requests, the sentence context is sent to the LLM (Gemini) to extract grammar patterns, correct word sense disambiguation, and domain-specific nuances.
 
-Hanora is a **stable MVP 0.1 candidate** designed as a Vietnamese-first Chinese academic reading companion.
+## 7. Offline-First Design
+- **Why?** Language learners often study during commutes or in areas with poor connectivity.
+- **How?** Core dictionary queries and user vocabulary state are cached locally via IndexedDB. Reading progress and saved annotations remain accessible offline and sync to the backend when the connection is restored.
+- *Note: Contextual AI features require an active internet connection, gracefully degrading to local dictionary lookups when offline.*
 
-### Technical Capabilities & Limitations:
-- **Vietnamese Lexical Coverage**: Currently stands at **~38.8%** (~61,346 entries with pure, clean Vietnamese translations) with absolute high coverage for core HSK Level 1-7/9 words (81% to 93% Vietnamese coverage). Words outside this core fallback to JIEBA/CC-CEDICT English meanings.
-- **Experimental OCR Support**: Optical Character Recognition (OCR) is integrated as an alpha preview using OpenCV and Tesseract, but is not officially supported or guaranteed for production-grade low-quality scanned documents. Selectable text layers remain the gold standard.
-- **HSK 7-9 Advanced Grouping**: Maps Level 7 database schemas to render correctly as `HSK 7–9` on user interfaces, matching standard HSK 3.0 advanced guidelines.
-- **Personalization Priority**: Incorporates a highly optimized ranking system where user-registered vocab corrections (`user_corrections`) strictly take precedence over all dictionary seed levels.
+## 8. Annotation & Review Model
+- **PDF Span Mapping**: Instead of saving isolated words, Hanora saves the exact coordinate (bbox) and the full source sentence. This ensures flashcards always have the correct context.
+- **Simple SRS**: Flashcards are scheduled using a lightweight Spaced Repetition algorithm (configurable intervals: 1m, 5m, 15m, 1d) optimized for short-to-medium term retention.
+- **User Corrections**: Users can override definitions. These corrections are saved and prioritized for future lookups within the same domain.
 
-## Not in Production v1.0 / Next Steps:
+## 9. Data Sources & Licensing
+- **CC-CEDICT**: Core dictionary data is sourced from CC-CEDICT (Creative Commons Attribution-Share Alike 3.0).
+- **Hanora NLP**: Proprietary parsing and contextual mapping logic.
+- **Sample Documents**: Provided sample texts are for educational purposes.
 
-- Full 100% Chinese-Vietnamese dictionary coverage (gradually stripping remaining English fallbacks)
-- Production-grade multi-layer OCR engine support
-- Full-document AI translation beyond the local rule-based layer
+## 10. Current Limitations
+- **PDF Scans**: OCR is currently experimental. Scanned PDFs without a valid text layer cannot be reliably highlighted.
+- **Mobile Support**: The reader interface is currently optimized for Desktop/Tablet. Mobile responsiveness is functional but not ideal for complex PDF rendering.
+- **Sync Conflict Resolution**: Basic "last-write-wins" strategy. No granular merging for multi-device concurrent editing yet.
 
-## Stack
-
-Frontend:
-- React
-- Vite
-- TypeScript
-- Tailwind CSS
-- PDF.js / `pdfjs-dist`
-- Zustand
-
-Backend:
-- Python
-- FastAPI
-- Pydantic
-- Uvicorn
-- SQLAlchemy
-- SQLite
-- Alembic
-- jieba
-- pypinyin
-- httpx
-
-Data:
-- CC-CEDICT
-- HSK vocabulary PDFs
-- Custom Vietnamese dictionary
-- User corrections
-
-## Repository Layout
-
-```text
-.
-├── backend/
-│   ├── main.py
-│   ├── requirements.txt
-│   ├── README.md
-│   ├── alembic.ini
-│   ├── alembic/
-│   ├── scripts/
-│   └── tests/
-├── public/
-├── src/
-│   ├── components/layout/
-│   ├── lib/
-│   ├── pages/
-│   ├── store/
-│   └── types/
-├── package.json
-├── vite.config.ts
-└── tsconfig.json
-```
-
-Runtime files are ignored:
-
-```text
-backend/data/
-backend/.env
-dist/
-node_modules/
-test-results/
-playwright-report/
-```
-
-## System Requirements (OCR)
-
-For processing scanned PDFs and images, the backend requires:
-1. **Tesseract OCR**: Needs to be installed on the system (with `chi_sim` and `chi_tra` language data).
-2. **Poppler**: Required for `pdf2image` to extract images from PDFs.
-
-On Windows, ensure both are added to your `PATH`, or configure them via environment variables below.
-
-## Setup
-
-Install frontend dependencies:
+## 11. Fresh Clone Gate
+The repository is designed to run from a clean clone without hand-editing tracked files. Required tools: Node.js, Python 3.11+, and browser dependencies installed by Playwright when running E2E.
 
 ```bash
+# 1. Clone
+git clone https://github.com/Anduong1200/Lingua-Translate.git
+cd Lingua-Translate
+
+# 2. Local env
+cp .env.example .env
+
+# 3. Dependencies
 npm install
-```
-
-Install backend dependencies:
-
-```bash
-python -m pip install -r backend/requirements.txt
-```
-
-Copy optional environment template:
-
-```bash
-copy backend\.env.example backend\.env
-```
-
-Recommended backend production-oriented defaults:
-
-```text
-APP_ENV=development
-FRONTEND_ORIGINS=http://127.0.0.1:3000,http://localhost:3000
-ALLOWED_UPLOAD_EXTENSIONS=.pdf,.txt,.md,.docx
-MAX_UPLOAD_BYTES=52428800
-UPLOAD_RATE_LIMIT_PER_MINUTE=20
-AI_RATE_LIMIT_PER_MINUTE=30
-GOOGLE_API_KEYS=
-GOOGLE_AI_MODEL=gemini-3.5-flash
-GOOGLE_AI_TIMEOUT_SECONDS=30
-TESSERACT_CMD=tesseract
-POPPLER_PATH=
-```
-
-For frontend API override, create `.env` if needed:
-
-```text
-VITE_API_BASE_URL=http://127.0.0.1:3001/api
-```
-
-## Run
-
-Terminal 1:
-
-```bash
-npm run backend
-```
-
-Terminal 2:
-
-```bash
-npm run dev -- --host 127.0.0.1 --port 3000
-```
-
-Open:
-
-```text
-http://127.0.0.1:3000
-```
-
-Docker Compose local production build:
-
-```bash
-npm run docker:up
-```
-
-Optional AI keys for Compose:
-
-```bash
-set GOOGLE_API_KEYS=GOOGLE_KEY_1,GOOGLE_KEY_2
-npm run docker:up
-```
-
-This starts:
-
-```text
-frontend: http://127.0.0.1:3000
-backend:  http://127.0.0.1:3001
-data:     ./backend/data
-```
-
-Backend health:
-
-```text
-http://127.0.0.1:3001/api/health
-http://127.0.0.1:3001/api/health/deep
-```
-
-Apply migrations on a clean database:
-
-```bash
-npm run db:migrate
-```
-
-## Import Dictionary Data
-
-Import CC-CEDICT:
-
-```bash
-python backend\scripts\import_cc_cedict.py D:\exe\cedict_1_0_ts_utf-8_mdbg_20260525_061910\cedict_ts.u8
-```
-
-Import HSK vocabulary PDFs:
-
-```bash
-python backend\scripts\import_hsk_vocab.py D:\exe\hsk
-```
-
-Or run the bootstrap helper, which auto-detects the local `D:\exe` data layout when available:
-
-```bash
-python backend\scripts\bootstrap_data.py
-```
-
-Explicit paths:
-
-```bash
-python backend\scripts\bootstrap_data.py --cedict path\to\cedict_ts.u8 --hsk path\to\hsk_folder
-```
-
-Current local imported counts:
-
-```text
-CC-CEDICT: 124,954
-HSK vocab: 11,041
-Total dictionary entries including seeds: 136,024
-```
-
-Check database stats:
-
-```bash
-curl http://127.0.0.1:3001/api/debug/db-stats
-```
-
-## Optional Google AI Context Reading
-
-AI is optional. The app remains usable without internet/API keys.
-
-Supported config:
-
-```text
-GOOGLE_API_KEYS=key1,key2,key3
-GOOGLE_AI_MODEL=gemini-3.5-flash
-GOOGLE_AI_TIMEOUT_SECONDS=30
-```
-
-You can also add keys manually in:
-
-```text
-backend/data/google_api_keys.txt
-```
-
-One key per line is supported. The backend rotates keys round-robin and never returns raw keys in API responses.
-
-AI endpoints:
-
-```text
-GET  /api/ai/status
-POST /api/ai/context-reading
-POST /api/nlp/analyze with {"ai_enabled": true}
-```
-
-AI is used only as a context/explanation layer. Dictionary, pinyin, segmentation, annotations, review items, and dashboard still work locally.
-
-## Core API
-
-System:
-
-```text
-GET /api/health
-GET /api/health/deep
-GET /api/system/info
-GET /api/system/config
-GET /api/ai/status
-```
-
-NLP and dictionary:
-
-```text
-POST /api/nlp/analyze
-POST /api/nlp/segment
-POST /api/nlp/pinyin
-GET  /api/dictionary/search?q=处理
-POST /api/dictionary/custom
-POST /api/dictionary/import
-```
-
-Documents:
-
-```text
-POST /api/documents/upload
-GET  /api/documents
-GET  /api/documents/{document_id}
-GET  /api/documents/{document_id}/file
-GET  /api/documents/{document_id}/translate
-GET  /api/documents/{document_id}/vocabulary-scan
-POST /api/documents/{document_id}/auto-review-items
-POST /api/documents/{document_id}/pages
-```
-
-Annotations and review:
-
-```text
-POST   /api/annotations
-GET    /api/annotations
-PATCH  /api/annotations/{annotation_id}
-DELETE /api/annotations/{annotation_id}
-
-POST /api/review-items
-GET  /api/review-items
-GET  /api/review-items/due
-POST /api/review-events
-```
-
-Personalization:
-
-```text
-GET   /api/user/profile
-PATCH /api/user/profile
-GET   /api/user/corrections
-POST  /api/user/corrections
-GET   /api/known-words
-POST  /api/known-words
-```
-
-Dashboard:
-
-```text
-GET /api/dashboard/summary
-GET /api/dashboard/hsk-distribution
-GET /api/dashboard/domain-distribution
-```
-
-Admin/operations:
-
-```text
-POST /api/admin/backup
-GET  /api/admin/backups
-POST /api/admin/restore
-GET  /api/admin/export
-```
-
-Create a local SQLite backup from the terminal:
-
-```bash
-npm run backend:backup
-npm run backend:restore -- hanora_YYYYMMDDTHHMMSSZ.sqlite3
-```
-
-Restore only accepts backup file names from `backend/data/backups`; path traversal and arbitrary DB paths are rejected.
-
-## Verify
-
-Run backend tests:
-
-```bash
-npm run test:backend
-```
-
-Build frontend:
-
-```bash
+pip install -r backend/requirements.txt
+
+# 4. Database schema
+alembic upgrade head
+
+# 5. Reproducible data import
+# Built-in bootstrap:
+python backend/scripts/bootstrap_data.py
+# Optional full Chinese-Vietnamese import:
+python backend/scripts/import_trungviet_dict.py --stardict-dir path/to/TrungViet --hsk-dir path/to/hsk --phrase-dir path/to/phrase
+
+# 6. Quality gates
+npm run security:check
+npm run test
 npm run build
+npm run e2e
+
+# 7. Start frontend + backend
+npm run dev
 ```
 
-Run both:
-
+Release artifact:
 ```bash
-npm run verify
+npm run release:clean
+# outputs the single clean source artifact:
+# release/hanora-mvp-source.zip
 ```
 
-CI runs backend tests and frontend build on pushes/PRs to `main`.
+## 12. Demo
+![App Dashboard](docs/assets/dashboard.png)
+*(Link to Demo Video will be placed here)*
 
-Optional browser golden path:
-
-```bash
-npx playwright install chromium
-npm run test:e2e
-```
-
-Known warning:
-
-```text
-Vite may warn that the PDF worker chunk is larger than 500 kB.
-```
-
-This is expected for PDF.js and does not block MVP 0.1.
-
-## MVP Acceptance Criteria
-
-The project should pass:
-
-```text
-1. Import PDF
-2. Refresh app and reopen the same PDF from backend file storage
-3. Select text -> analyze -> dictionary lookup
-4. Save annotation
-5. Reload -> annotation metadata still comes from backend
-6. Add to review
-7. Review queue loads from backend
-8. Submit review -> due_at changes
-9. Dashboard data comes from SQLite-backed state
-10. User correction takes priority in later lookup/analyze
-```
-
-## Security Notes
-
-Do not commit:
-
-```text
-backend/.env
-backend/data/
-backend/data/google_api_keys.txt
-```
-
-If an API key was pasted into chat or committed by mistake, rotate it in Google Cloud before using the app seriously.
+## 13. Roadmap
+- [ ] **Q3 2026**: Robust Client-side OCR for scanned PDFs using Tesseract.js.
+- [ ] **Q3 2026**: Native mobile application (React Native) for on-the-go flashcard reviews.
+- [ ] **Q4 2026**: Peer-to-peer vocabulary deck sharing and community translation upvoting.
+- [ ] **Q4 2026**: Advanced SRS algorithm (FSRS integration).
