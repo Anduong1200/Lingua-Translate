@@ -5,6 +5,8 @@
   "description": "Hanora is an offline-first Chinese context reader for Vietnamese learners with document translation, smart PDF/DOCX lookup, flashcards, and optional Google Gemini AI context reading.",
   "type": "module",
   "scripts": {
+    "setup": "npm install && pip install -r backend/requirements.txt && node -e \"const fs = require('fs'); if (!fs.existsSync('backend/.env')) fs.copyFileSync('backend/.env.example', 'backend/.env');\"",
+    "seed": "cd backend && python scripts/bootstrap_data.py",
     "dev": "vite",
     "backend": "python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 3001",
     "backend:backup": "python backend/scripts/backup_database.py",
@@ -13,17 +15,25 @@
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
     "build": "tsc && vite build",
+    "build:all": "npm run build && cd backend && alembic upgrade head",
     "preview": "vite preview",
     "test:backend": "python -m pytest backend/tests",
+    "test:frontend": "vitest run",
     "test:e2e": "playwright test",
+    "test:all": "npm run test:backend && npm run test:frontend && npm run test:e2e",
+    "start:demo": "npm run build && (node -e \"require('child_process').execSync('npm run backend', {stdio: 'inherit'})\" & vite preview)",
     "verify": "npm run build && npm run test:backend"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
+    "jsdom": "^28.1.0",
     "typescript": "~6.0.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "vitest": "^4.1.8"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
