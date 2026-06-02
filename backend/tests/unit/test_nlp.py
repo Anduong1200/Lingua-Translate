@@ -17,6 +17,8 @@ import routers.admin
 import routers.documents
 import routers.ai
 import routers.nlp
+from db.config import make_id, now_utc
+from models.ai_history import AiRequestRecord
 from services.ai.consent import get_ai_user_consent
 from schemas import (
     AIContextRequest,
@@ -162,6 +164,9 @@ def test_contextual_nlp_analyze(session) -> None:
 def test_google_ai_context_uses_rotating_keys_without_exposing_secret(session, monkeypatch) -> None:
     monkeypatch.setattr(services.ai.client, "load_google_api_keys", lambda: ["key-one", "key-two"])
     services.ai.client.google_key_pool._index = 0
+    consent = get_ai_user_consent(session)
+    consent.allow_send_selected_text = True
+    session.commit()
     used_keys: list[str] = []
 
     def fake_post_google_generate_content(api_key: str, model: str, prompt: str, temperature: float) -> dict[str, Any]:
@@ -292,4 +297,46 @@ def test_google_ai_context_sanitizes_page_context_without_consent(session, monke
     assert "PRIVATE_PAGE_CONTEXT" not in prompts[0]
     assert "由于市场需求下降" not in prompts[0]
     assert "市场需求" in prompts[0]
+
+
+def test_google_ai_context_respects_daily_budget(session, monkeypatch) -> None:
+    monkeypatch.setenv("AI_DAILY_REQUEST_LIMIT", "1")
+    monkeypatch.setattr(services.ai.client, "load_google_api_keys", lambda: ["key-one"])
+    called = False
+
+    def fake_post_google_generate_content(api_key: str, model: str, prompt: str, temperature: float) -> dict[str, Any]:
+        nonlocal called
+        called = True
+        return {}
+
+    monkeypatch.setattr(services.ai.orchestrator, "post_google_generate_content", fake_post_google_generate_content)
+
+    consent = get_ai_user_consent(session)
+    consent.allow_send_selected_text = True
+    session.add(
+        AiRequestRecord(
+            id=make_id("ai_req"),
+            task_type="context_reading",
+            model="gemini-2.5-flash",
+            status="ok",
+            latency_ms=12,
+            input_token_estimate=10,
+            output_token_estimate=4,
+            created_at=now_utc().isoformat(),
+        )
+    )
+    session.commit()
+
+    payload = AIContextRequest(
+        selected_text="市场需求",
+        source_sentence="由于市场需求下降，该公司调整了生产计划。",
+        domain_mode="economics",
+        user_level="HSK4",
+    )
+    result = ai_context_reading(payload, session)
+
+    assert result["ai"]["status"] == "daily_request_budget_exceeded"
+    assert result["ai"]["enabled"] is False
+    assert result["ai"]["budget"]["daily_request_count"] == 1
+    assert called is False
 

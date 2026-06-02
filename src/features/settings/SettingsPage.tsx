@@ -1,6 +1,7 @@
 import {
     BookOpen,
     Database,
+    FileText,
     Globe,
     Palette,
     Settings,
@@ -26,6 +27,23 @@ type BackupInfo = {
     file_name: string
     size_bytes: number
     created_at: string
+}
+
+type AiConsent = {
+    allow_send_selected_text: boolean
+    allow_send_page_context: boolean
+    allow_send_notes: boolean
+}
+
+type AiBudget = {
+    daily_request_limit: number
+    daily_request_count: number
+    daily_token_limit: number
+    daily_token_estimate: number
+    max_prompt_chars: number
+    recent_error_count: number
+    circuit_breaker_error_limit: number
+    circuit_open: boolean
 }
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
@@ -62,6 +80,12 @@ export default function SettingsPage() {
     const [backups, setBackups] = useState<BackupInfo[]>([])
     const [adminStatus, setAdminStatus] = useState('')
     const [isAdminBusy, setIsAdminBusy] = useState(false)
+    const [aiConsent, setAiConsent] = useState<AiConsent>({
+        allow_send_selected_text: false,
+        allow_send_page_context: false,
+        allow_send_notes: false,
+    })
+    const [aiBudget, setAiBudget] = useState<AiBudget | null>(null)
 
     const loadBackups = async () => {
         try {
@@ -76,7 +100,45 @@ export default function SettingsPage() {
 
     useEffect(() => {
         void loadBackups()
+        void loadAiControls()
     }, [])
+
+    const loadAiControls = async () => {
+        try {
+            const [consentResponse, budgetResponse] = await Promise.all([
+                fetch(`${API_BASE_URL}/ai/consent`),
+                fetch(`${API_BASE_URL}/ai/budget`),
+            ])
+            if (consentResponse.ok) {
+                const data = await consentResponse.json() as { consent: AiConsent }
+                setAiConsent(data.consent)
+            }
+            if (budgetResponse.ok) {
+                const data = await budgetResponse.json() as { budget: AiBudget }
+                setAiBudget(data.budget)
+            }
+        } catch {
+            setAdminStatus('Không tải được cấu hình AI local.')
+        }
+    }
+
+    const patchAiConsent = async (patch: Partial<AiConsent>) => {
+        const nextConsent = { ...aiConsent, ...patch }
+        setAiConsent(nextConsent)
+        try {
+            const response = await fetch(`${API_BASE_URL}/ai/consent`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(patch),
+            })
+            if (!response.ok) throw new Error('Consent update failed')
+            const data = await response.json() as { consent: AiConsent }
+            setAiConsent(data.consent)
+        } catch {
+            setAiConsent(aiConsent)
+            setAdminStatus('Không cập nhật được AI consent. Kiểm tra backend local.')
+        }
+    }
 
     const createBackup = async () => {
         setIsAdminBusy(true)
@@ -378,6 +440,49 @@ export default function SettingsPage() {
                         <SettingRow icon={Database} title="Local Cache" description="Hydrate dữ liệu từ SQLite local và giữ trạng thái đọc trong frontend.">
                             <Toggle checked={settings.offlineCache} onChange={() => updateSettings({ offlineCache: !settings.offlineCache })} />
                         </SettingRow>
+                    </div>
+                </div>
+            </section>
+
+            <section className="custom-shadow overflow-hidden rounded-[2rem] border border-sky-100/50 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl">
+                <div className="border-b border-sky-100/50 dark:border-slate-800 bg-sky-50/30 dark:bg-slate-950/20 px-6 py-4 flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-[#0060ac] dark:text-sky-400" />
+                    <h2 className="font-display font-bold text-slate-900 dark:text-slate-100 text-base">AI Privacy & Budget</h2>
+                </div>
+                <div className="grid gap-0 lg:grid-cols-[1.4fr_1fr]">
+                    <div className="divide-y divide-sky-50/70 dark:divide-slate-800/50">
+                        <SettingRow icon={ShieldCheck} title="Gửi selected text cho AI" description="Mặc định tắt. Bật mục này nếu bạn muốn gửi đoạn đang chọn lên Gemini để giải thích ngữ cảnh.">
+                            <Toggle
+                                checked={aiConsent.allow_send_selected_text}
+                                onChange={() => void patchAiConsent({ allow_send_selected_text: !aiConsent.allow_send_selected_text })}
+                            />
+                        </SettingRow>
+                        <SettingRow icon={FileText} title="Cho phép gửi câu/đoạn xung quanh" description="Chỉ bật khi bạn chấp nhận gửi thêm ngữ cảnh rộng hơn selected text.">
+                            <Toggle
+                                checked={aiConsent.allow_send_page_context}
+                                onChange={() => void patchAiConsent({ allow_send_page_context: !aiConsent.allow_send_page_context })}
+                            />
+                        </SettingRow>
+                        <SettingRow icon={BookOpen} title="Cho phép gửi ghi chú cá nhân" description="MVP hiện không gửi notes theo mặc định; giữ tắt nếu chưa cần cá nhân hoá AI sâu.">
+                            <Toggle
+                                checked={aiConsent.allow_send_notes}
+                                onChange={() => void patchAiConsent({ allow_send_notes: !aiConsent.allow_send_notes })}
+                            />
+                        </SettingRow>
+                    </div>
+                    <div className="border-t border-sky-50/70 p-6 dark:border-slate-800 lg:border-l lg:border-t-0">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">AI Budget Today</p>
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                            <LocalMetric label="Requests" value={aiBudget?.daily_request_count ?? 0} />
+                            <LocalMetric label="Req limit" value={aiBudget?.daily_request_limit ?? 0} />
+                            <LocalMetric label="Tokens" value={aiBudget?.daily_token_estimate ?? 0} />
+                            <LocalMetric label="Errors" value={aiBudget?.recent_error_count ?? 0} />
+                        </div>
+                        <p className="mt-4 rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-xs font-semibold leading-relaxed text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/20 dark:text-sky-200">
+                            {aiBudget?.circuit_open
+                                ? 'Circuit breaker đang mở. AI cloud tạm dừng và app sẽ dùng NLP/dictionary local.'
+                                : 'AI cloud bị giới hạn bởi consent, rate limit, daily budget, token cap và circuit breaker.'}
+                        </p>
                     </div>
                 </div>
             </section>

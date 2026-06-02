@@ -51,6 +51,11 @@ ALLOWED_UPLOAD_EXTENSIONS=.pdf,.txt,.md,.docx
 MAX_UPLOAD_BYTES=52428800
 UPLOAD_RATE_LIMIT_PER_MINUTE=20
 AI_RATE_LIMIT_PER_MINUTE=30
+AI_DAILY_REQUEST_LIMIT=100
+AI_DAILY_TOKEN_LIMIT=100000
+AI_MAX_PROMPT_CHARS=12000
+AI_CIRCUIT_BREAKER_ERROR_LIMIT=10
+AI_CIRCUIT_BREAKER_WINDOW_MINUTES=60
 GOOGLE_API_KEYS=key1,key2,key3
 GOOGLE_AI_MODEL=gemini-2.5-flash
 GOOGLE_AI_TIMEOUT_SECONDS=30
@@ -60,7 +65,7 @@ POPPLER_PATH=
 
 Multiple keys are rotated round-robin for BYOK, environment fallback, or dev/staging/prod separation. This is not intended for quota bypass. If one key hits rate limits or quota errors, the AI layer returns a controlled error and the next request advances through the pool. API responses never expose raw keys, only `key_index` and `key_fingerprint` (SHA-256 first 10 chars).
 
-AI context sharing is consent-gated. `GET /api/ai/consent` returns the current local consent policy and `PATCH /api/ai/consent` updates it. The default allows selected text only and blocks paragraph/page context and notes.
+AI context sharing is consent-gated. `GET /api/ai/consent` returns the current local consent policy and `PATCH /api/ai/consent` updates it. The default blocks selected text, paragraph/page context, and notes until the user opts in. `GET /api/ai/budget` returns daily request/token usage, max prompt size, and circuit-breaker state.
 
 **Full setup guide with architecture diagrams:** See [GOOGLE_AI_SETUP.md](GOOGLE_AI_SETUP.md).
 
@@ -155,4 +160,5 @@ upload type/size safety
 admin backup/export without secret leakage
 Google AI key rotation without secret leakage
 AI consent blocking and context sanitization
+AI daily budget/circuit breaker blocking
 ```

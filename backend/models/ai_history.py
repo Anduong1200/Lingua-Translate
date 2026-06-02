@@ -46,7 +46,7 @@ class AiUserConsentRecord(Base):
     __tablename__ = "ai_user_consent"
 
     user_id = Column(String, primary_key=True, index=True)
-    allow_send_selected_text = Column(Boolean, default=True)
+    allow_send_selected_text = Column(Boolean, default=False)
     allow_send_page_context = Column(Boolean, default=False)
     allow_send_notes = Column(Boolean, default=False)
     created_at = Column(String, default=lambda: now_utc().isoformat())

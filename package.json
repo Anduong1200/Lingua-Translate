@@ -2,7 +2,7 @@
   "name": "hanora",
   "private": true,
   "version": "0.1.0",
-  "description": "Hanora is an offline-first Chinese context reader for Vietnamese learners with document translation, smart PDF/DOCX lookup, flashcards, and optional Google Gemini AI context reading.",
+  "description": "Hanora is a local-first Chinese context reader for Vietnamese learners with document translation, smart PDF/DOCX lookup, flashcards, and optional Google Gemini AI context reading.",
   "type": "module",
   "scripts": {
     "setup": "npm install && pip install -r backend/requirements.txt && node -e \"const fs = require('fs'); if (!fs.existsSync('.env') && fs.existsSync('.env.example')) fs.copyFileSync('.env.example', '.env'); if (!fs.existsSync('backend/.env')) fs.copyFileSync('backend/.env.example', 'backend/.env');\"",

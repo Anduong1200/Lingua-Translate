@@ -42,7 +42,12 @@ from models import (
     ReviewEventRecord,
     KnownWordRecord,
     VocabularyItemRecord,
-    UserCorrectionRecord
+    UserCorrectionRecord,
+    AiRequestRecord,
+    AiCacheRecord,
+    ChatSessionRecord,
+    ChatMessageRecord,
+    AiUserConsentRecord,
 )
 from schemas import BackupRestoreRequest
 from services.nlp_service import configure_jieba
@@ -326,6 +331,11 @@ def debug_reset_demo(session: Session = Depends(db_session)) -> dict[str, str]:
         KnownWordRecord,
         VocabularyItemRecord,
         UserCorrectionRecord,
+        AiRequestRecord,
+        AiCacheRecord,
+        ChatMessageRecord,
+        ChatSessionRecord,
+        AiUserConsentRecord,
     ]:
         session.execute(delete(model))
     profile = get_profile(session)

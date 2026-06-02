@@ -16,6 +16,7 @@ import routers.admin
 import routers.documents
 import routers.ai
 import routers.nlp
+from services.ai.consent import get_ai_user_consent
 from schemas import (
     AIContextRequest,
     AnnotationCreateRequest,
@@ -342,6 +343,9 @@ def test_upload_rate_limit_returns_429(session, monkeypatch) -> None:
 def test_ai_rate_limit_returns_429(session, monkeypatch) -> None:
     monkeypatch.setenv("AI_RATE_LIMIT_PER_MINUTE", "1")
     monkeypatch.setattr(services.ai.client, "load_google_api_keys", lambda: [])
+    consent = get_ai_user_consent(session)
+    consent.allow_send_selected_text = True
+    session.commit()
     new_limiter = db.config.InMemoryRateLimiter()
     monkeypatch.setattr(db.config, "rate_limiter", new_limiter)
     monkeypatch.setattr(routers.ai, "rate_limiter", new_limiter)

@@ -21,7 +21,7 @@ If you encounter a bug, you can voluntarily use the "Export Diagnostics" feature
 ## 3. The "AI Context" Exception
 To provide advanced grammar and context explanations, Hanora integrates with third-party Large Language Models (e.g., Google Gemini). 
 - AI context reading is gated by local consent settings (`/api/ai/consent`).
-- By default, Hanora may send only the selected text. Paragraph/page context and personal notes are blocked unless explicitly enabled.
+- By default, Hanora sends nothing to Gemini. Selected text, paragraph/page context, and personal notes are sent only after the relevant local consent switches are enabled.
 - We do not send your entire document.
 - The backend stores only request metadata for debugging/rate-limit accounting, not raw API keys.
 

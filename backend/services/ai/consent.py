@@ -15,7 +15,7 @@ def get_ai_user_consent(session: Session, user_id: str = LOCAL_USER_ID) -> AiUse
         return consent
     consent = AiUserConsentRecord(
         user_id=user_id,
-        allow_send_selected_text=True,
+        allow_send_selected_text=False,
         allow_send_page_context=False,
         allow_send_notes=False,
     )

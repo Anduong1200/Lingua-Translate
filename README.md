@@ -76,7 +76,7 @@ graph TD
 The application uses a hybrid approach to ensure speed and accuracy:
 1. **Tokenization**: `Jieba` segments the Chinese sentence into tokens.
 2. **Local Lookup (O(1))**: Tokens are mapped against the local CC-CEDICT database to instantly fetch basic English/Vietnamese meanings and Pinyin.
-3. **Contextual Enrichment**: For complex sentences or user requests, the selected text can be sent to the LLM (Gemini) after the local AI consent gate. Paragraph/page context is blocked by default unless explicitly enabled.
+3. **Contextual Enrichment**: For complex sentences or user requests, the selected text can be sent to the LLM (Gemini) after the local AI consent gate. Cloud AI sharing is off by default and must be explicitly enabled.
 
 ## 7. Local-First Design
 - **Why?** Language learners should be able to keep documents, annotations, flashcards, and dictionary data on their own machine.
@@ -88,7 +88,7 @@ The application uses a hybrid approach to ensure speed and accuracy:
 - **PDF Span Mapping**: Instead of saving isolated words, Hanora saves the exact coordinate (bbox) and the full source sentence. This ensures flashcards always have the correct context.
 - **Simple SRS**: Flashcards are scheduled using a lightweight Spaced Repetition algorithm (configurable intervals: 1m, 5m, 15m, 1d) optimized for short-to-medium term retention.
 - **User Corrections**: Users can override definitions. These corrections are saved and prioritized for future lookups within the same domain.
-- **AI Consent**: `GET/PATCH /api/ai/consent` controls whether selected text, page context, or notes may be sent to Gemini. The default allows selected text only and blocks paragraph/page context.
+- **AI Consent & Budget**: `GET/PATCH /api/ai/consent` controls whether selected text, page context, or notes may be sent to Gemini. The default blocks all AI context sharing until the user opts in. `GET /api/ai/budget` reports daily request/token budget and circuit-breaker status.
 
 ## 9. Data Sources & Licensing
 - **CC-CEDICT**: Core dictionary data is sourced from CC-CEDICT (Creative Commons Attribution-Share Alike 3.0).

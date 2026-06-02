@@ -126,18 +126,19 @@ AI context reading luôn đi qua bảng consent local:
 
 ```json
 {
-  "allow_send_selected_text": true,
+  "allow_send_selected_text": false,
   "allow_send_page_context": false,
   "allow_send_notes": false
 }
 ```
 
-Mặc định backend chỉ cho gửi selection. Paragraph/page context và note cá nhân bị chặn khỏi prompt Gemini cho đến khi user bật rõ ràng.
+Mặc định backend không gửi gì lên Gemini. User phải bật `allow_send_selected_text` trước; paragraph/page context và note cá nhân vẫn bị chặn khỏi prompt Gemini cho đến khi bật rõ ràng.
 
 | Endpoint | Mô tả |
 |---|---|
 | `GET /api/ai/consent` | Xem consent policy hiện tại |
 | `PATCH /api/ai/consent` | Cập nhật `allow_send_selected_text`, `allow_send_page_context`, `allow_send_notes` |
+| `GET /api/ai/budget` | Xem daily request/token budget và circuit breaker |
 
 ### Khi Không Có Key Hoặc Key Lỗi
 
@@ -164,6 +165,7 @@ Backend trả về JSON:
 | `GET /api/ai/status` | Kiểm tra trạng thái AI: số key, key tiếp theo, fingerprint |
 | `GET /api/ai/consent` | Kiểm tra consent gửi selected/page/note context |
 | `PATCH /api/ai/consent` | Cập nhật consent local |
+| `GET /api/ai/budget` | Kiểm tra daily request/token cap, max prompt chars, circuit breaker |
 | `POST /api/ai/context-reading` | Gọi AI trực tiếp (cần body JSON) |
 | `POST /api/nlp/analyze` với `"ai_enabled": true` | NLP cục bộ + AI context nếu có key |
 | `GET /api/health/deep` | Health check bao gồm AI status |

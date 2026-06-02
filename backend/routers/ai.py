@@ -6,6 +6,7 @@ from schemas import NlpAnalyzeRequest, AIContextRequest
 from services.nlp_service import build_contextual_analysis
 from services.ai.orchestrator import handle_context_reading
 from services.ai.client import google_key_status
+from services.ai.budget import get_ai_budget_summary
 from services.ai.consent import ai_user_consent_to_dict, get_ai_user_consent, update_ai_user_consent
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -61,3 +62,8 @@ def ai_consent(db: Session = Depends(db_session)) -> dict[str, object]:
 @router.patch("/consent")
 def patch_ai_consent(payload: dict[str, object], db: Session = Depends(db_session)) -> dict[str, object]:
     return {"consent": ai_user_consent_to_dict(update_ai_user_consent(db, payload))}
+
+
+@router.get("/budget")
+def ai_budget(db: Session = Depends(db_session)) -> dict[str, object]:
+    return {"budget": get_ai_budget_summary(db)}

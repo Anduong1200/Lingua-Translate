@@ -5,6 +5,7 @@ from db.config import make_id
 from models.ai_history import AiRequestRecord
 from schemas import NlpAnalyzeRequest, AIContextRequest
 from services.ai.client import get_google_api_key, post_google_generate_content, secret_fingerprint, validate_model
+from services.ai.budget import check_ai_budget
 from services.ai.consent import get_ai_user_consent, sanitize_rule_based_for_ai
 from services.ai.prompts import build_context_reading_prompt
 from services.ai.response_schema import extract_gemini_text, parse_ai_json
@@ -31,16 +32,6 @@ def handle_context_reading(payload: AIContextRequest | NlpAnalyzeRequest, rule_b
             },
         }
 
-    try:
-        api_key, key_index = get_google_api_key()
-    except ValueError as e:
-        return {
-            "enabled": False,
-            "provider": "google_gemini",
-            "status": "missing_api_key",
-            "message": str(e),
-        }
-
     source_sentence = getattr(payload, "source_sentence", "") or ""
     paragraph_context = getattr(payload, "paragraph_context", "") or ""
     if not consent.allow_send_page_context:
@@ -60,12 +51,46 @@ def handle_context_reading(payload: AIContextRequest | NlpAnalyzeRequest, rule_b
     )
 
     request_id = make_id("ai_req")
+    model_name = validate_model(model)
+    budget_result = check_ai_budget(prompt, session)
+    if not budget_result["allowed"]:
+        req_record = AiRequestRecord(
+            id=request_id,
+            task_type=task_type,
+            model=model_name,
+            status=budget_result["status"],
+            latency_ms=int((time.time() - start_time) * 1000),
+            input_token_estimate=budget_result["estimated_prompt_tokens"],
+        )
+        session.add(req_record)
+        session.commit()
+        return {
+            "enabled": False,
+            "provider": "google_gemini",
+            "model": model_name,
+            "status": budget_result["status"],
+            "message": budget_result["message"],
+            "budget": budget_result["budget"],
+            "request_id": request_id,
+        }
+
+    try:
+        api_key, key_index = get_google_api_key()
+    except ValueError as e:
+        return {
+            "enabled": False,
+            "provider": "google_gemini",
+            "status": "missing_api_key",
+            "message": str(e),
+        }
+
     req_record = AiRequestRecord(
         id=request_id,
         task_type=task_type,
-        model=validate_model(model),
+        model=model_name,
         status="pending",
-        latency_ms=0
+        latency_ms=0,
+        input_token_estimate=budget_result["estimated_prompt_tokens"],
     )
     session.add(req_record)
     session.commit()

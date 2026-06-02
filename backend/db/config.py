@@ -178,6 +178,26 @@ def ai_rate_limit_per_minute() -> int:
     return config_int("AI_RATE_LIMIT_PER_MINUTE", 30, minimum=0, maximum=10000)
 
 
+def ai_daily_request_limit() -> int:
+    return config_int("AI_DAILY_REQUEST_LIMIT", 100, minimum=0, maximum=100000)
+
+
+def ai_daily_token_limit() -> int:
+    return config_int("AI_DAILY_TOKEN_LIMIT", 100000, minimum=0, maximum=10000000)
+
+
+def ai_max_prompt_chars() -> int:
+    return config_int("AI_MAX_PROMPT_CHARS", 12000, minimum=0, maximum=200000)
+
+
+def ai_circuit_breaker_error_limit() -> int:
+    return config_int("AI_CIRCUIT_BREAKER_ERROR_LIMIT", 10, minimum=0, maximum=10000)
+
+
+def ai_circuit_breaker_window_minutes() -> int:
+    return config_int("AI_CIRCUIT_BREAKER_WINDOW_MINUTES", 60, minimum=1, maximum=10080)
+
+
 def upload_rate_limit_per_minute() -> int:
     return config_int("UPLOAD_RATE_LIMIT_PER_MINUTE", 20, minimum=0, maximum=10000)
 
@@ -254,6 +274,12 @@ def runtime_config_warnings() -> list[str]:
         warnings.append("MAX_UPLOAD_BYTES is high; large local uploads can slow PDF parsing.")
     if ai_rate_limit_per_minute() == 0:
         warnings.append("AI rate limiting is disabled.")
+    if ai_daily_request_limit() == 0:
+        warnings.append("AI daily request budget is disabled.")
+    if ai_daily_token_limit() == 0:
+        warnings.append("AI daily token budget is disabled.")
+    if ai_circuit_breaker_error_limit() == 0:
+        warnings.append("AI circuit breaker is disabled.")
     if upload_rate_limit_per_minute() == 0:
         warnings.append("Upload rate limiting is disabled.")
     return warnings
