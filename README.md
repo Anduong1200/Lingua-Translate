@@ -6,6 +6,8 @@
   [![Vite](https://img.shields.io/badge/Vite-8.x-646CFF?logo=vite&logoColor=white)](#)
   [![FastAPI](https://img.shields.io/badge/FastAPI-0.109-009688?logo=fastapi&logoColor=white)](#)
   [![Playwright](https://img.shields.io/badge/Tested_with-Playwright-2EAD33?logo=playwright&logoColor=white)](#)
+  [![Build](https://img.shields.io/badge/Build-Passing-brightgreen?logo=github&logoColor=white)](#)
+  [![Types](https://img.shields.io/badge/Types-Strict-brightgreen?logo=typescript&logoColor=white)](#)
 </div>
 
 ---
@@ -35,9 +37,9 @@ The application is designed around a strictly enforced, 5-step high-retention lo
 ```mermaid
 graph TD
     %% Frontend Layer
-    subgraph Frontend [Frontend (React + Zustand)]
+    subgraph Frontend [Frontend (React + Zustand Slices)]
         UI[React UI Components]
-        Store[Zustand View State]
+        Store[Zustand Slices]
         API[Local API Client]
         PDF[PDF.js Renderer]
     end

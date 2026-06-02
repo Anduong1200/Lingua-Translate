@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import {
@@ -44,8 +43,282 @@ import {
     QuizQuestion,
     speakChinese,
 } from './readerUtils'
+import ReaderTopBar from './components/ReaderTopBar'
+import ChatPanel from './components/ChatPanel'
+import QuizPanel from './components/QuizPanel'
+import VocabPanel from './components/VocabPanel'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+
+// ─── PDF sub-components ───────────────────────────────────────────────────────
+
+function PdfDocumentViewer({
+    sourceUrl,
+    onSelection,
+    annotations,
+    zoom = 100,
+}: {
+    sourceUrl: string
+    onSelection: (selection: PdfSelection | null) => void
+    annotations: AnnotationRecord[]
+    zoom?: number
+}) {
+    const [pdfDocument, setPdfDocument] = useState<any>(null)
+    const [pageNumbers, setPageNumbers] = useState<number[]>([])
+    const [error, setError] = useState('')
+    const viewerRef = React.useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        let cancelled = false
+        setPdfDocument(null)
+        setPageNumbers([])
+        setError('')
+
+        pdfjsLib
+            .getDocument(sourceUrl)
+            .promise.then((document) => {
+                if (cancelled) return
+                setPdfDocument(document)
+                setPageNumbers(Array.from({ length: document.numPages }, (_, index) => index + 1))
+            })
+            .catch(() => {
+                if (!cancelled) setError('Không mở được PDF bằng PDF.js. Hãy tải lại file trong phiên hiện tại.')
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [sourceUrl])
+
+    const handleMouseUp = () => {
+        const selection = window.getSelection()
+        const selectedText = selection?.toString().replace(/\s+/g, '').trim()
+        if (!selection || !selectedText || selection.rangeCount === 0) {
+            onSelection(null)
+            return
+        }
+
+        const range = selection.getRangeAt(0)
+        const rangeRect = range.getBoundingClientRect()
+        const pageElement = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+            ? range.commonAncestorContainer
+            : range.commonAncestorContainer.parentElement
+        )?.parentElement?.closest('[data-page-number]') as HTMLElement | null
+
+        const fallbackPageElement = document.elementFromPoint(rangeRect.left, rangeRect.top)?.closest('[data-page-number]') as HTMLElement | null
+        const resolvedPage = pageElement || fallbackPageElement
+        if (!resolvedPage) return
+
+        const pageRect = resolvedPage.getBoundingClientRect()
+        const pageContext = resolvedPage.dataset.pageText || selectedText
+        const sourceSentence = findSentenceForSelection(pageContext, selectedText)
+        const bbox = {
+            x_ratio: (rangeRect.left - pageRect.left) / pageRect.width,
+            y_ratio: (rangeRect.top - pageRect.top) / pageRect.height,
+            w_ratio: rangeRect.width / pageRect.width,
+            h_ratio: rangeRect.height / pageRect.height,
+        }
+
+        onSelection({
+            selectedText,
+            pageNumber: Number(resolvedPage.dataset.pageNumber || 1),
+            bboxJson: JSON.stringify(bbox),
+            sourceSentence,
+            paragraphContext: sourceSentence,
+            pageContext,
+        })
+    }
+
+    if (error) {
+        return (
+            <div className="mx-auto flex h-64 max-w-3xl flex-col items-center justify-center rounded-2xl border border-red-100 bg-white p-6 text-center text-red-600 custom-shadow">
+                <p className="font-bold">{error}</p>
+            </div>
+        )
+    }
+
+    if (!pdfDocument) {
+        return (
+            <div className="flex h-64 flex-col items-center justify-center gap-3 text-[#006b5f]">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <p className="text-sm font-bold">PDF.js đang render canvas + text layer...</p>
+            </div>
+        )
+    }
+
+    return (
+        <div ref={viewerRef} onMouseUp={handleMouseUp} className="mx-auto flex w-full min-w-fit flex-col gap-6 items-center">
+            {pageNumbers.map((pageNumber) => (
+                <PdfPage
+                    key={pageNumber}
+                    pdfDocument={pdfDocument}
+                    pageNumber={pageNumber}
+                    annotations={annotations.filter((annotation) => annotation.page_number === pageNumber)}
+                    zoom={zoom}
+                />
+            ))}
+        </div>
+    )
+}
+
+function PdfPage({
+    pdfDocument,
+    pageNumber,
+    annotations,
+    zoom = 100,
+}: {
+    pdfDocument: any
+    pageNumber: number
+    annotations: AnnotationRecord[]
+    zoom?: number
+}) {
+    const pageRef = React.useRef<HTMLDivElement>(null)
+    const canvasRef = React.useRef<HTMLCanvasElement>(null)
+    const textLayerRef = React.useRef<HTMLDivElement>(null)
+    const [size, setSize] = useState({ width: 1, height: 1 })
+
+    useEffect(() => {
+        let cancelled = false
+        let renderTask: any = null
+
+        async function renderPage() {
+            const page = await pdfDocument.getPage(pageNumber)
+            if (cancelled) return
+
+            const baseViewport = page.getViewport({ scale: 1 })
+            const targetWidth = Math.min(760, Math.max(320, window.innerWidth - 480))
+            const scale = (targetWidth / baseViewport.width) * (zoom / 100)
+            const viewport = page.getViewport({ scale })
+            setSize({ width: viewport.width, height: viewport.height })
+
+            const canvas = canvasRef.current
+            const context = canvas?.getContext('2d')
+            if (!canvas || !context) return
+
+            const outputScale = window.devicePixelRatio || 1
+            canvas.width = Math.floor(viewport.width * outputScale)
+            canvas.height = Math.floor(viewport.height * outputScale)
+            canvas.style.width = `${viewport.width}px`
+            canvas.style.height = `${viewport.height}px`
+
+            renderTask = page.render({
+                canvasContext: context,
+                viewport,
+                transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined,
+            })
+            await renderTask.promise
+            if (cancelled) return
+
+            const textContent = await page.getTextContent()
+            const textLayer = textLayerRef.current
+            if (!textLayer) return
+            textLayer.replaceChildren()
+            if (pageRef.current) {
+                pageRef.current.dataset.pageText = textContent.items.map((item: any) => item.str || '').join('')
+            }
+
+            textContent.items.forEach((item: any) => {
+                if (!item.str) return
+                const tx = pdfjsLib.Util.transform(viewport.transform, item.transform)
+                const angle = Math.atan2(tx[1], tx[0])
+                const fontHeight = Math.hypot(tx[2], tx[3])
+                const span = document.createElement('span')
+                span.textContent = item.str
+                span.style.position = 'absolute'
+                span.style.left = `${tx[4]}px`
+                span.style.top = `${tx[5] - fontHeight}px`
+                span.style.height = `${fontHeight}px`
+                span.style.fontSize = `${fontHeight}px`
+                span.style.fontFamily = 'sans-serif'
+                span.style.color = 'rgba(15, 23, 42, 0.01)'
+                span.style.whiteSpace = 'pre'
+                span.style.transformOrigin = '0 0'
+                span.style.transform = `rotate(${angle}rad)`
+                textLayer.appendChild(span)
+            })
+        }
+
+        renderPage()
+
+        return () => {
+            cancelled = true
+            renderTask?.cancel?.()
+        }
+    }, [pdfDocument, pageNumber, zoom])
+
+    return (
+        <div
+            ref={pageRef}
+            data-page-number={pageNumber}
+            className="relative mx-auto overflow-hidden rounded-2xl border border-slate-200 bg-white custom-shadow"
+            style={{ width: size.width, height: size.height }}
+        >
+            <canvas ref={canvasRef} className="absolute inset-0" />
+            {annotations.map((annotation) => {
+                const bbox = safeBbox(annotation.bbox_json, size.width, size.height)
+                if (!bbox) return null
+                return (
+                    <div
+                        key={annotation.id}
+                        className="pointer-events-none absolute rounded border border-amber-400 bg-amber-200/35"
+                        style={{
+                            left: bbox.x,
+                            top: bbox.y,
+                            width: Math.max(8, bbox.width),
+                            height: Math.max(8, bbox.height),
+                        }}
+                        title={annotation.selected_text}
+                    />
+                )
+            })}
+            <div
+                ref={textLayerRef}
+                className="absolute inset-0 select-text"
+                style={{
+                    width: size.width,
+                    height: size.height,
+                    userSelect: 'text',
+                    WebkitUserSelect: 'text',
+                }}
+            />
+        </div>
+    )
+}
+
+function safeBbox(value?: string, pageWidth: number = 1, pageHeight: number = 1) {
+    if (!value) return null
+    try {
+        const bbox = JSON.parse(value) as any
+        if (
+            typeof bbox.x_ratio === 'number' &&
+            typeof bbox.y_ratio === 'number' &&
+            typeof bbox.w_ratio === 'number' &&
+            typeof bbox.h_ratio === 'number'
+        ) {
+            return {
+                x: bbox.x_ratio * pageWidth,
+                y: bbox.y_ratio * pageHeight,
+                width: bbox.w_ratio * pageWidth,
+                height: bbox.h_ratio * pageHeight,
+            }
+        }
+        if (
+            typeof bbox.x === 'number' &&
+            typeof bbox.y === 'number' &&
+            typeof bbox.width === 'number' &&
+            typeof bbox.height === 'number'
+        ) {
+            return bbox as { x: number; y: number; width: number; height: number }
+        }
+        return null
+    } catch {
+        return null
+    }
+}
+
+// ─── Main ReaderPage ──────────────────────────────────────────────────────────
+
+import React from 'react'
 
 export default function ReaderPage() {
     const {
@@ -95,7 +368,6 @@ export default function ReaderPage() {
     const [pdfZoom, setPdfZoom] = useState(100)
     const handleZoomOut = () => setPdfZoom(z => Math.max(50, z - 10))
     const handleZoomIn = () => setPdfZoom(z => Math.min(250, z + 10))
-    const chatBottomRef = useRef<HTMLDivElement>(null)
     const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
     const [quizLoading, setQuizLoading] = useState(false)
     const [quizScore, setQuizScore] = useState(0)
@@ -149,6 +421,11 @@ export default function ReaderPage() {
     const naturalTranslation = activeAnalysis?.translations?.natural_vi
     const literalTranslation = activeAnalysis?.translations?.literal_vi
     const sourceSentence = activeAnalysis?.selection?.source_sentence || selectedSentence?.text || ''
+    const quickVi = quickMeaning?.definitions_vi?.join('; ') || viDefinition
+    const quickEn = quickMeaning?.definitions_en?.join('; ') || enDefinition
+    const quickPinyin = quickMeaning?.pinyin || selectedToken?.pinyin || ''
+
+    // ─── Handlers ─────────────────────────────────────────────────────────────
 
     const handleSentenceClick = (sentence: ChineseSentenceAnalysis, event?: React.MouseEvent) => {
         setSelectedSentence(sentence)
@@ -176,15 +453,12 @@ export default function ReaderPage() {
         setPdfSelection(selection)
         if (selection) {
             setSavedNotice('')
-
-            // Check garbled text or unselectable scan
             const isGarbled = selection.selectedText.includes('\uFFFD') || /^[^\w\u4e00-\u9fa5]+$/.test(selection.selectedText)
             if (isGarbled) {
                 setSavedNotice('PDF text layer không sạch. Hãy chọn đoạn ngắn hơn.')
             } else if (selection.selectedText.trim().length === 0) {
                 setSavedNotice('PDF này không có selectable text. OCR hiện là experimental.')
             }
-
             const sel = window.getSelection()
             if (sel && sel.rangeCount > 0) {
                 const rect = sel.getRangeAt(0).getBoundingClientRect()
@@ -271,46 +545,6 @@ export default function ReaderPage() {
             sentenceId: sentenceId,
         })
         setSavedNotice(`Đã lưu annotation ${annotation.selected_text}`)
-    }
-
-    const handleSaveCorrection = async () => {
-        if (!selectedSurface || !meaningOverride.trim()) return
-        await saveUserCorrection({
-            original_term: selectedSurface,
-            system_translation: naturalTranslation || quickVi,
-            user_translation: meaningOverride.trim(),
-            context: sourceSentence,
-            domain: activeAnalysis?.context?.domain || settings.domainMode || 'general',
-        })
-        setSavedNotice(`Đã lưu nghĩa Việt ưu tiên cho ${selectedSurface}`)
-        void analyzeChineseText({
-            selected_text: selectedSurface,
-            source_sentence: sourceSentence,
-            paragraph_context: currentDocument?.content || sourceSentence,
-            page_context: pdfSelection?.pageContext || currentDocument?.content || sourceSentence,
-            domain_mode: activeAnalysis?.context?.domain || settings.domainMode || 'auto',
-            user_level: settings.targetHskLevel || 'HSK4',
-        })
-    }
-
-    const handleMarkKnown = async () => {
-        if (!selectedSurface) return
-        await markKnownWord(selectedSurface, 0.9)
-        setSavedNotice(`Đã đánh dấu đã biết: ${selectedSurface}`)
-    }
-
-    const handleRunAIContext = async () => {
-        if (!selectedSurface && !sourceSentence) return
-        setSavedNotice('')
-        setActiveTab('chat')
-        await generateAIContextReading({
-            selected_text: selectedSurface || sourceSentence,
-            source_sentence: sourceSentence || selectedSurface,
-            paragraph_context: currentDocument?.content || sourceSentence || selectedSurface,
-            page_context: pdfSelection?.pageContext || currentDocument?.content || sourceSentence || selectedSurface,
-            domain_mode: activeAnalysis?.context?.domain || settings.domainMode || 'auto',
-            user_level: settings.targetHskLevel || 'HSK4',
-        })
     }
 
     const handleChatSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -437,52 +671,47 @@ export default function ReaderPage() {
         const created = await createAutoReviewItems(currentDocument.id, 20)
         setSavedNotice(created > 0 ? `Đã tạo ${created} flashcards tự động.` : 'Không có flashcard mới để tạo.')
     }
-    const quickVi = quickMeaning?.definitions_vi?.join('; ') || viDefinition
-    const quickEn = quickMeaning?.definitions_en?.join('; ') || enDefinition
-    const quickPinyin = quickMeaning?.pinyin || selectedToken?.pinyin || ''
-    const grammarPatterns = activeAnalysis?.grammar?.patterns || selectedSentence?.grammar_patterns || []
-    const exampleList = activeAnalysis?.examples?.length ? activeAnalysis.examples : selectedToken?.examples || []
-    const domainTags = quickMeaning?.domain_tags?.length ? quickMeaning.domain_tags : selectedToken?.domain_tags || []
+
+    const handlePopupAnalyze = () => {
+        setActiveTab('vocab')
+        if (pdfSelection) {
+            void (async () => {
+                const analysis = await analyzeChineseText({
+                    selected_text: pdfSelection.selectedText,
+                    source_sentence: pdfSelection.sourceSentence,
+                    paragraph_context: pdfSelection.paragraphContext,
+                    page_context: pdfSelection.pageContext,
+                    domain_mode: settings.domainMode || 'auto',
+                    user_level: settings.targetHskLevel || 'HSK4',
+                })
+                const firstSentence = analysis.sentences?.[0] ?? null
+                const firstToken = firstSentence?.tokens.find(isSelectableToken)
+                if (firstToken) setSelectedToken(firstToken)
+                setSelectedSentence(firstSentence)
+                void recordLookupWord({
+                    word: pdfSelection.selectedText,
+                    translation: analysis.quick_meaning?.definitions_vi?.[0] || (firstToken ? getVietnameseDefinition(firstToken) : ''),
+                    pinyin: analysis.quick_meaning?.pinyin || firstToken?.pinyin || '',
+                    context: pdfSelection.sourceSentence,
+                    source_file: currentDocument?.title || '',
+                    source_document_id: currentDocument?.id || '',
+                    hsk_level: analysis.quick_meaning?.hsk_level ?? firstToken?.hsk_level ?? null,
+                    domain_tags: analysis.quick_meaning?.domain_tags || firstToken?.domain_tags || [],
+                })
+            })()
+        }
+    }
+
+    // ─── Render ───────────────────────────────────────────────────────────────
 
     return (
         <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-br from-[#f8fafc] via-[#f0f9f9]/20 to-[#edf8f8] dark:from-[#0b0f19] dark:via-[#090d16] dark:to-[#020617] text-slate-800 dark:text-slate-200 transition-colors selection:bg-[#006b5f]/20 relative">
-            {/* Custom Reader TopBar matching premium aesthetics */}
-            <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/50 dark:border-slate-800/40 bg-white/70 dark:bg-slate-900/60 px-6 backdrop-blur-xl z-20">
-                <div className="flex items-center gap-8">
-                    <Link to="/" className="flex items-center gap-2 hover:opacity-85 transition-all group">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#006b5f] to-[#0060ac] text-white shadow-md shadow-[#006b5f]/25 group-hover:scale-105 duration-200">
-                            <span className="font-display font-black text-lg leading-none">H</span>
-                        </div>
-                        <span className="text-xl font-display font-black text-[#102a3a] dark:text-slate-100 tracking-tight ml-1">Hanora NLP</span>
-                    </Link>
-                    <nav className="hidden items-center gap-6 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 md:flex">
-                        <Link to="/dashboard" className="hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors">Documents</Link>
-                        <Link to="/vocabulary" className="hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors">Library</Link>
-                        <Link to="/flashcards" className="hover:text-[#006b5f] dark:hover:text-teal-400 transition-colors">Study Hub</Link>
-                    </nav>
-                </div>
-
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-3 rounded-full border border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 px-5 py-2 shadow-lg shadow-slate-100/5 dark:shadow-none">
-                        <button onClick={handleZoomOut} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-350 transition-colors"><Minus className="h-4 w-4" /></button>
-                        <span className="text-xs font-mono font-black text-slate-700 dark:text-slate-300">{pdfZoom}%</span>
-                        <button onClick={handleZoomIn} className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-350 transition-colors"><Plus className="h-4 w-4" /></button>
-                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-2" />
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[240px]">
-                            {currentDocument?.title || 'Giáo trình Hán ngữ.pdf'}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                    <Link to="/settings" className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-250 transition-all border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800">
-                        <Settings className="h-5 w-5" />
-                    </Link>
-                    <Link to="/dashboard" className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#006b5f]/10 dark:bg-[#006b5f]/20 text-[#006b5f] dark:text-teal-400 font-black text-xs hover:bg-[#006b5f]/15 dark:hover:bg-teal-950 transition-all border border-[#006b5f]/20 dark:border-[#006b5f]/40">
-                        TL
-                    </Link>
-                </div>
-            </header>
+            <ReaderTopBar
+                pdfZoom={pdfZoom}
+                onZoomOut={handleZoomOut}
+                onZoomIn={handleZoomIn}
+                documentTitle={currentDocument?.title || ''}
+            />
 
             <div className="flex min-h-0 flex-1 flex-col md:flex-row p-4 gap-4">
             <section className="flex min-h-0 flex-1 flex-col transition-all rounded-3xl border border-white/60 bg-gradient-to-br from-white/70 to-slate-50/20 shadow-2xl dark:border-slate-800/40 dark:from-slate-900/60 dark:to-slate-950/40 backdrop-blur-xl">
@@ -612,35 +841,7 @@ export default function ReaderPage() {
                             className="floating-popup z-[100] flex items-center gap-1.5 rounded-2xl border border-white/10 bg-slate-900/95 px-3 py-2 shadow-2xl shadow-black/50 backdrop-blur-xl transition-all"
                         >
                             <button
-                                onClick={() => {
-                                    setActiveTab('vocab')
-                                    if (pdfSelection) {
-                                        void (async () => {
-                                            const analysis = await analyzeChineseText({
-                                                selected_text: pdfSelection.selectedText,
-                                                source_sentence: pdfSelection.sourceSentence,
-                                                paragraph_context: pdfSelection.paragraphContext,
-                                                page_context: pdfSelection.pageContext,
-                                                domain_mode: settings.domainMode || 'auto',
-                                                user_level: settings.targetHskLevel || 'HSK4',
-                                            })
-                                            const firstSentence = analysis.sentences?.[0] ?? null
-                                            const firstToken = firstSentence?.tokens.find(isSelectableToken)
-                                            if (firstToken) setSelectedToken(firstToken)
-                                            setSelectedSentence(firstSentence)
-                                            void recordLookupWord({
-                                                word: pdfSelection.selectedText,
-                                                translation: analysis.quick_meaning?.definitions_vi?.[0] || (firstToken ? getVietnameseDefinition(firstToken) : ''),
-                                                pinyin: analysis.quick_meaning?.pinyin || firstToken?.pinyin || '',
-                                                context: pdfSelection.sourceSentence,
-                                                source_file: currentDocument?.title || '',
-                                                source_document_id: currentDocument?.id || '',
-                                                hsk_level: analysis.quick_meaning?.hsk_level ?? firstToken?.hsk_level ?? null,
-                                                domain_tags: analysis.quick_meaning?.domain_tags || firstToken?.domain_tags || [],
-                                            })
-                                        })()
-                                    }
-                                }}
+                                onClick={handlePopupAnalyze}
                                 className="group flex flex-col items-center gap-1 text-teal-300 hover:text-teal-200 px-2"
                                 title="Analyze"
                             >
@@ -790,9 +991,9 @@ export default function ReaderPage() {
                                                                     selectable
                                                                         ? `cursor-pointer rounded px-0.5 transition-colors ${
                                                                               tokenActive
-                                                                                  ? 'bg-[#006b5f]/20 text-[#00423b] ring-2 ring-[#006b5f] dark:bg-[#006b5f]/30 dark:text-teal-50 dark:ring-teal-700'
-                                                                                  : 'hover:bg-[#006b5f]/15 hover:text-[#00423b] dark:hover:bg-[#006b5f]/25 dark:hover:text-teal-200'
-                                                                          }`
+                                                                                   ? 'bg-[#006b5f]/20 text-[#00423b] ring-2 ring-[#006b5f] dark:bg-[#006b5f]/30 dark:text-teal-50 dark:ring-teal-700'
+                                                                                   : 'hover:bg-[#006b5f]/15 hover:text-[#00423b] dark:hover:bg-[#006b5f]/25 dark:hover:text-teal-200'
+                                                                           }`
                                                                         : 'text-slate-500 dark:text-slate-400'
                                                                 }
                                                             >
@@ -858,479 +1059,43 @@ export default function ReaderPage() {
 
                 {/* Active Tab Screen Area */}
                 <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                    {/* TAB 1: AI COACH CHAT BOX */}
                     {activeTab === 'chat' && (
-                        <div className="h-full flex flex-col justify-between">
-                            <div className="flex-1 overflow-y-auto gap-y-3 mb-4 pr-2">
-                                {chatMessages.map((msg, i) => {
-                                    const isUser = msg.role === 'user';
-                                    return (
-                                        <div key={msg.id || i} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-                                            <div
-                                                className={`max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed shadow-sm ${
-                                                    isUser
-                                                        ? 'bg-[#006b5f] text-white rounded-tr-none'
-                                                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-tl-none'
-                                                }`}
-                                            >
-                                                <p className="whitespace-pre-wrap">{msg.content}</p>
-                                            </div>
-                                            <span className="text-[9px] text-slate-400 mt-1 px-1">{msg.timestamp}</span>
-                                        </div>
-                                    );
-                                })}
-                                {chatLoading && (
-                                    <div className="flex items-center gap-x-2 text-slate-400 text-xs p-1">
-                                        <Loader2 className="w-4 h-4 animate-spin text-[#0d9488]" />
-                                        <span>Hanora AI đang soạn câu trả lời...</span>
-                                    </div>
-                                )}
-                                <div ref={chatBottomRef} />
-                            </div>
-
-                            {/* Chat Input */}
-                            <div className="mt-auto">
-                                <form
-                                    onSubmit={handleChatSubmit}
-                                    className="relative flex items-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
-                                >
-                                    <input
-                                        type="text"
-                                        value={chatInput}
-                                        onChange={(e) => setChatInput(e.target.value)}
-                                        placeholder="Hỏi về văn bản này..."
-                                        className="w-full py-3 pl-4 pr-12 text-sm outline-none bg-transparent dark:text-slate-200"
-                                    />
-                                    <button
-                                        type="submit"
-                                        disabled={chatLoading || !chatInput.trim()}
-                                        className="absolute right-2 p-2 bg-[#006b5f] hover:bg-[#005048] text-white rounded-xl transition-colors disabled:opacity-50"
-                                    >
-                                        <Send className="w-4 h-4" />
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
+                        <ChatPanel
+                            chatMessages={chatMessages}
+                            chatLoading={chatLoading}
+                            chatInput={chatInput}
+                            onChatInputChange={setChatInput}
+                            onChatSubmit={handleChatSubmit}
+                        />
                     )}
 
-                    {/* TAB 2: SMART QUIZ */}
                     {activeTab === 'quiz' && (
-                        <div className="h-full flex flex-col justify-between">
-                            {quizQuestions.length === 0 ? (
-                                <div className="bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 text-center space-y-4 shadow-sm">
-                                    <div className="w-12 h-12 rounded-full bg-[#006b5f]/10 ml-auto mr-auto flex items-center justify-center text-[#006b5f]">
-                                        <Award className="w-6 h-6 animate-pulse" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">Tạo trắc nghiệm thông minh</h3>
-                                        <p className="text-xs text-slate-500 mt-1">
-                                            Hệ thống sẽ quét bài khóa hiện tại và soạn ngẫu nhiên 5 câu hỏi ngữ pháp, phiên âm, ngữ nghĩa giúp bạn ghi nhớ sâu.
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={handleGenerateQuiz}
-                                        disabled={quizLoading}
-                                        className="w-full bg-[#006b5f] hover:bg-[#005048] text-white font-bold text-xs py-2.5 rounded-xl transition-all shadow shadow-[#006b5f]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                                    >
-                                        {quizLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                                        Bắt đầu tạo câu hỏi
-                                    </button>
-                                </div>
-                            ) : quizFinished ? (
-                                <div className="bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-800 p-6 text-center space-y-4 shadow-sm">
-                                    <div className="w-14 h-14 rounded-full bg-amber-50 text-amber-500 ml-auto mr-auto flex items-center justify-center text-xl font-black shadow-inner">
-                                        🎉
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-base text-slate-800 dark:text-slate-200">Hoàn thành thử thách!</h3>
-                                        <p className="text-sm font-semibold text-slate-500 mt-1">
-                                            Kết quả: <span className="text-[#006b5f] font-bold">{quizScore} / {quizQuestions.length}</span> câu chính xác
-                                        </p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="bg-white dark:bg-slate-900/80 rounded-2xl border border-slate-100 dark:border-slate-800 p-5 space-y-4 shadow-sm">
-                                    <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                                        <span className="text-[11px] font-bold text-[#006b5f] bg-[#006b5f]/10 px-2 py-0.5 rounded-full">
-                                            Câu hỏi {currentQuestionIndex + 1} / {quizQuestions.length}
-                                        </span>
-                                        <span className="text-[11px] text-slate-400">Score: {quizScore}</span>
-                                    </div>
-                                    <h4 className="font-bold text-xs md:text-sm text-slate-800 dark:text-slate-200 leading-snug">
-                                        {quizQuestions[currentQuestionIndex]?.question}
-                                    </h4>
-                                    <div className="space-y-2 pt-1">
-                                        {quizQuestions[currentQuestionIndex]?.options.map((option: string, oIdx: number) => (
-                                            <button
-                                                key={oIdx}
-                                                onClick={() => handleQuizAnswer(oIdx)}
-                                                disabled={selectedAnswerIndex !== null}
-                                                className={`w-full text-left p-3 rounded-xl border text-xs transition-colors disabled:cursor-not-allowed ${
-                                                    selectedAnswerIndex === null
-                                                        ? 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:border-[#006b5f]/30 dark:hover:border-[#006b5f]/30 hover:bg-[#006b5f]/5 dark:hover:bg-teal-900/30'
-                                                        : oIdx === quizQuestions[currentQuestionIndex]?.answerIndex
-                                                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300'
-                                                            : selectedAnswerIndex === oIdx
-                                                                ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300'
-                                                                : 'border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500'
-                                                }`}
-                                            >
-                                                {option}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    {selectedAnswerIndex !== null && quizQuestions[currentQuestionIndex]?.explanation && (
-                                        <p className="rounded-xl bg-[#006b5f]/10 p-3 text-[11px] font-semibold text-[#006b5f] dark:bg-teal-950/30 dark:text-teal-300">
-                                            {quizQuestions[currentQuestionIndex].explanation}
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                        <QuizPanel
+                            quizQuestions={quizQuestions}
+                            quizLoading={quizLoading}
+                            quizScore={quizScore}
+                            quizFinished={quizFinished}
+                            currentQuestionIndex={currentQuestionIndex}
+                            selectedAnswerIndex={selectedAnswerIndex}
+                            onGenerateQuiz={handleGenerateQuiz}
+                            onQuizAnswer={handleQuizAnswer}
+                        />
                     )}
 
-                    {/* TAB 3: DICTIONARY VOCAB */}
                     {activeTab === 'vocab' && (
-                        <div className="space-y-4">
-                            {!selectedToken && !selectedSurface ? (
-                                <div className="h-[200px] flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/30">
-                                    <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-full shadow-sm flex items-center justify-center mb-3">
-                                        <FileText className="w-5 h-5 text-slate-300" />
-                                    </div>
-                                    <p className="text-xs font-medium text-center px-6">
-                                        Bấm chọn một câu hoặc một từ trong tài liệu để hiển thị bảng phân tích ngữ nghĩa chi tiết.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100 break-words">
-                                                    {selectedSurface}
-                                                </h2>
-                                                {quickPinyin && (
-                                                    <p className="text-sm font-semibold text-[#006b5f] mt-1">
-                                                        {quickPinyin}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <button
-                                                onClick={() => speakChinese(selectedSurface)}
-                                                className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-[#006b5f] hover:text-white transition-colors"
-                                            >
-                                                <Volume2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-
-                                        <div className="space-y-4">
-                                            {quickVi && (
-                                                <div className="bg-[#006b5f]/5 dark:bg-[#006b5f]/10 rounded-xl p-3 border border-[#006b5f]/20 dark:border-[#006b5f]/40">
-                                                    <h3 className="text-[10px] font-bold text-[#006b5f] uppercase tracking-wider mb-1">Nghĩa tiếng Việt</h3>
-                                                    <p className="text-sm text-slate-700 dark:text-slate-300">{quickVi}</p>
-                                                </div>
-                                            )}
-
-                                            {quickEn && (
-                                                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nghĩa tiếng Anh</h3>
-                                                        <span className="text-[9px] px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded font-semibold">CC-CEDICT</span>
-                                                    </div>
-                                                    {!quickVi && (
-                                                        <p className="text-xs text-amber-600 dark:text-amber-500 mb-2 font-medium flex items-center gap-1.5">
-                                                            <AlertCircle className="w-3.5 h-3.5" /> Chưa có nghĩa Việt đáng tin. Hiển thị English fallback.
-                                                        </p>
-                                                    )}
-                                                    <p className="text-sm text-slate-600 dark:text-slate-400">{quickEn}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Google AI Context Layer */}
-                                    <div className="rounded-2xl border border-amber-100 dark:border-amber-900/30 bg-gradient-to-br from-amber-50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10 p-5 shadow-sm">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <h3 className="text-[11px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
-                                                <Sparkles className="w-3.5 h-3.5" />
-                                                Google AI Context
-                                            </h3>
-                                        </div>
-                                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                                            {aiContext?.response?.context_explanation_vi || sourceSentence}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        <VocabPanel
+                            selectedSurface={selectedSurface}
+                            quickVi={quickVi}
+                            quickEn={quickEn}
+                            quickPinyin={quickPinyin}
+                            sourceSentence={sourceSentence}
+                            aiContext={aiContext}
+                            activeAnalysis={activeAnalysis}
+                        />
                     )}
                 </div>
             </aside>
             </div>
         </div>
     )
-}
-
-function PdfDocumentViewer({
-    sourceUrl,
-    onSelection,
-    annotations,
-    zoom = 100,
-}: {
-    sourceUrl: string
-    onSelection: (selection: PdfSelection | null) => void
-    annotations: AnnotationRecord[]
-    zoom?: number
-}) {
-    const [pdfDocument, setPdfDocument] = useState<any>(null)
-    const [pageNumbers, setPageNumbers] = useState<number[]>([])
-    const [error, setError] = useState('')
-    const viewerRef = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        let cancelled = false
-        setPdfDocument(null)
-        setPageNumbers([])
-        setError('')
-
-        pdfjsLib
-            .getDocument(sourceUrl)
-            .promise.then((document) => {
-                if (cancelled) return
-                setPdfDocument(document)
-                setPageNumbers(Array.from({ length: document.numPages }, (_, index) => index + 1))
-            })
-            .catch(() => {
-                if (!cancelled) setError('Không mở được PDF bằng PDF.js. Hãy tải lại file trong phiên hiện tại.')
-            })
-
-        return () => {
-            cancelled = true
-        }
-    }, [sourceUrl])
-
-    const handleMouseUp = () => {
-        const selection = window.getSelection()
-        const selectedText = selection?.toString().replace(/\s+/g, '').trim()
-        if (!selection || !selectedText || selection.rangeCount === 0) {
-            onSelection(null)
-            return
-        }
-
-        const range = selection.getRangeAt(0)
-        const rangeRect = range.getBoundingClientRect()
-        const pageElement = (range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
-            ? range.commonAncestorContainer
-            : range.commonAncestorContainer.parentElement
-        )?.parentElement?.closest('[data-page-number]') as HTMLElement | null
-
-        const fallbackPageElement = document.elementFromPoint(rangeRect.left, rangeRect.top)?.closest('[data-page-number]') as HTMLElement | null
-        const resolvedPage = pageElement || fallbackPageElement
-        if (!resolvedPage) return
-
-        const pageRect = resolvedPage.getBoundingClientRect()
-        const pageContext = resolvedPage.dataset.pageText || selectedText
-        const sourceSentence = findSentenceForSelection(pageContext, selectedText)
-        const bbox = {
-            x_ratio: (rangeRect.left - pageRect.left) / pageRect.width,
-            y_ratio: (rangeRect.top - pageRect.top) / pageRect.height,
-            w_ratio: rangeRect.width / pageRect.width,
-            h_ratio: rangeRect.height / pageRect.height,
-        }
-
-        onSelection({
-            selectedText,
-            pageNumber: Number(resolvedPage.dataset.pageNumber || 1),
-            bboxJson: JSON.stringify(bbox),
-            sourceSentence,
-            paragraphContext: sourceSentence,
-            pageContext,
-        })
-    }
-
-    if (error) {
-        return (
-            <div className="mx-auto flex h-64 max-w-3xl flex-col items-center justify-center rounded-2xl border border-red-100 bg-white p-6 text-center text-red-600 custom-shadow">
-                <p className="font-bold">{error}</p>
-            </div>
-        )
-    }
-
-    if (!pdfDocument) {
-        return (
-            <div className="flex h-64 flex-col items-center justify-center gap-3 text-[#006b5f]">
-                <Loader2 className="h-8 w-8 animate-spin" />
-                <p className="text-sm font-bold">PDF.js đang render canvas + text layer...</p>
-            </div>
-        )
-    }
-
-    return (
-        <div ref={viewerRef} onMouseUp={handleMouseUp} className="mx-auto flex w-full min-w-fit flex-col gap-6 items-center">
-            {pageNumbers.map((pageNumber) => (
-                <PdfPage
-                    key={pageNumber}
-                    pdfDocument={pdfDocument}
-                    pageNumber={pageNumber}
-                    annotations={annotations.filter((annotation) => annotation.page_number === pageNumber)}
-                    zoom={zoom}
-                />
-            ))}
-        </div>
-    )
-}
-
-function PdfPage({
-    pdfDocument,
-    pageNumber,
-    annotations,
-    zoom = 100,
-}: {
-    pdfDocument: any
-    pageNumber: number
-    annotations: AnnotationRecord[]
-    zoom?: number
-}) {
-    const pageRef = useRef<HTMLDivElement>(null)
-    const canvasRef = useRef<HTMLCanvasElement>(null)
-    const textLayerRef = useRef<HTMLDivElement>(null)
-    const [size, setSize] = useState({ width: 1, height: 1 })
-
-    useEffect(() => {
-        let cancelled = false
-        let renderTask: any = null
-
-        async function renderPage() {
-            const page = await pdfDocument.getPage(pageNumber)
-            if (cancelled) return
-
-            const baseViewport = page.getViewport({ scale: 1 })
-            const targetWidth = Math.min(760, Math.max(320, window.innerWidth - 480))
-            const scale = (targetWidth / baseViewport.width) * (zoom / 100)
-            const viewport = page.getViewport({ scale })
-            setSize({ width: viewport.width, height: viewport.height })
-
-            const canvas = canvasRef.current
-            const context = canvas?.getContext('2d')
-            if (!canvas || !context) return
-
-            const outputScale = window.devicePixelRatio || 1
-            canvas.width = Math.floor(viewport.width * outputScale)
-            canvas.height = Math.floor(viewport.height * outputScale)
-            canvas.style.width = `${viewport.width}px`
-            canvas.style.height = `${viewport.height}px`
-
-            renderTask = page.render({
-                canvasContext: context,
-                viewport,
-                transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined,
-            })
-            await renderTask.promise
-            if (cancelled) return
-
-            const textContent = await page.getTextContent()
-            const textLayer = textLayerRef.current
-            if (!textLayer) return
-            textLayer.replaceChildren()
-            if (pageRef.current) {
-                pageRef.current.dataset.pageText = textContent.items.map((item: any) => item.str || '').join('')
-            }
-
-            textContent.items.forEach((item: any) => {
-                if (!item.str) return
-                const tx = pdfjsLib.Util.transform(viewport.transform, item.transform)
-                const angle = Math.atan2(tx[1], tx[0])
-                const fontHeight = Math.hypot(tx[2], tx[3])
-                const span = document.createElement('span')
-                span.textContent = item.str
-                span.style.position = 'absolute'
-                span.style.left = `${tx[4]}px`
-                span.style.top = `${tx[5] - fontHeight}px`
-                span.style.height = `${fontHeight}px`
-                span.style.fontSize = `${fontHeight}px`
-                span.style.fontFamily = 'sans-serif'
-                span.style.color = 'rgba(15, 23, 42, 0.01)'
-                span.style.whiteSpace = 'pre'
-                span.style.transformOrigin = '0 0'
-                span.style.transform = `rotate(${angle}rad)`
-                textLayer.appendChild(span)
-            })
-        }
-
-        renderPage()
-
-        return () => {
-            cancelled = true
-            renderTask?.cancel?.()
-        }
-    }, [pdfDocument, pageNumber, zoom])
-
-    return (
-        <div
-            ref={pageRef}
-            data-page-number={pageNumber}
-            className="relative mx-auto overflow-hidden rounded-2xl border border-slate-200 bg-white custom-shadow"
-            style={{ width: size.width, height: size.height }}
-        >
-            <canvas ref={canvasRef} className="absolute inset-0" />
-            {annotations.map((annotation) => {
-                const bbox = safeBbox(annotation.bbox_json, size.width, size.height)
-                if (!bbox) return null
-                return (
-                    <div
-                        key={annotation.id}
-                        className="pointer-events-none absolute rounded border border-amber-400 bg-amber-200/35"
-                        style={{
-                            left: bbox.x,
-                            top: bbox.y,
-                            width: Math.max(8, bbox.width),
-                            height: Math.max(8, bbox.height),
-                        }}
-                        title={annotation.selected_text}
-                    />
-                )
-            })}
-            <div
-                ref={textLayerRef}
-                className="absolute inset-0 select-text"
-                style={{
-                    width: size.width,
-                    height: size.height,
-                    userSelect: 'text',
-                    WebkitUserSelect: 'text',
-                }}
-            />
-        </div>
-    )
-}
-
-function safeBbox(value?: string, pageWidth: number = 1, pageHeight: number = 1) {
-    if (!value) return null
-    try {
-        const bbox = JSON.parse(value) as any
-        if (
-            typeof bbox.x_ratio === 'number' &&
-            typeof bbox.y_ratio === 'number' &&
-            typeof bbox.w_ratio === 'number' &&
-            typeof bbox.h_ratio === 'number'
-        ) {
-            return {
-                x: bbox.x_ratio * pageWidth,
-                y: bbox.y_ratio * pageHeight,
-                width: bbox.w_ratio * pageWidth,
-                height: bbox.h_ratio * pageHeight,
-            }
-        }
-        if (
-            typeof bbox.x === 'number' &&
-            typeof bbox.y === 'number' &&
-            typeof bbox.width === 'number' &&
-            typeof bbox.height === 'number'
-        ) {
-            return bbox as { x: number; y: number; width: number; height: number }
-        }
-        return null
-    } catch {
-        return null
-    }
 }
