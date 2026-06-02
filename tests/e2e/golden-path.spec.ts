@@ -58,7 +58,7 @@ test('golden path with real PDF: upload, select text, save highlight, reload, an
 
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
     await page.locator('input[type="file"]').setInputFiles({
-        name: 'sample-chinese-reader.pdf',
+        name: 'sample-chinese-reader.PDF',
         mimeType: 'application/pdf',
         buffer: pdfBuffer,
     })

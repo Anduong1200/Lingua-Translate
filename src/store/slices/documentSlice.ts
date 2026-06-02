@@ -7,6 +7,7 @@ import {
     postJson,
     getJson,
     apiAssetUrl,
+    fileNameToDocumentType,
     normalizeDocumentFromApi,
     savedWordFromAnnotation,
     savedWordFromVocabularyItem,
@@ -212,6 +213,8 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => ({
 
     translateFile: async (file, targetLang) => {
         set({ isTranslatingFile: true })
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'txt'
+        const documentType = fileNameToDocumentType(file.name)
         const formData = new FormData()
         formData.append('file', file)
         formData.append('targetLang', targetLang || get().settings.targetLanguage || 'vi')
@@ -232,7 +235,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => ({
             const newDoc: DocumentContent = {
                 id: docId,
                 title: data.title || file.name,
-                type: file.name.endsWith('.pdf') ? 'pdf' : file.name.endsWith('.docx') ? 'docx' : 'txt',
+                type: documentType,
                 content: extractedText,
                 sourceUrl: apiAssetUrl(data.file_url),
                 sourceFileName: file.name,
@@ -249,7 +252,6 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => ({
         } catch {
             // Client-side fallback when backend is unavailable
             try {
-                const ext = file.name.split('.').pop()?.toLowerCase() || 'txt'
                 let extractedText = ''
 
                 if (ext === 'pdf') {
@@ -283,7 +285,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => ({
                 const newDoc: DocumentContent = {
                     id: docId,
                     title: file.name,
-                    type: ext === 'pdf' ? 'pdf' : ext === 'docx' ? 'docx' : 'txt',
+                    type: documentType,
                     content: extractedText,
                     sourceFileName: file.name,
                     sentences: splitDocumentSentences(extractedText, docId),

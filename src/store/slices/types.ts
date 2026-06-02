@@ -220,6 +220,11 @@ export function apiAssetUrl(fileUrl?: string) {
     return `${API_BASE_URL.replace(/\/api$/, '')}${fileUrl}`
 }
 
+export function fileNameToDocumentType(fileName: string): DocumentContent['type'] {
+    const ext = fileName.split('.').pop()?.toLowerCase() || 'txt'
+    return ext === 'pdf' ? 'pdf' : ext === 'docx' ? 'docx' : 'txt'
+}
+
 export function splitDocumentSentences(text: string, docId: string) {
     return text
         .replace(/\r/g, '')
