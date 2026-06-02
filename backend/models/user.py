@@ -32,7 +32,7 @@ class KnownWordRecord(Base):
 class UserCorrectionRecord(Base):
     __tablename__ = "user_corrections"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
     original_term: Mapped[str] = mapped_column(String(128), index=True)
     system_translation: Mapped[str] = mapped_column(Text, default="")
     user_translation: Mapped[str] = mapped_column(Text, default="")

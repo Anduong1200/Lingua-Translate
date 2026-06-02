@@ -76,3 +76,67 @@ def test_database_clean_bootstrap_and_migration(tmp_path) -> None:
         db.config.engine = original_engine
         db.config.DB_PATH = original_db_path
         temp_engine.dispose()
+
+
+def test_runtime_schema_migrates_integer_user_correction_id(tmp_path) -> None:
+    temp_db_file = tmp_path / "legacy_user_corrections.sqlite3"
+    temp_engine = create_engine(f"sqlite:///{temp_db_file}")
+
+    original_engine = db.config.engine
+    original_db_path = db.config.DB_PATH
+
+    db.config.engine = temp_engine
+    db.config.DB_PATH = temp_db_file
+
+    try:
+        Base.metadata.create_all(temp_engine)
+        with temp_engine.begin() as connection:
+            connection.execute(sql_text("DROP TABLE user_corrections"))
+            connection.execute(sql_text("""
+                CREATE TABLE user_corrections (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    original_term VARCHAR(128) NOT NULL,
+                    system_translation TEXT DEFAULT '',
+                    user_translation TEXT DEFAULT '',
+                    context TEXT DEFAULT '',
+                    domain VARCHAR(64) DEFAULT 'general',
+                    created_at DATETIME NOT NULL
+                )
+            """))
+            connection.execute(sql_text("""
+                INSERT INTO user_corrections (
+                    id, original_term, system_translation, user_translation, context, domain, created_at
+                )
+                VALUES (
+                    1, '系统', 'hệ thống', 'hệ thống nghiệp vụ',
+                    '业务系统需要处理大量数据。', 'computer_science', '2026-06-02T00:00:00+00:00'
+                )
+            """))
+
+        ensure_runtime_schema()
+
+        with temp_engine.begin() as connection:
+            columns = {
+                row[1]: str(row[2] or "").upper()
+                for row in connection.execute(sql_text("PRAGMA table_info(user_corrections)")).fetchall()
+            }
+            assert columns["id"].startswith("VARCHAR")
+
+            connection.execute(sql_text("""
+                INSERT INTO user_corrections (
+                    id, original_term, system_translation, user_translation, context, domain, created_at
+                )
+                VALUES (
+                    'corr_ci_check', '处理', 'xử lý', 'xử lý dữ liệu',
+                    '计算机系统需要处理大量数据。', 'computer_science', '2026-06-02T00:00:00+00:00'
+                )
+            """))
+            ids = {
+                row[0]
+                for row in connection.execute(sql_text("SELECT id FROM user_corrections")).fetchall()
+            }
+            assert {"1", "corr_ci_check"} <= ids
+    finally:
+        db.config.engine = original_engine
+        db.config.DB_PATH = original_db_path
+        temp_engine.dispose()

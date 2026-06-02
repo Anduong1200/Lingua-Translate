@@ -270,6 +270,10 @@ def ensure_runtime_schema() -> None:
             document_columns = {row[1] for row in connection.execute(sql_text("PRAGMA table_info(documents)")).fetchall()}
             dictionary_columns = {row[1] for row in connection.execute(sql_text("PRAGMA table_info(dictionary_entries)")).fetchall()}
             vocabulary_columns = {row[1] for row in connection.execute(sql_text("PRAGMA table_info(vocabulary_items)")).fetchall()}
+            user_correction_info = {
+                row[1]: str(row[2] or "").upper()
+                for row in connection.execute(sql_text("PRAGMA table_info(user_corrections)")).fetchall()
+            }
     except Exception:
         return
 
@@ -304,12 +308,35 @@ def ensure_runtime_schema() -> None:
             for column_name, column_type in required_vocabulary_columns.items():
                 if column_name not in vocabulary_columns:
                     connection.execute(sql_text(f"ALTER TABLE vocabulary_items ADD COLUMN {column_name} {column_type}"))
+        if user_correction_info and not any(marker in user_correction_info.get("id", "") for marker in ["CHAR", "TEXT", "CLOB"]):
+            connection.execute(sql_text("ALTER TABLE user_corrections RENAME TO user_corrections_old"))
+            connection.execute(sql_text("""
+                CREATE TABLE user_corrections (
+                    id VARCHAR(64) NOT NULL PRIMARY KEY,
+                    original_term VARCHAR(128) NOT NULL,
+                    system_translation TEXT DEFAULT '',
+                    user_translation TEXT DEFAULT '',
+                    context TEXT DEFAULT '',
+                    domain VARCHAR(64) DEFAULT 'general',
+                    created_at DATETIME NOT NULL
+                )
+            """))
+            connection.execute(sql_text("""
+                INSERT INTO user_corrections (
+                    id, original_term, system_translation, user_translation, context, domain, created_at
+                )
+                SELECT
+                    CAST(id AS TEXT), original_term, system_translation, user_translation, context, domain, created_at
+                FROM user_corrections_old
+            """))
+            connection.execute(sql_text("DROP TABLE user_corrections_old"))
         connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_dictionary_entries_source ON dictionary_entries (source)"))
         connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_pages_document_page ON pages (document_id, page_number)"))
         connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_annotations_document_page ON annotations (document_id, page_number)"))
         connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_review_items_due_at ON review_items (due_at)"))
         connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_vocabulary_items_word ON vocabulary_items (word)"))
         connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_vocabulary_items_source_document_id ON vocabulary_items (source_document_id)"))
+        connection.execute(sql_text("CREATE INDEX IF NOT EXISTS ix_user_corrections_original_term ON user_corrections (original_term)"))
 
 
 SEED_DICTIONARY: list[dict[str, Any]] = [
