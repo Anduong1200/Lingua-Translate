@@ -1,4 +1,5 @@
 .git
+.antigravitycli
 .github
 node_modules
 dist

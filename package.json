@@ -24,6 +24,7 @@
     "test": "npm run test:backend && npm run test:frontend",
     "e2e": "playwright test",
     "security:check": "python scripts/security_check.py",
+    "docs:check": "python scripts/check_readme_assets.py",
     "release:clean": "python scripts/package_release.py",
     "test:all": "npm run test:backend && npm run test:frontend && npm run test:e2e",
     "start:demo": "npm run build && (node -e \"require('child_process').execSync('npm run backend', {stdio: 'inherit'})\" & vite preview)",

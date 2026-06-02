@@ -135,13 +135,15 @@ export default function ReaderPage() {
     const viDefinition = getVietnameseDefinition(selectedToken)
     const enDefinition = selectedToken?.definitions.find((definition) => definition.lang === 'en')?.value ?? ''
     const candidateSelection = selectedToken?.surface || pdfSelection?.selectedText || selectedSentence?.text || ''
+    const contextualSelectionText = contextualAnalysis?.selection?.selected_text || contextualAnalysis?.selection?.text || ''
+    const contextualSourceSentence = contextualAnalysis?.selection?.source_sentence || contextualAnalysis?.context?.source_sentence || ''
     const activeAnalysis =
         contextualAnalysis?.selection &&
-        (contextualAnalysis.selection.selected_text === candidateSelection ||
-            (!selectedToken && !pdfSelection && contextualAnalysis.selection.source_sentence === selectedSentence?.text))
+        (contextualSelectionText === candidateSelection ||
+            (!selectedToken && !pdfSelection && contextualSourceSentence === selectedSentence?.text))
             ? contextualAnalysis
             : null
-    const selectedSurface = activeAnalysis?.selection?.selected_text || selectedToken?.surface || pdfSelection?.selectedText || ''
+    const selectedSurface = activeAnalysis?.selection?.selected_text || activeAnalysis?.selection?.text || selectedToken?.surface || pdfSelection?.selectedText || ''
     const quickMeaning = activeAnalysis?.quick_meaning
     const naturalTranslation = activeAnalysis?.translations?.natural_vi
     const literalTranslation = activeAnalysis?.translations?.literal_vi

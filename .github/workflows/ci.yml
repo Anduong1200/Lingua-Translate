@@ -39,6 +39,9 @@ jobs:
       - name: Security check
         run: npm run security:check
 
+      - name: Documentation asset check
+        run: npm run docs:check
+
       - name: Run Alembic migrations on empty database
         run: |
           rm -f backend/data/ci_migration_check.sqlite3
@@ -68,7 +71,12 @@ jobs:
               names = archive.namelist()
               assert names, "release artifact is empty"
               assert all("\\" not in name for name in names), "zip contains Windows path separators"
-              blocked = [name for name in names if name.startswith((".git/", "node_modules/", "backend/data/")) or name.endswith(".env")]
+              blocked = [
+                  name
+                  for name in names
+                  if name.startswith((".git/", ".antigravitycli/", "node_modules/", "backend/data/", "dist/", "test-results/"))
+                  or name.endswith(".env")
+              ]
               assert not blocked, f"release contains blocked files: {blocked[:5]}"
           PY
 

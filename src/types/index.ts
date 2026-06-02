@@ -213,13 +213,15 @@ export interface ChineseAnalysis {
 export type ReadingMode = 'character' | 'word' | 'phrase' | 'sentence' | 'paragraph' | 'page'
 
 export interface ContextualSelection {
-    selected_text: string
-    source_sentence: string
-    paragraph_context: string
-    page_context: string
+    selected_text?: string
+    text?: string
+    source_sentence?: string
+    paragraph_context?: string
+    page_context?: string
     domain_mode: string
-    user_level: string
-    analysis_mode: ReadingMode
+    user_level?: string
+    analysis_mode?: ReadingMode
+    mode?: ReadingMode
 }
 
 export interface ContextualQuickMeaning {
@@ -239,6 +241,7 @@ export interface ContextualTranslations {
 
 export interface ContextualContext {
     domain: string
+    source_sentence?: string
     role_vi: string
     explanation_vi: string
     confidence: number
@@ -297,7 +300,7 @@ export interface AIContextPayload {
     enabled: boolean
     provider: string
     model: string
-    status: 'ok' | 'missing_api_key' | 'all_keys_failed' | string
+    status: 'ok' | 'missing_api_key' | 'error' | string
     key_index?: number
     key_fingerprint?: string
     response?: AIContextStructuredResponse

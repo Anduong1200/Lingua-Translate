@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="docs/assets/logo.png" alt="Hanora Logo" width="120" />
   <h1>Hanora Context Reader</h1>
   <p><strong>A Dictionary-backed, Offline-first Chinese Reading Assistant tailored for Vietnamese learners.</strong></p>
 
@@ -141,8 +140,7 @@ npm run release:clean
 ```
 
 ## 12. Demo
-![App Dashboard](docs/assets/dashboard.png)
-*(Link to Demo Video will be placed here)*
+Demo screenshots and video should be generated from the current build before public release.
 
 ## 13. Roadmap
 - [ ] **Q3 2026**: Robust Client-side OCR for scanned PDFs using Tesseract.js.

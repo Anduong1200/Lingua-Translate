@@ -19,7 +19,7 @@
 │  2. Nếu AI enabled → gọi Google Gemini API                  │
 │                                                             │
 │  ┌───────────────────────────────────────────────────────┐   │
-│  │          GoogleApiKeyPool (round-robin)               │   │
+│  │          GoogleKeyPool (round-robin)                  │   │
 │  │                                                       │   │
 │  │  keys = [key_0, key_1, key_2, ...]                    │   │
 │  │                                                       │   │
@@ -28,8 +28,8 @@
 │  │  Lần gọi 3 → dùng key_2                              │   │
 │  │  Lần gọi 4 → quay lại key_0  ← XOAY TUA             │   │
 │  │                                                       │   │
-│  │  Nếu key_1 bị lỗi (429/403) → tự động thử key_2     │   │
-│  │  Nếu TẤT CẢ key lỗi → trả về "all_keys_failed"      │   │
+│  │  Nếu key hiện tại lỗi → trả AI error có kiểm soát   │   │
+│  │  Request sau dùng key tiếp theo trong pool           │   │
 │  └───────────────────────────────────────────────────────┘   │
 │                                                             │
 │  ⚠ Backend KHÔNG BAO GIỜ trả raw API key ra response.       │
@@ -41,7 +41,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │            Google AI Studio (Gemini API)                     │
 │  https://generativelanguage.googleapis.com/v1beta            │
-│  Model mặc định: gemini-3.5-flash                           │
+│  Model mặc định: gemini-2.5-flash                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -58,7 +58,7 @@ Tạo file `backend/.env` (đã bị .gitignore, an toàn):
 GOOGLE_API_KEYS=GOOGLE_KEY_1,GOOGLE_KEY_2,GOOGLE_KEY_3
 
 # Model và timeout
-GOOGLE_AI_MODEL=gemini-3.5-flash
+GOOGLE_AI_MODEL=gemini-2.5-flash
 GOOGLE_AI_TIMEOUT_SECONDS=30
 ```
 
@@ -91,7 +91,7 @@ File này cũng bị .gitignore, không bao giờ commit lên repo.
 
 ## Cơ Chế Xoay Tua (Round-Robin) Chi Tiết
 
-Xem class `GoogleApiKeyPool` trong `backend/main.py`:
+Xem class `GoogleKeyPool` trong `backend/services/ai/client.py`:
 
 ```
 Trạng thái pool:  _index = 0
@@ -104,23 +104,23 @@ Request 4:  dùng key_A (index=0) → _index chuyển thành 1
 ...
 ```
 
-### Khi Một Key Bị Lỗi (Quota / Rate Limit)
+### Khi Key Hiện Tại Bị Lỗi (Quota / Rate Limit)
 
-Hàm `generate_google_ai_context()` sẽ tự động thử key tiếp theo:
+Mỗi request lấy một key theo vòng. Nếu key hiện tại lỗi quota/rate-limit/API, backend trả lỗi AI có kiểm soát và frontend vẫn dùng kết quả NLP cục bộ:
 
 ```
 Keys: [key_A, key_B, key_C]
 
 Request:
-  → Thử key_A → HTTP 429 (rate limit) → ghi lỗi vào errors[]
-  → Thử key_B → HTTP 200 OK → trả kết quả ✓
-  
-Key_A sẽ được "nghỉ" cho đến khi tua lại đến nó.
+  → Dùng key_A → HTTP 429 (rate limit)
+  → Trả status="error" cho AI layer
+  → Frontend vẫn giữ rule-based fallback
+  → Request tiếp theo dùng key_B
 ```
 
-**Ngoại lệ:** Nếu lỗi là HTTP 400 (bad request — prompt sai, không phải lỗi key), hệ thống sẽ **dừng ngay**, không thử key tiếp theo vì prompt sai thì key nào cũng sẽ sai.
+Backend không dùng round-robin để né quota. Cơ chế này chỉ dành cho cấu hình dev/staging/prod hoặc BYOK/fallback hợp lệ.
 
-### Khi Tất Cả Key Đều Lỗi
+### Khi Không Có Key Hoặc Key Lỗi
 
 Backend trả về JSON:
 
@@ -128,13 +128,11 @@ Backend trả về JSON:
 {
   "enabled": true,
   "provider": "google_gemini",
-  "model": "gemini-3.5-flash",
-  "status": "all_keys_failed",
-  "errors": [
-    { "key_index": 0, "status_code": 429, "message": "Resource exhausted..." },
-    { "key_index": 1, "status_code": 429, "message": "Resource exhausted..." },
-    { "key_index": 2, "status_code": 403, "message": "API key expired..." }
-  ]
+  "model": "gemini-2.5-flash",
+  "status": "error",
+  "key_index": 0,
+  "key_fingerprint": "a1b2c3d4e5f6",
+  "message": "Resource exhausted..."
 }
 ```
 
@@ -159,7 +157,7 @@ curl http://127.0.0.1:3001/api/ai/status
 # {
 #   "enabled": true,
 #   "provider": "google_gemini",
-#   "model": "gemini-3.5-flash",
+#   "model": "gemini-2.5-flash",
 #   "configured_keys": 3,
 #   "next_key_index": 0,
 #   "key_fingerprints": ["a1b2c3d4e5", "f6g7h8i9j0", "k1l2m3n4o5"]

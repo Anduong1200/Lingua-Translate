@@ -65,6 +65,8 @@ def iter_release_files(root: Path, artifact: Path) -> list[Path]:
     files: list[Path] = []
     artifact = artifact.resolve()
     for path in root.rglob("*"):
+        if path.is_symlink():
+            continue
         if not path.is_file():
             continue
         if path.resolve() == artifact:
@@ -77,10 +79,17 @@ def iter_release_files(root: Path, artifact: Path) -> list[Path]:
 
 
 def create_release_zip(root: Path, artifact: Path) -> None:
+    artifact = artifact.resolve()
     release_dir = artifact.parent
-    if release_dir.exists():
-        shutil.rmtree(release_dir)
-    release_dir.mkdir(parents=True, exist_ok=True)
+    default_release_dir = (root / "release").resolve()
+    if release_dir == default_release_dir:
+        if release_dir.exists():
+            shutil.rmtree(release_dir)
+        release_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        release_dir.mkdir(parents=True, exist_ok=True)
+        if artifact.exists():
+            artifact.unlink()
 
     files = iter_release_files(root, artifact)
     with zipfile.ZipFile(artifact, "w", compression=zipfile.ZIP_DEFLATED) as archive:
