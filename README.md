@@ -1,6 +1,6 @@
 <div align="center">
   <h1>Hanora Context Reader</h1>
-  <p><strong>A Dictionary-backed, Offline-first Chinese Reading Assistant tailored for Vietnamese learners.</strong></p>
+  <p><strong>A Dictionary-backed, Local-first Chinese Reading Assistant tailored for Vietnamese learners.</strong></p>
 
   [![React](https://img.shields.io/badge/React-19.x-61DAFB?logo=react&logoColor=black)](#)
   [![Vite](https://img.shields.io/badge/Vite-8.x-646CFF?logo=vite&logoColor=white)](#)
@@ -37,8 +37,8 @@ graph TD
     %% Frontend Layer
     subgraph Frontend [Frontend (React + Zustand)]
         UI[React UI Components]
-        Store[Zustand State Manager]
-        IDB[(IndexedDB Cache)]
+        Store[Zustand View State]
+        API[Local API Client]
         PDF[PDF.js Renderer]
     end
 
@@ -47,7 +47,7 @@ graph TD
         Router[API Routers]
         NLP[NLP Service / Jieba]
         Dict[Dictionary Service]
-        DB[(SQLite / PostgreSQL)]
+        DB[(SQLite Local DB)]
     end
 
     %% External
@@ -57,9 +57,9 @@ graph TD
 
     %% Connections
     UI <--> Store
-    Store <--> IDB
+    Store <--> API
     Store <--> PDF
-    Store <--> Router
+    API <--> Router
     Router <--> NLP
     Router <--> Dict
     Router <--> DB
@@ -70,23 +70,25 @@ graph TD
 - **Frontend**: React 19, Vite, TypeScript, TailwindCSS, Zustand (State Management), PDF.js (Document Rendering), Framer Motion (Animations).
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy, Alembic (Migrations), Jieba (Chinese Tokenization).
 - **Testing**: Vitest (Unit/Component), Playwright (End-to-End Testing).
-- **Data**: SQLite (dev) / PostgreSQL (prod), CC-CEDICT (Dictionary).
+- **Data**: SQLite local backend, CC-CEDICT (Dictionary).
 
 ## 6. Dictionary & NLP Pipeline
 The application uses a hybrid approach to ensure speed and accuracy:
 1. **Tokenization**: `Jieba` segments the Chinese sentence into tokens.
 2. **Local Lookup (O(1))**: Tokens are mapped against the local CC-CEDICT database to instantly fetch basic English/Vietnamese meanings and Pinyin.
-3. **Contextual Enrichment**: For complex sentences or user requests, the sentence context is sent to the LLM (Gemini) to extract grammar patterns, correct word sense disambiguation, and domain-specific nuances.
+3. **Contextual Enrichment**: For complex sentences or user requests, the selected text can be sent to the LLM (Gemini) after the local AI consent gate. Paragraph/page context is blocked by default unless explicitly enabled.
 
-## 7. Offline-First Design
-- **Why?** Language learners often study during commutes or in areas with poor connectivity.
-- **How?** Core dictionary queries and user vocabulary state are cached locally via IndexedDB. Reading progress and saved annotations remain accessible offline and sync to the backend when the connection is restored.
-- *Note: Contextual AI features require an active internet connection, gracefully degrading to local dictionary lookups when offline.*
+## 7. Local-First Design
+- **Why?** Language learners should be able to keep documents, annotations, flashcards, and dictionary data on their own machine.
+- **How?** SQLite through the local FastAPI backend is the source of truth. The React/Zustand frontend is hydrated from backend APIs and only keeps view/cache state. `localStorage` is limited to client-side logs and lightweight preferences.
+- **Network use:** Core reading, dictionary lookup, annotation, review, backup, and dashboard flows do not require cloud translation services after local dependencies and dictionary data are available. Contextual AI requires internet access and degrades to deterministic local NLP when disabled or unavailable.
+- **Not implemented yet:** Browser-only IndexedDB sync queues and multi-device cloud sync are outside MVP 0.1.
 
 ## 8. Annotation & Review Model
 - **PDF Span Mapping**: Instead of saving isolated words, Hanora saves the exact coordinate (bbox) and the full source sentence. This ensures flashcards always have the correct context.
 - **Simple SRS**: Flashcards are scheduled using a lightweight Spaced Repetition algorithm (configurable intervals: 1m, 5m, 15m, 1d) optimized for short-to-medium term retention.
 - **User Corrections**: Users can override definitions. These corrections are saved and prioritized for future lookups within the same domain.
+- **AI Consent**: `GET/PATCH /api/ai/consent` controls whether selected text, page context, or notes may be sent to Gemini. The default allows selected text only and blocks paragraph/page context.
 
 ## 9. Data Sources & Licensing
 - **CC-CEDICT**: Core dictionary data is sourced from CC-CEDICT (Creative Commons Attribution-Share Alike 3.0).
@@ -96,7 +98,7 @@ The application uses a hybrid approach to ensure speed and accuracy:
 ## 10. Current Limitations
 - **PDF Scans**: OCR is currently experimental. Scanned PDFs without a valid text layer cannot be reliably highlighted.
 - **Mobile Support**: The reader interface is currently optimized for Desktop/Tablet. Mobile responsiveness is functional but not ideal for complex PDF rendering.
-- **Sync Conflict Resolution**: Basic "last-write-wins" strategy. No granular merging for multi-device concurrent editing yet.
+- **Sync Conflict Resolution**: Multi-device cloud sync is not implemented in MVP 0.1. Backup/restore is local and explicit.
 
 ## 11. Fresh Clone Gate
 The repository is designed to run from a clean clone without hand-editing tracked files. Required tools: Node.js, Python 3.11+, and browser dependencies installed by Playwright when running E2E.

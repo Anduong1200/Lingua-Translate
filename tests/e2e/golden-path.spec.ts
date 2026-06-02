@@ -46,15 +46,17 @@ async function completeOnboardingIfVisible(page: import('@playwright/test').Page
 }
 
 test('golden path with real PDF: upload, select text, save highlight, reload, and review', async ({ page }) => {
-    test.setTimeout(45_000)
+    test.setTimeout(90_000)
+    await page.route('https://fonts.googleapis.com/**', (route) => route.abort())
+    await page.route('https://fonts.gstatic.com/**', (route) => route.abort())
     const pdfBuffer = await createChinesePdfBuffer(page)
 
     await page.request.post('http://127.0.0.1:3001/api/debug/reset-demo')
 
-    await page.goto('/dashboard')
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
     await completeOnboardingIfVisible(page)
 
-    await page.goto('/dashboard')
+    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
     await page.locator('input[type="file"]').setInputFiles({
         name: 'sample-chinese-reader.pdf',
         mimeType: 'application/pdf',
@@ -63,8 +65,13 @@ test('golden path with real PDF: upload, select text, save highlight, reload, an
 
     await page.waitForURL('**/reader')
     const pdfPage = page.locator('[data-page-number="1"]').first()
-    await expect(pdfPage).toBeVisible()
-    await expect(pdfPage.locator('canvas')).toBeVisible()
+    await expect(pdfPage).toBeVisible({ timeout: 30_000 })
+    await expect(pdfPage.locator('canvas')).toBeVisible({ timeout: 30_000 })
+    await expect
+        .poll(() => pdfPage.evaluate((element) => element.getAttribute('data-page-text') || element.textContent || ''), {
+            timeout: 30_000,
+        })
+        .toContain('市场需求')
 
     await selectTextInPdfPage(pdfPage, '市场需求')
 
@@ -83,7 +90,7 @@ test('golden path with real PDF: upload, select text, save highlight, reload, an
     await page.reload()
     await expect(page.locator('[data-page-number="1"] .bg-amber-200\\/35').first()).toBeVisible()
 
-    await page.goto('/flashcards')
+    await page.goto('/flashcards', { waitUntil: 'domcontentloaded' })
     await expect(page.getByText('市场需求').first()).toBeVisible()
     await page.getByRole('button', { name: /Dễ|Easy/i }).first().click()
 })

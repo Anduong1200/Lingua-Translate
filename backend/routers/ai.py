@@ -6,6 +6,7 @@ from schemas import NlpAnalyzeRequest, AIContextRequest
 from services.nlp_service import build_contextual_analysis
 from services.ai.orchestrator import handle_context_reading
 from services.ai.client import google_key_status
+from services.ai.consent import ai_user_consent_to_dict, get_ai_user_consent, update_ai_user_consent
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -50,3 +51,13 @@ def ai_status():
     if not status["enabled"]:
         status["message"] = "Missing Google Gemini API key. Set GOOGLE_API_KEYS, GOOGLE_API_KEY, or backend/data/google_api_keys.txt."
     return status
+
+
+@router.get("/consent")
+def ai_consent(db: Session = Depends(db_session)) -> dict[str, object]:
+    return {"consent": ai_user_consent_to_dict(get_ai_user_consent(db))}
+
+
+@router.patch("/consent")
+def patch_ai_consent(payload: dict[str, object], db: Session = Depends(db_session)) -> dict[str, object]:
+    return {"consent": ai_user_consent_to_dict(update_ai_user_consent(db, payload))}

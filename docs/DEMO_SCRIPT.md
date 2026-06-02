@@ -1,6 +1,6 @@
 # Kịch bản Demo Video (Hanora Context Reader)
 
-> **Mục đích:** Thể hiện rõ toàn bộ luồng sử dụng cốt lõi (Core Workflow) và chứng minh sự ổn định của hệ thống Offline-First, khả năng xử lý PDF, và AI Context.  
+> **Mục đích:** Thể hiện rõ toàn bộ luồng sử dụng cốt lõi (Core Workflow) và chứng minh sự ổn định của hệ thống local-first, khả năng xử lý PDF, và AI Context.
 > **Thời lượng dự kiến:** 2 - 4 phút.  
 > **Định dạng:** Quay toàn màn hình (1080p/4K). Mở sẵn DevTools (Network tab) trong một số cảnh để chứng minh tính năng offline/local cache.
 
@@ -43,7 +43,7 @@
   3. F5 (Reload) lại toàn bộ trang web.
   4. Mở lại file PDF: Đoạn highlight màu vàng **vẫn còn nguyên vị trí cũ** (chứng minh bbox mapping chuẩn xác).
 - **Lời bình (Voiceover):**
-  > *"Sau khi lưu từ vựng, tính năng highlight sẽ bám trực tiếp vào tọa độ (bbox) của PDF. Nhờ kiến trúc Offline-first và IndexedDB, ngay cả khi tải lại trang hoặc mất mạng, mọi ghi chú và dữ liệu của bạn vẫn được lưu giữ an toàn mà không bị mất đi."*
+  > *"Sau khi lưu từ vựng, tính năng highlight sẽ bám trực tiếp vào tọa độ (bbox) của PDF. Dữ liệu học tập được lưu trong SQLite qua FastAPI local backend, nên khi tải lại trang hoặc không dùng AI cloud, ghi chú và flashcard vẫn được giữ lại."*
 
 ## Cảnh 5: Quản lý Ôn tập & Flashcards (2:30 - 3:30)
 

@@ -17,7 +17,7 @@ If you encounter issues while using Hanora Context Reader, please check the foll
 
 ## 4. Critical Crashes (White Screen)
 - **Symptom:** The app freezes or shows a blank white screen upon loading.
-- **Cause:** Your browser's IndexedDB might be corrupted, or a faulty setting was cached.
+- **Cause:** The local SQLite database, uploaded document cache, or a browser setting might be corrupted.
 - **Solution:** 
   1. Go to **Settings** (if accessible) and click **Factory Reset**.
   2. If the app cannot even load the Settings page, open your browser's Developer Tools (F12) -> Application Tab -> Storage -> click **Clear site data**. 

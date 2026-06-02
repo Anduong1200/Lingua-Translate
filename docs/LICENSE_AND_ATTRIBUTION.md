@@ -6,7 +6,7 @@ To ensure full commercial compliance and respect for open-source communities, Ha
 The core base dictionary used in Hanora for Chinese-to-English translation is derived from the **CC-CEDICT** project.
 - **License:** Creative Commons Attribution-Share Alike 3.0 License (CC-BY-SA 3.0)
 - **Source:** [mdbg.net/chinese/dictionary?page=cc-cedict](https://www.mdbg.net/chinese/dictionary?page=cc-cedict)
-- **Modifications:** The raw data has been parsed, indexed, and embedded into Hanora's offline IndexedDB architecture.
+- **Modifications:** The raw data has been parsed, indexed, and imported into Hanora's local SQLite-backed dictionary tables.
 
 Any derivative datasets built explicitly on top of the base CC-CEDICT data by users (excluding proprietary domain packs created from scratch by Hanora) inherit this CC-BY-SA 3.0 license.
 

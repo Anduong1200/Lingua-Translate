@@ -58,7 +58,9 @@ TESSERACT_CMD=tesseract
 POPPLER_PATH=
 ```
 
-Multiple keys are rotated round-robin. When one key hits rate limits (429) or quota errors (403), the system automatically tries the next key. API responses never expose raw keys, only `key_index` and `key_fingerprint` (SHA-256 first 10 chars).
+Multiple keys are rotated round-robin for BYOK, environment fallback, or dev/staging/prod separation. This is not intended for quota bypass. If one key hits rate limits or quota errors, the AI layer returns a controlled error and the next request advances through the pool. API responses never expose raw keys, only `key_index` and `key_fingerprint` (SHA-256 first 10 chars).
+
+AI context sharing is consent-gated. `GET /api/ai/consent` returns the current local consent policy and `PATCH /api/ai/consent` updates it. The default allows selected text only and blocks paragraph/page context and notes.
 
 **Full setup guide with architecture diagrams:** See [GOOGLE_AI_SETUP.md](GOOGLE_AI_SETUP.md).
 
@@ -152,4 +154,5 @@ document translation/vocabulary automation
 upload type/size safety
 admin backup/export without secret leakage
 Google AI key rotation without secret leakage
+AI consent blocking and context sanitization
 ```

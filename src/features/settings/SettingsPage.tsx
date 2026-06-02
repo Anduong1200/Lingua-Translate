@@ -161,9 +161,8 @@ export default function SettingsPage() {
     }
 
     const handleFactoryReset = () => {
-        if (window.confirm('CẢNH BÁO: Hành động này sẽ xoá TOÀN BỘ dữ liệu local của bạn (từ vựng, flashcard, cài đặt) và khôi phục app về trạng thái ban đầu. Bạn có chắc chắn không?')) {
+        if (window.confirm('CẢNH BÁO: Hành động này sẽ xoá cache trình duyệt và cài đặt client. Dữ liệu SQLite local nên được backup/restore qua backend trước khi reset. Bạn có chắc chắn không?')) {
             localStorage.clear();
-            indexedDB.deleteDatabase('hanora_db');
             window.location.reload();
         }
     };
@@ -209,12 +208,12 @@ export default function SettingsPage() {
                                     <HardDrive className="h-5 w-5" />
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="font-display font-bold text-base text-slate-900 dark:text-slate-100 leading-tight">Offline Reader Profile</h3>
+                                    <h3 className="font-display font-bold text-base text-slate-900 dark:text-slate-100 leading-tight">Local Reader Profile</h3>
                                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                                        Dữ liệu học tập được lưu trữ trực tiếp bằng SQLite trên trình duyệt. Không có đăng nhập hay đồng bộ đám mây giả.
+                                        Dữ liệu học tập được lưu trong SQLite qua FastAPI backend local. Frontend chỉ hydrate state và lưu cache/cài đặt nhẹ.
                                     </p>
                                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/40 px-3 py-1 text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-450 mt-1 tracking-wide">
-                                        <Check className="h-3 w-3" /> Offline-first active
+                                        <Check className="h-3 w-3" /> Local-first active
                                     </span>
                                 </div>
                             </div>
@@ -376,7 +375,7 @@ export default function SettingsPage() {
                             <Toggle checked={settings.autoSave} onChange={() => updateSettings({ autoSave: !settings.autoSave })} />
                         </SettingRow>
 
-                        <SettingRow icon={Database} title="Offline Cache" description="Lưu trữ offline-first danh mục CC-CEDICT.">
+                        <SettingRow icon={Database} title="Local Cache" description="Hydrate dữ liệu từ SQLite local và giữ trạng thái đọc trong frontend.">
                             <Toggle checked={settings.offlineCache} onChange={() => updateSettings({ offlineCache: !settings.offlineCache })} />
                         </SettingRow>
                     </div>
@@ -462,14 +461,14 @@ export default function SettingsPage() {
                     <div>
                         <h2 className="font-display font-bold text-slate-900 dark:text-slate-100">Local System Stack & Privacy</h2>
                         <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400 leading-relaxed max-w-2xl">
-                            Hệ thống hoạt động theo cơ chế <strong className="text-[#006b5f]">Offline-first</strong>. Chúng tôi không thu thập Telemetry (dữ liệu sử dụng) mà không có sự cho phép. Nội dung PDF của bạn hoàn toàn nằm ở Local.
+                            Hệ thống hoạt động theo cơ chế <strong className="text-[#006b5f]">local-first</strong>. Chúng tôi không thu thập telemetry mà không có sự cho phép. Nội dung PDF của bạn nằm trong FastAPI/SQLite local.
                             <br/><br/>
                             <em className="text-amber-600 dark:text-amber-500">Known Limitations: Tính năng OCR trên PDF quét (scan) đang là thử nghiệm. Đồng bộ đa thiết bị hiện chỉ chạy qua việc Backup/Restore file JSON thủ công.</em>
                         </p>
                     </div>
                     <div className="flex flex-col items-end gap-3 shrink-0">
                         <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/20 px-4 py-1.5 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-450 shadow-inner">
-                            Offline first active
+                            Local first active
                         </span>
                         <button
                             onClick={exportDiagnostics}

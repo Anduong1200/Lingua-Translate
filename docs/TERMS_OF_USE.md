@@ -8,7 +8,7 @@ Welcome to Hanora Context Reader. By downloading, accessing, or using Hanora, yo
 Hanora grants you a personal, non-exclusive, non-transferable, limited license to use the Software for your personal language learning purposes.
 
 ## 2. Beta Software & "As-Is" Provision
-**No Warranty:** The Software is provided "AS IS" and "AS AVAILABLE" without any warranties of any kind. This includes the Public Beta phase. Hanora does not guarantee that the software will be error-free or that your local IndexedDB data will not be corrupted. 
+**No Warranty:** The Software is provided "AS IS" and "AS AVAILABLE" without any warranties of any kind. This includes the Public Beta phase. Hanora does not guarantee that the software will be error-free or that your local SQLite data, cached preferences, or backups will not be corrupted.
 **Backup Responsibility:** You are solely responsible for creating regular backups of your vocabulary and annotations using the in-app Export/Backup tools.
 
 ## 3. Premium Packs and Licensing

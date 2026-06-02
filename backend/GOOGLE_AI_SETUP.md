@@ -118,7 +118,26 @@ Request:
   → Request tiếp theo dùng key_B
 ```
 
-Backend không dùng round-robin để né quota. Cơ chế này chỉ dành cho cấu hình dev/staging/prod hoặc BYOK/fallback hợp lệ.
+Backend không dùng round-robin để né quota. Cơ chế này chỉ dành cho cấu hình dev/staging/prod hoặc BYOK/fallback hợp lệ. Nếu cần chạy public beta, hãy đặt `AI_RATE_LIMIT_PER_MINUTE` thấp, theo dõi request audit, và yêu cầu user bật consent trước khi gửi ngữ cảnh rộng.
+
+## Consent Gate
+
+AI context reading luôn đi qua bảng consent local:
+
+```json
+{
+  "allow_send_selected_text": true,
+  "allow_send_page_context": false,
+  "allow_send_notes": false
+}
+```
+
+Mặc định backend chỉ cho gửi selection. Paragraph/page context và note cá nhân bị chặn khỏi prompt Gemini cho đến khi user bật rõ ràng.
+
+| Endpoint | Mô tả |
+|---|---|
+| `GET /api/ai/consent` | Xem consent policy hiện tại |
+| `PATCH /api/ai/consent` | Cập nhật `allow_send_selected_text`, `allow_send_page_context`, `allow_send_notes` |
 
 ### Khi Không Có Key Hoặc Key Lỗi
 
@@ -143,6 +162,8 @@ Backend trả về JSON:
 | Endpoint | Mô tả |
 |---|---|
 | `GET /api/ai/status` | Kiểm tra trạng thái AI: số key, key tiếp theo, fingerprint |
+| `GET /api/ai/consent` | Kiểm tra consent gửi selected/page/note context |
+| `PATCH /api/ai/consent` | Cập nhật consent local |
 | `POST /api/ai/context-reading` | Gọi AI trực tiếp (cần body JSON) |
 | `POST /api/nlp/analyze` với `"ai_enabled": true` | NLP cục bộ + AI context nếu có key |
 | `GET /api/health/deep` | Health check bao gồm AI status |
@@ -179,7 +200,7 @@ curl -X POST http://127.0.0.1:3001/api/nlp/analyze \
 | Commit API key vào git | Đặt trong `backend/.env` hoặc biến môi trường |
 | Paste key vào chat/Slack | Dùng fingerprint (`/api/ai/status`) để xác nhận key |
 | Trả raw key trong API response | Backend chỉ trả `key_index` và `key_fingerprint` |
-| Dùng 1 key duy nhất cho production | Tạo ít nhất 3 key từ các tài khoản Google khác nhau |
+| Dùng key pool để né quota/free-tier | Dùng key hợp lệ cho BYOK, fallback môi trường, hoặc tách dev/staging/prod |
 
 > ⚠ Nếu vô tình commit hoặc lộ key: Vào https://aistudio.google.com → Xóa key cũ → Tạo key mới → Cập nhật `backend/.env` → Restart backend.
 
@@ -192,4 +213,4 @@ curl -X POST http://127.0.0.1:3001/api/nlp/analyze \
 5. Thêm vào `backend/.env` hoặc `backend/data/google_api_keys.txt`
 6. Restart backend → Kiểm tra `GET /api/ai/status`
 
-**Mẹo:** Mỗi tài khoản Google free có rate limit riêng. Để tối đa throughput, dùng key từ nhiều tài khoản Google khác nhau.
+**Mẹo:** Với public beta, ưu tiên budget/rate-limit rõ ràng và consent UI trước khi tăng số key. Key pool chỉ nên dùng cho cấu hình hợp lệ, không dùng để vượt giới hạn nhà cung cấp.

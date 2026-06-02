@@ -17,16 +17,16 @@ With the advent of powerful LLMs, it is tempting to pass every user selection to
 - **Cost:** High token volume leads to massive API costs.
 - **Inconsistency:** LLMs hallucinate base definitions or provide different formatting for the same word.
 **The Hanora Solution (Hybrid Pipeline):**
-- **O(1) Local Lookup:** Every word selection is first tokenized by `Jieba` and queried against a local IndexedDB/SQLite mapping of CC-CEDICT. This provides instant (0ms latency), deterministic definitions for 95% of vocabulary.
+- **O(1) Local Lookup:** Every word selection is first tokenized by `Jieba` and queried against local SQLite-backed dictionary tables. This provides deterministic definitions without relying on cloud translation.
 - **LLM as a Fallback/Enhancement:** The LLM is strictly reserved for *Context Explanations* (disambiguating meaning based on the surrounding sentence) or when local dictionary coverage fails.
 
-## 3. Why Offline-First?
-Language learning is a continuous habit, often performed during commutes (subways, flights) or in areas with spotty internet.
+## 3. Why Local-First?
+Language learning is a continuous habit, and reading history should remain under the user's control.
 **Implementation:**
-- The core CC-CEDICT database (over 120,000 entries) is compressed and cached client-side.
-- User states (saved words, reading progress) are optimistic: they write to local IndexedDB first and sync to the backend via background queues when connectivity is restored.
+- The dictionary, documents, annotations, review items, and user corrections live in the local FastAPI backend's SQLite database.
+- The React frontend hydrates Zustand state from backend APIs on startup. Browser `localStorage` is reserved for lightweight preferences and diagnostics logs.
 **Trade-off:**
-Initial app load requires downloading a larger dictionary chunk, but subsequent lookups are instantaneous and immune to network latency.
+This requires the local backend to be running, but it keeps MVP storage simple, inspectable, and reproducible. Browser-only IndexedDB sync queues are intentionally out of scope for MVP 0.1.
 
 ## 4. The Necessity of Mapping Annotations to PDF Spans
 When a user highlights a word to save as a flashcard, we don't just save the string `"经济" (Economy)`.
@@ -42,8 +42,8 @@ Annotations are tightly coupled to the PDF's internal coordinate system (`bbox`)
 ## 5. Handling User Corrections (Crowdsourcing Pipeline)
 Dictionaries are static, but language is dynamic. When a user finds an inaccurate translation and overrides it with their own meaning (`meaningOverride`), this data isn't discarded.
 **The Pipeline:**
-- Corrections are saved locally with high priority.
-- They are synced to a backend `review_scheduler` queue.
+- Corrections are saved in local SQLite with high priority.
+- Review scheduling is handled by the backend review scheduler.
 - Over time, these corrections can be aggregated (crowdsourced) to improve the global dictionary, specifically addressing domain-specific jargon (e.g., IT or Economics terms not found in CC-CEDICT).
 
 ## 6. Increasing Vietnamese Coverage

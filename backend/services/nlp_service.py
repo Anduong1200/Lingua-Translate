@@ -318,7 +318,7 @@ def local_translation_payload(text: str, source_lang: str = "auto", target_lang:
             "grammarExplanation": grammar[0]["meaning_vi"] if grammar else "Kết quả tạo từ dictionary/NLP local, không gọi API cloud.",
             "usageExamples": [],
             "pronunciation": pinyin_display(text) if contains_chinese(text) else "",
-            "tips": ["Offline-first: không cần API key ngoài cho MVP 0.1."],
+            "tips": ["Local-first: không cần API key ngoài cho NLP/dictionary MVP 0.1."],
             "difficulty": "intermediate",
             "timestamp": now_utc().isoformat(),
         }

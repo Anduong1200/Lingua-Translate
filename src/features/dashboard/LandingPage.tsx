@@ -185,7 +185,7 @@ export default function LandingPage() {
             </h2>
             
             <p className="text-base text-slate-500 dark:text-slate-400 max-w-3xl mx-auto font-medium leading-relaxed mb-16 mt-4">
-              Hanora được thiết kế để đồng hành cùng bạn mọi lúc. Tính năng Offline-First đảm bảo bạn luôn có thể tra cứu và học từ vựng ngay cả khi không có kết nối internet, kết hợp cùng AI Context Explanations giúp hiểu sâu sắc ý nghĩa từ trong từng hoàn cảnh cụ thể.
+              Hanora được thiết kế để đồng hành cùng bạn mọi lúc. Kiến trúc local-first lưu tài liệu, annotation và flashcard trong backend SQLite cục bộ, kết hợp cùng AI Context Explanations khi bạn bật kết nối và consent.
             </p>
             
             <div className="flex flex-wrap justify-center gap-6">
@@ -194,7 +194,7 @@ export default function LandingPage() {
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#006b5f]/10 text-[#006b5f] dark:text-teal-400">
                   <CloudOff className="w-4 h-4" />
                 </div>
-                <span className="text-sm font-extrabold text-slate-800 dark:text-slate-200">Offline-First Capability</span>
+                <span className="text-sm font-extrabold text-slate-800 dark:text-slate-200">Local-First Storage</span>
               </div>
               
               <div className="flex items-center gap-3 bg-white dark:bg-slate-850 py-3.5 px-6 rounded-full border border-slate-200/50 dark:border-slate-800/40 shadow-md">
@@ -271,7 +271,7 @@ export default function LandingPage() {
                   Lựa Chọn Gói Học Tập Phù Hợp
                 </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium">
-                  Nâng tầm tiếng Trung của bạn với sức mạnh của AI & offline-first.
+                  Nâng tầm tiếng Trung của bạn với sức mạnh của AI & local-first.
                 </p>
               </div>
 

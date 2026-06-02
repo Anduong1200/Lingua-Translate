@@ -17,6 +17,7 @@ import routers.admin
 import routers.documents
 import routers.ai
 import routers.nlp
+from services.ai.consent import get_ai_user_consent
 from schemas import (
     AIContextRequest,
     AnnotationCreateRequest,
@@ -210,4 +211,85 @@ def test_google_ai_context_uses_rotating_keys_without_exposing_secret(session, m
     status = ai_status()
     assert status["configured_keys"] == 2
     assert status["enabled"] is True
+
+
+def test_google_ai_context_respects_selected_text_consent(session, monkeypatch) -> None:
+    monkeypatch.setattr(services.ai.client, "load_google_api_keys", lambda: ["key-one"])
+    called = False
+
+    def fake_post_google_generate_content(api_key: str, model: str, prompt: str, temperature: float) -> dict[str, Any]:
+        nonlocal called
+        called = True
+        return {}
+
+    monkeypatch.setattr(services.ai.orchestrator, "post_google_generate_content", fake_post_google_generate_content)
+
+    consent = get_ai_user_consent(session)
+    consent.allow_send_selected_text = False
+    session.commit()
+
+    payload = AIContextRequest(
+        selected_text="市场需求",
+        source_sentence="由于市场需求下降，该公司调整了生产计划。",
+        paragraph_context="PRIVATE_PARAGRAPH",
+        page_context="PRIVATE_PAGE",
+        domain_mode="economics",
+        user_level="HSK4",
+    )
+    result = ai_context_reading(payload, session)
+
+    assert result["ai"]["status"] == "disabled_by_consent"
+    assert result["ai"]["enabled"] is False
+    assert called is False
+
+
+def test_google_ai_context_sanitizes_page_context_without_consent(session, monkeypatch) -> None:
+    monkeypatch.setattr(services.ai.client, "load_google_api_keys", lambda: ["key-one"])
+    prompts: list[str] = []
+
+    def fake_post_google_generate_content(api_key: str, model: str, prompt: str, temperature: float) -> dict[str, Any]:
+        prompts.append(prompt)
+        return {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "text": (
+                                    '{"natural_vi":"nhu cầu thị trường","literal_vi":"thị trường / nhu cầu",'
+                                    '"context_explanation_vi":"Selection là cụm danh từ.",'
+                                    '"grammar_notes":[],"nuance_vi":"kinh tế","domain":"economics",'
+                                    '"review_suggestions":[],"confidence":0.86}'
+                                )
+                            }
+                        ]
+                    }
+                }
+            ],
+            "usageMetadata": {"totalTokenCount": 10},
+        }
+
+    monkeypatch.setattr(services.ai.orchestrator, "post_google_generate_content", fake_post_google_generate_content)
+
+    consent = get_ai_user_consent(session)
+    consent.allow_send_selected_text = True
+    consent.allow_send_page_context = False
+    session.commit()
+
+    payload = AIContextRequest(
+        selected_text="市场需求",
+        source_sentence="由于市场需求下降，该公司调整了生产计划。",
+        paragraph_context="PRIVATE_PARAGRAPH_CONTEXT",
+        page_context="PRIVATE_PAGE_CONTEXT",
+        domain_mode="economics",
+        user_level="HSK4",
+    )
+    result = ai_context_reading(payload, session)
+
+    assert result["ai"]["status"] == "ok"
+    assert prompts
+    assert "PRIVATE_PARAGRAPH_CONTEXT" not in prompts[0]
+    assert "PRIVATE_PAGE_CONTEXT" not in prompts[0]
+    assert "由于市场需求下降" not in prompts[0]
+    assert "市场需求" in prompts[0]
 

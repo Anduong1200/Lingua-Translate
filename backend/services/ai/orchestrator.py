@@ -5,6 +5,7 @@ from db.config import make_id
 from models.ai_history import AiRequestRecord
 from schemas import NlpAnalyzeRequest, AIContextRequest
 from services.ai.client import get_google_api_key, post_google_generate_content, secret_fingerprint, validate_model
+from services.ai.consent import get_ai_user_consent, sanitize_rule_based_for_ai
 from services.ai.prompts import build_context_reading_prompt
 from services.ai.response_schema import extract_gemini_text, parse_ai_json
 
@@ -12,6 +13,24 @@ def handle_context_reading(payload: AIContextRequest | NlpAnalyzeRequest, rule_b
     start_time = time.time()
     task_type = "context_reading"
     
+    model = payload.model if isinstance(payload, AIContextRequest) and getattr(payload, "model", None) else "gemini-2.5-flash"
+    temperature = payload.temperature if isinstance(payload, AIContextRequest) and getattr(payload, "temperature", None) else 0.2
+
+    selected_text = (getattr(payload, "selected_text", None) or payload.text or "").strip()
+    consent = get_ai_user_consent(session)
+    if selected_text and not consent.allow_send_selected_text:
+        return {
+            "enabled": False,
+            "provider": "google_gemini",
+            "status": "disabled_by_consent",
+            "message": "AI context is disabled because selected text sharing is not allowed.",
+            "consent": {
+                "allow_send_selected_text": bool(consent.allow_send_selected_text),
+                "allow_send_page_context": bool(consent.allow_send_page_context),
+                "allow_send_notes": bool(consent.allow_send_notes),
+            },
+        }
+
     try:
         api_key, key_index = get_google_api_key()
     except ValueError as e:
@@ -22,12 +41,12 @@ def handle_context_reading(payload: AIContextRequest | NlpAnalyzeRequest, rule_b
             "message": str(e),
         }
 
-    model = payload.model if isinstance(payload, AIContextRequest) and getattr(payload, "model", None) else "gemini-2.5-flash"
-    temperature = payload.temperature if isinstance(payload, AIContextRequest) and getattr(payload, "temperature", None) else 0.2
-    
-    selected_text = (getattr(payload, "selected_text", None) or payload.text or "").strip()
     source_sentence = getattr(payload, "source_sentence", "") or ""
     paragraph_context = getattr(payload, "paragraph_context", "") or ""
+    if not consent.allow_send_page_context:
+        source_sentence = selected_text
+        paragraph_context = ""
+        rule_based = sanitize_rule_based_for_ai(rule_based, selected_text, allow_page_context=False)
     domain = getattr(payload, "domain_mode", "general")
     user_level = getattr(payload, "user_level", "HSK4")
     
