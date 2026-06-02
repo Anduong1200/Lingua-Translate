@@ -9,10 +9,12 @@ const children = [
   spawn(pythonCommand, ['-m', 'uvicorn', 'main:app', '--app-dir', 'backend', '--host', '127.0.0.1', '--port', '3001'], {
     stdio: 'inherit',
     env: process.env,
+    shell: isWindows,
   }),
   spawn(npmCommand, ['run', 'dev:frontend', '--', ...frontendArgs], {
     stdio: 'inherit',
     env: process.env,
+    shell: isWindows,
   }),
 ]
 

@@ -26,8 +26,6 @@ def default_cedict_path() -> Path | None:
     return first_existing(
         [
             root / "data" / "raw" / "cedict_ts.u8",
-            root.parent / "cedict_1_0_ts_utf-8_mdbg_20260525_061910" / "cedict_ts.u8",
-            root.parent / "cedict_ts.u8",
         ]
     )
 
@@ -37,7 +35,7 @@ def default_hsk_path() -> Path | None:
     if env_path:
         return Path(env_path)
     root = Path(__file__).resolve().parents[2]
-    return first_existing([root / "data" / "raw" / "hsk", root.parent / "hsk"])
+    return first_existing([root / "data" / "raw" / "hsk"])
 
 
 def count_by_source(source: str) -> int:

@@ -4,6 +4,7 @@ import argparse
 import fnmatch
 import os
 import shutil
+import subprocess
 import zipfile
 from pathlib import Path
 
@@ -64,14 +65,26 @@ def should_exclude(relative_path: Path) -> bool:
 def iter_release_files(root: Path, artifact: Path) -> list[Path]:
     files: list[Path] = []
     artifact = artifact.resolve()
-    for path in root.rglob("*"):
+    candidate_paths: list[Path]
+    try:
+        result = subprocess.run(
+            ["git", "-C", os.fspath(root), "ls-files", "-z"],
+            check=True,
+            capture_output=True,
+            text=False,
+        )
+        candidate_paths = [Path(item.decode("utf-8")) for item in result.stdout.split(b"\0") if item]
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        candidate_paths = [path.relative_to(root) for path in root.rglob("*")]
+
+    for relative_path in candidate_paths:
+        path = root / relative_path
         if path.is_symlink():
             continue
         if not path.is_file():
             continue
         if path.resolve() == artifact:
             continue
-        relative_path = path.relative_to(root)
         if should_exclude(relative_path):
             continue
         files.append(relative_path)

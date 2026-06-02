@@ -39,7 +39,7 @@ backend/data/google_api_keys.txt
 Copy:
 
 ```bash
-copy backend\.env.example backend\.env
+cp backend/.env.example backend/.env
 ```
 
 Supported variables:
@@ -89,8 +89,7 @@ POPPLER_PATH=/usr/bin
 ## Migrations
 
 ```bash
-cd backend
-alembic upgrade head
+python -m alembic upgrade head
 ```
 
 The app still performs small runtime schema checks for local upgrades, but production deployments should use Alembic as the source of schema lifecycle.
@@ -124,8 +123,8 @@ curl http://127.0.0.1:3001/api/system/config
 Local backup/export:
 
 ```bash
-python backend\scripts\backup_database.py
-python backend\scripts\restore_database.py hanora_YYYYMMDDTHHMMSSZ.sqlite3
+python backend/scripts/backup_database.py
+python backend/scripts/restore_database.py hanora_YYYYMMDDTHHMMSSZ.sqlite3
 curl -X POST http://127.0.0.1:3001/api/admin/backup
 curl -X POST http://127.0.0.1:3001/api/admin/restore -H "Content-Type: application/json" -d "{\"file_name\":\"hanora_YYYYMMDDTHHMMSSZ.sqlite3\"}"
 curl http://127.0.0.1:3001/api/admin/export
@@ -142,7 +141,7 @@ docker compose up --build
 ## Tests
 
 ```bash
-python -m pytest backend\tests
+python -m pytest backend/tests
 ```
 
 Current tests cover:

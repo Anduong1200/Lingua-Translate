@@ -52,6 +52,20 @@ Write-Host "[*] Installing frontend Node.js packages..." -ForegroundColor Cyan
 npm install
 Write-Host "[+] Frontend packages installed successfully." -ForegroundColor Green
 
+# 6. Install Playwright browser used by E2E tests
+Write-Host "[*] Installing Playwright Chromium browser..." -ForegroundColor Cyan
+npx playwright install chromium
+Write-Host "[+] Playwright Chromium installed successfully." -ForegroundColor Green
+
+# 7. Prepare local database schema and deterministic seed data
+Write-Host "[*] Applying Alembic migrations..." -ForegroundColor Cyan
+& .venv\Scripts\python -m alembic upgrade head
+Write-Host "[+] Database schema is ready." -ForegroundColor Green
+
+Write-Host "[*] Bootstrapping local demo/dictionary data..." -ForegroundColor Cyan
+& .venv\Scripts\python backend/scripts/bootstrap_data.py
+Write-Host "[+] Local seed data is ready." -ForegroundColor Green
+
 Write-Host "==================================================" -ForegroundColor Green
 Write-Host "  Hanora setup complete! You are ready to develop. " -ForegroundColor Green
 Write-Host "==================================================" -ForegroundColor Green

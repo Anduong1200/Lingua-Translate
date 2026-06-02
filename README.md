@@ -105,6 +105,27 @@ The application uses a hybrid approach to ensure speed and accuracy:
 ## 11. Fresh Clone Gate
 The repository is designed to run from a clean clone without hand-editing tracked files. Required tools: Node.js, Python 3.11+, and browser dependencies installed by Playwright when running E2E.
 
+Fast path:
+
+```bash
+git clone https://github.com/Anduong1200/Lingua-Translate.git
+cd Lingua-Translate
+npm run setup
+npm run dev
+```
+
+Platform-specific setup scripts are also available:
+
+```bash
+# Windows PowerShell
+./setup.ps1
+
+# Linux/macOS
+./setup.sh
+```
+
+Manual path:
+
 ```bash
 # 1. Clone
 git clone https://github.com/Anduong1200/Lingua-Translate.git
@@ -112,13 +133,15 @@ cd Lingua-Translate
 
 # 2. Local env
 cp .env.example .env
+cp backend/.env.example backend/.env
 
 # 3. Dependencies
 npm install
-pip install -r backend/requirements.txt
+python -m pip install -r backend/requirements.txt
+npx playwright install chromium
 
 # 4. Database schema
-alembic upgrade head
+python -m alembic upgrade head
 
 # 5. Reproducible data import
 # Built-in bootstrap:

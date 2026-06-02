@@ -56,6 +56,20 @@ echo "[*] Installing frontend Node.js packages..."
 npm install
 echo "[+] Frontend packages installed successfully."
 
+# 7. Install Playwright browser used by E2E tests
+echo "[*] Installing Playwright Chromium browser..."
+npx playwright install chromium
+echo "[+] Playwright Chromium installed successfully."
+
+# 8. Prepare local database schema and deterministic seed data
+echo "[*] Applying Alembic migrations..."
+.venv/bin/python -m alembic upgrade head
+echo "[+] Database schema is ready."
+
+echo "[*] Bootstrapping local demo/dictionary data..."
+.venv/bin/python backend/scripts/bootstrap_data.py
+echo "[+] Local seed data is ready."
+
 echo "=================================================="
 echo "  Hanora setup complete! You are ready to develop. "
 echo "=================================================="

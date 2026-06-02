@@ -79,21 +79,32 @@ def enrich_existing_dictionary(session, stardict: dict[str, str]) -> int:
     Iterates over existing DB records with empty 'vi' fields and populates them.
     """
     print("[*] Checking existing database entries to enrich empty Vietnamese fields...")
-    records = session.query(DictionaryEntryRecord).filter(
-        (DictionaryEntryRecord.vi == "") | (DictionaryEntryRecord.vi == None)
-    ).all()
-    
-    print(f"[*] Found {len(records)} entries lacking Vietnamese definitions.")
     enriched = 0
+    from sqlalchemy import text
     
-    for record in records:
-        term = record.simplified
-        if term in stardict:
-            record.vi = clean_stardict_definition(stardict[term])
-            record.confidence = max(record.confidence, 0.85)
-            enriched += 1
-            
-    session.commit()
+    # Process in batches to avoid locking the DB too long
+    updates = []
+    for term, vi_def in stardict.items():
+        vi_clean = clean_stardict_definition(vi_def)
+        updates.append({"vi": vi_clean, "term": term})
+
+        if len(updates) >= 5000:
+            result = session.execute(
+                text("UPDATE dictionary_entries SET vi = :vi, confidence = MAX(confidence, 0.85) WHERE simplified = :term AND (vi = '' OR vi IS NULL)"),
+                updates
+            )
+            session.commit()
+            enriched += max(result.rowcount or 0, 0)
+            updates = []
+
+    if updates:
+        result = session.execute(
+            text("UPDATE dictionary_entries SET vi = :vi, confidence = MAX(confidence, 0.85) WHERE simplified = :term AND (vi = '' OR vi IS NULL)"),
+            updates
+        )
+        session.commit()
+        enriched += max(result.rowcount or 0, 0)
+
     print(f"[+] Successfully enriched {enriched} database entries with Vietnamese definitions.")
     return enriched
 
