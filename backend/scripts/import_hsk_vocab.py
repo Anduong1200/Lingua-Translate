@@ -136,13 +136,13 @@ def import_hsk(paths: list[Path], default_level: int | None) -> int:
         for path in paths:
             path_level = extract_level_from_name(path, default_level)
             for row in rows_from_file(path):
-                simplified = (row.get("simplified") or row.get("word") or row.get("term") or row.get("汉字") or "").strip()
+                simplified = (row.get("simplified") or row.get("phrase") or row.get("word") or row.get("term") or row.get("汉字") or "").strip()
                 if not simplified:
                     continue
                 existing = (
                     session.query(DictionaryEntryRecord)
                     .filter(DictionaryEntryRecord.simplified == simplified, DictionaryEntryRecord.source == "hsk_vocab")
-                    .one_or_none()
+                    .first()
                 )
                 if not existing:
                     existing = DictionaryEntryRecord(simplified=simplified, source="hsk_vocab")
