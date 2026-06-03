@@ -85,15 +85,15 @@ The application uses a hybrid approach to ensure speed and accuracy:
 
 ## 7. Local-First Design
 - **Why?** Language learners should be able to keep documents, annotations, flashcards, and dictionary data on their own machine.
-- **How?** SQLite through the local FastAPI backend is the source of truth. The React/Zustand frontend is hydrated from backend APIs and only keeps view/cache state. `localStorage` is limited to client-side logs and lightweight preferences.
+- **How?** Core data is persisted in local SQLite via the FastAPI backend. The frontend hydrates state from backend APIs. localStorage is used only for lightweight preferences and client logs.
 - **Network use:** Core reading, dictionary lookup, annotation, review, backup, and dashboard flows do not require cloud translation services after local dependencies and dictionary data are available. Contextual AI requires internet access and degrades to deterministic local NLP when disabled or unavailable.
-- **Not implemented yet:** Browser-only IndexedDB sync queues and multi-device cloud sync are outside MVP 0.1.
 
 ## 8. Annotation & Review Model
 - **PDF Span Mapping**: Instead of saving isolated words, Hanora saves the exact coordinate (bbox) and the full source sentence. This ensures flashcards always have the correct context.
 - **Simple SRS**: Flashcards are scheduled using a lightweight Spaced Repetition algorithm (configurable intervals: 1m, 5m, 15m, 1d) optimized for short-to-medium term retention.
-- **User Corrections**: Users can override definitions. These corrections are saved and prioritized for future lookups within the same domain.
-- **AI Consent & Budget**: `GET/PATCH /api/ai/consent` controls whether selected text, page context, or notes may be sent to Gemini. The default blocks all AI context sharing until the user opts in. `GET /api/ai/budget` reports daily request/token budget and circuit-breaker status.
+- **AI Consent & Budget**: `GET/PATCH /api/ai/consent` controls whether selected text, page context, or notes may be sent to Gemini. AI context is disabled by default until explicit opt-in. The backend orchestrator strictly enforces these checks.
+- **Multiple AI Keys**: The system uses a GoogleKeyPool. Multiple keys are supported only for BYOK, environment separation, or legitimate fallback. Not intended for quota bypass.
+- **AI Safety & Logging**: `GET /api/ai/budget` reports daily request/token budget and circuit-breaker status. The system features a daily AI request cap, token cap, per-user cost/budget logging, and a circuit breaker for error limits.
 
 ## 9. Data Sources & Licensing
 - **CC-CEDICT**: Core dictionary data is sourced from CC-CEDICT (Creative Commons Attribution-Share Alike 3.0).
