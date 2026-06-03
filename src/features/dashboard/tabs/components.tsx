@@ -72,7 +72,12 @@ export function PasteDocumentModal({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm dark:bg-slate-900/60">
             <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-900">
                 <div className="flex items-center justify-between border-b border-slate-100 p-4 dark:border-slate-800">
-                    <h3 className="font-bold text-slate-800 dark:text-slate-100">Nhập văn bản mới</h3>
+                    <h3 className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-100">
+                        Nhập văn bản mới (OCR / PDF)
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                            Experimental
+                        </span>
+                    </h3>
                     <button onClick={onClose} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800">
                         <X className="h-4 w-4" />
                     </button>

@@ -26,7 +26,12 @@ export function QuizPanel({
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-teal-700">
                     <Award className="h-6 w-6" />
                 </div>
-                <h3 className="mt-4 text-sm font-black text-slate-800">Tạo trắc nghiệm thông minh</h3>
+                <h3 className="mt-4 flex items-center justify-center gap-2 text-sm font-black text-slate-800">
+                    Tạo trắc nghiệm thông minh
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700">
+                        Experimental
+                    </span>
+                </h3>
                 <p className="mt-1 text-xs font-medium text-slate-500">Quét bài hiện tại để tạo câu hỏi nghĩa, pinyin và ngữ cảnh.</p>
                 <button
                     onClick={onGenerateQuiz}
@@ -46,7 +51,12 @@ export function QuizPanel({
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-xl font-black text-amber-600 shadow-inner">
                     {quizScore}
                 </div>
-                <h3 className="mt-4 text-base font-black text-slate-800">Hoàn thành thử thách</h3>
+                <h3 className="mt-4 flex items-center justify-center gap-2 text-base font-black text-slate-800">
+                    Hoàn thành thử thách
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700">
+                        Experimental
+                    </span>
+                </h3>
                 <p className="mt-1 text-sm font-semibold text-slate-500">
                     Kết quả: <span className="font-black text-teal-700">{quizScore} / {quizQuestions.length}</span> câu chính xác
                 </p>

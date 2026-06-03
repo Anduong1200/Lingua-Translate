@@ -78,6 +78,8 @@ export type BackendTranslationUnit = {
     source: string
     dictionary_vi: string
     literal_vi: string
+    ai_natural_vi?: string
+    natural_vi?: string
     pinyin?: string
     domain?: string
     grammar_patterns?: Array<{ pattern: string; meaning_vi: string; confidence?: number }>
@@ -93,6 +95,8 @@ export type ContextTranslationResult = {
         source: string
         dictionary_vi: string
         literal_vi: string
+        ai_natural_vi?: string
+        natural_vi?: string
         sentences: BackendTranslationUnit[]
     }
     context: {

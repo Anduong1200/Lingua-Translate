@@ -153,7 +153,12 @@ export function FloatingChatWidget({
         <div className="fixed bottom-6 right-6 z-50 flex h-[min(620px,calc(100vh-120px))] w-[min(440px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-teal-100 bg-white shadow-2xl shadow-slate-900/20">
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-teal-100 bg-teal-50/80 px-4 py-3">
                 <div className="min-w-0">
-                    <h3 className="text-sm font-black text-slate-900">Hanora AI Chat</h3>
+                    <h3 className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-100">
+                        Trợ lý AI
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                            Experimental
+                        </span>
+                    </h3>
                     <p className="truncate text-[10px] font-semibold text-teal-700">
                         {selectedSurface ? `Đang hỏi theo: ${selectedSurface}` : 'Hỏi theo tài liệu hiện tại'}
                     </p>

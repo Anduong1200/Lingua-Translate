@@ -252,7 +252,10 @@ export function ReaderSidebar({
                                         {analysis?.translations?.ai_natural_vi ? (
                                             <p><span className="font-black text-teal-700">Dịch tự nhiên (AI):</span> {analysis.translations.ai_natural_vi}</p>
                                         ) : analysis?.translations?.dictionary_vi ? (
-                                            <p><span className="font-black text-teal-700 opacity-80">Dịch từ điển (Fallback):</span> {analysis.translations.dictionary_vi}</p>
+                                            <div className="space-y-1">
+                                                <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-700">Đang dùng bản dịch từ điển cục bộ, chưa phải bản dịch tự nhiên.</p>
+                                                <p><span className="font-black text-teal-700 opacity-80">Dịch từ điển (Fallback):</span> {analysis.translations.dictionary_vi}</p>
+                                            </div>
                                         ) : null}
                                         {analysis?.translations?.literal_vi && <p><span className="font-black text-teal-700">Sát nghĩa:</span> {analysis.translations.literal_vi}</p>}
                                         {roleExplanation && <p>{roleExplanation}</p>}

@@ -22,7 +22,12 @@ export function VocabularyTab({ groups, onRemoveWord, onSpeak }: { groups: WordG
                         <button onClick={() => setSelectedFile(null)} className="mb-2 text-sm font-bold text-teal-600 hover:text-teal-700">
                             Quay lại danh sách tệp
                         </button>
-                        <h1 className="mb-1 text-2xl font-black text-slate-900 dark:text-slate-100">Từ vựng: {activeGroup.name}</h1>
+                        <h1 className="mb-1 flex items-center gap-2 text-2xl font-black text-slate-900 dark:text-slate-100">
+                            Từ vựng: {activeGroup.name}
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                                Experimental
+                            </span>
+                        </h1>
                         <p className="text-sm text-slate-500">Bạn đã lưu {activeGroup.words.length} từ từ nguồn này.</p>
                     </div>
                 </div>
@@ -93,7 +98,12 @@ export function VocabularyTab({ groups, onRemoveWord, onSpeak }: { groups: WordG
     return (
         <>
             <div className="rounded-2xl border border-teal-100 bg-white p-6 custom-shadow dark:border-slate-800 dark:bg-slate-900">
-                <h1 className="mb-1 text-2xl font-black text-slate-900 dark:text-slate-100">Từ vựng đã lưu</h1>
+                <h1 className="mb-1 flex items-center gap-2 text-2xl font-black text-slate-900 dark:text-slate-100">
+                    Từ vựng đã lưu
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                        Experimental
+                    </span>
+                </h1>
                 <p className="text-sm text-slate-500">Chọn một nguồn tài liệu để xem danh sách từ đã lưu.</p>
             </div>
 
