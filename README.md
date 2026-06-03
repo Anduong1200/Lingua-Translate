@@ -26,7 +26,7 @@ Learning Chinese through reading is highly effective, but current tools fall sho
 
 ## 3. Core Workflow
 The application is designed around a strictly enforced, 5-step high-retention loop:
-1. **Read**: Upload any PDF/TXT document. Text layer is parsed and rendered preserving structure.
+1. **Read**: Upload any PDF/TXT/DOCX document. Text-based PDFs use the native PDF.js text layer. Scanned PDFs are OCR-refreshed by the backend and rendered with an invisible selectable text mask over the PDF canvas.
 2. **Look up**: Highlight any word or sentence. The NLP engine detects word boundaries and provides definitions.
 3. **Understand**: Contextual AI explains grammar patterns and nuances based on the specific sentence.
 4. **Save**: One-click annotation saves the token, its pinyin, meaning, and exact contextual source sentence.
@@ -48,6 +48,7 @@ graph TD
     subgraph Backend [Backend (FastAPI)]
         Router[API Routers]
         NLP[NLP Service / Jieba]
+        OCR[OCR / PDF Text Extraction]
         Dict[Dictionary Service]
         DB[(SQLite Local DB)]
     end
@@ -64,6 +65,7 @@ graph TD
     Store <--> PDF
     API <--> Router
     Router <--> NLP
+    Router <--> OCR
     Router <--> Dict
     Router <--> DB
     NLP <--> LLM
@@ -74,14 +76,16 @@ graph TD
 - **Frontend**: React 19, Vite, TypeScript, TailwindCSS v4, Zustand (State Management), PDF.js (Document Rendering), Framer Motion (Animations).
 - **Authentication**: Firebase Authentication (Google OAuth & Email/Password).
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy, Alembic (Migrations), Jieba (Chinese Tokenization).
+- **OCR**: Tesseract OCR, Poppler/pdf2image, OpenCV preprocessing, Pillow, NumPy.
 - **Testing**: Vitest (Unit/Component), Playwright (End-to-End Testing).
-- **Data**: SQLite local backend, CC-CEDICT (Dictionary).
+- **Data**: SQLite local backend, CC-CEDICT, HSK CSV, Chinese phrase lists, Trung-Việt StarDict enrichment.
 
 ## 6. Dictionary & NLP Pipeline
 The application uses a hybrid approach to ensure speed and accuracy:
 1. **Tokenization**: `Jieba` segments the Chinese sentence into tokens.
-2. **Local Lookup (O(1))**: Tokens are mapped against the local CC-CEDICT database to instantly fetch literal dictionary meanings (English/Vietnamese) and Pinyin.
-3. **Contextual Enrichment (Optional)**: For natural, fluent translations and grammar explanations, the selected text can be sent to the LLM (Gemini) after the local AI consent gate. Cloud AI sharing is off by default and must be explicitly enabled. If disabled or if the API key is not configured, the system gracefully falls back to the deterministic local dictionary literal translations.
+2. **Local Lookup (O(1))**: Tokens are mapped against the local dictionary tables to fetch Pinyin, Vietnamese definitions, English fallback definitions, HSK metadata, and domain hints.
+3. **Sentence/Paragraph/Context Translation**: `/api/nlp/translate-context` separates sentence, paragraph, and context scopes. When AI is disabled, the UI clearly marks the result as dictionary fallback instead of pretending it is a natural translation.
+4. **Contextual Enrichment (Optional)**: For natural, fluent translations and grammar explanations, selected text can be sent to Gemini after the local AI consent gate. Cloud AI sharing is off by default and must be explicitly enabled. If disabled or unavailable, the system falls back to deterministic local NLP.
 
 ## 7. Local-First Design
 - **Why?** Language learners should be able to keep documents, annotations, flashcards, and dictionary data on their own machine.
@@ -97,7 +101,10 @@ The application uses a hybrid approach to ensure speed and accuracy:
 
 ## 9. Data Sources & Licensing
 - **CC-CEDICT**: Core dictionary data is sourced from CC-CEDICT (Creative Commons Attribution-Share Alike 3.0).
-- **Hanora NLP**: Proprietary parsing and contextual mapping logic.
+- **HSK / Phrase / Trung-Việt raw data**: Importable source files are kept in-repo under `data/raw/` so a fresh clone can rebuild the dictionary tables without depending on a developer's local `D:\exe\...` folders.
+- **Hanora NLP**: Proprietary parsing, contextual mapping, UI masking, and learning workflow logic.
+
+See [docs/DATA_LICENSES.md](docs/DATA_LICENSES.md) and [docs/LICENSE_AND_ATTRIBUTION.md](docs/LICENSE_AND_ATTRIBUTION.md) before redistributing data bundles or exported decks.
 
 ## 10. Environment Variables Setup (.env)
 To run this project in a real environment (without mocks), you must configure the following API keys and settings.
@@ -122,13 +129,18 @@ GOOGLE_API_KEY="AIzaSy..."
 ```
 - **Sample Documents**: Provided sample texts are for educational purposes.
 
-## 10. Current Limitations
-- **PDF Scans**: OCR is an **optional** feature and is currently experimental. Scanned PDFs without a valid text layer cannot be reliably highlighted out of the box. You will need external dependencies to enable OCR (see [docs/ocr_setup.md](docs/ocr_setup.md) for more details).
+## 11. Current Limitations
+- **PDF Scans**: Backend OCR and PDF text masking are implemented, but recognition quality still depends on scan resolution, page rotation, watermark noise, and whether Tesseract Chinese language data is installed. Docker installs the required packages automatically; native host installs must set up Tesseract and Poppler manually. See [docs/ocr_setup.md](docs/ocr_setup.md).
 - **Mobile Support**: The reader interface is currently optimized for Desktop/Tablet. Mobile responsiveness is functional but not ideal for complex PDF rendering.
 - **Sync Conflict Resolution**: Multi-device cloud sync is not implemented in MVP 0.1. Backup/restore is local and explicit.
 
-## 11. Fresh Clone Gate
+## 12. Fresh Clone Gate
 The repository is designed to run from a clean clone without hand-editing tracked files. Required tools: Node.js, Python 3.11+, and browser dependencies installed by Playwright when running E2E.
+
+Important release invariant:
+- `data/raw/` is part of the release source tree and must be committed with the code.
+- `backend/data/hanora.sqlite3` is runtime state. It may change during tests, upload flows, and `reset-demo`; do not treat local DB mutations as the canonical dictionary source.
+- `.gitattributes` marks StarDict `.dict/.idx` files as binary so Git does not rewrite line endings and corrupt dictionary blobs.
 
 Fast path:
 
@@ -169,10 +181,8 @@ npx playwright install chromium
 python -m alembic upgrade head
 
 # 5. Reproducible data import
-# Built-in bootstrap:
+# Built-in bootstrap, using data/raw when present:
 python backend/scripts/bootstrap_data.py
-# Optional full Chinese-Vietnamese import:
-python backend/scripts/import_trungviet_dict.py --stardict-dir path/to/TrungViet --hsk-dir path/to/hsk --phrase-dir path/to/phrase
 
 # 6. Quality gates
 npm run security:check
@@ -191,11 +201,30 @@ npm run release:clean
 # release/hanora-mvp-source.zip
 ```
 
-## 12. Demo
+## 13. Developer Handoff
+Before pushing release work to `main`, read:
+
+- [docs/DEVELOPER_HANDOFF.md](docs/DEVELOPER_HANDOFF.md): full release checklist, PDF/OCR flow, raw data staging rules, and troubleshooting.
+- [backend/README.md](backend/README.md): backend routes, OCR dependencies, data import, migrations, and operations.
+- [docs/ocr_setup.md](docs/ocr_setup.md): native host/Docker OCR setup and debugging.
+- [docs/architecture.md](docs/architecture.md): current PDF reader, OCR, NLP, AI, and SRS flow.
+
+Recommended pre-push gate:
+
+```bash
+npm run build
+npm run test:frontend
+npm run test:backend
+npm run test:e2e
+npm run security:check
+npm run docs:check
+```
+
+## 14. Demo
 Demo screenshots and video should be generated from the current build before public release.
 
-## 13. Roadmap
-- [ ] **Q3 2026**: Robust Client-side OCR for scanned PDFs using Tesseract.js.
+## 15. Roadmap
+- [ ] **Q3 2026**: Improve OCR quality controls for scanned PDFs: rotation detection, page-level retry, language selection, and progress UI.
 - [ ] **Q3 2026**: Native mobile application (React Native) for on-the-go flashcard reviews.
 - [ ] **Q4 2026**: Peer-to-peer vocabulary deck sharing and community translation upvoting.
 - [ ] **Q4 2026**: Advanced SRS algorithm (FSRS integration).

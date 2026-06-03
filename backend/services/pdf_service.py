@@ -26,7 +26,8 @@ def extract_file_text(file_name: str, data: bytes) -> str:
         if PdfReader is None:
             raise HTTPException(status_code=500, detail="pypdf is not installed.")
         reader = PdfReader(BytesIO(data))
-        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        page_texts = [(page.extract_text() or "").strip() for page in reader.pages]
+        text = "\f".join(page_texts).strip()
         if not text.strip():
             # Fallback to OCR if text is empty (scanned PDF)
             try:

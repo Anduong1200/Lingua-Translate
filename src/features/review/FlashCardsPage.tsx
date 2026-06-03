@@ -16,8 +16,7 @@ export default function FlashCardsPage() {
 
     const dueCards = useMemo(() => {
         const dueIds = new Set(reviewItems.filter((item) => new Date(item.due_at).getTime() <= Date.now()).map((item) => item.id))
-        const filtered = flashCards.filter((card) => dueIds.has(card.id) || !card.reviewed)
-        return filtered.length ? filtered : flashCards
+        return flashCards.filter((card) => dueIds.has(card.id) || !card.reviewed)
     }, [flashCards, reviewItems])
 
     const currentCard = dueCards[currentIndex]

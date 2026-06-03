@@ -1,20 +1,23 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { Loader2 } from 'lucide-react'
 import type { AnnotationRecord } from '@/types'
 import { findSentenceForSelection, type PdfSelection } from '../readerUtils'
+import { splitPdfMaskPages } from '../pdfMask'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
 import { safeBbox } from './readerShared'
 
 export function PdfDocumentViewer({
     sourceUrl,
+    documentText = '',
     onSelection,
     annotations,
     zoom = 100,
 }: {
     sourceUrl: string
+    documentText?: string
     onSelection: (selection: PdfSelection | null) => void
     annotations: AnnotationRecord[]
     zoom?: number
@@ -89,6 +92,8 @@ export function PdfDocumentViewer({
         })
     }
 
+    const ocrTextPages = useMemo(() => splitPdfMaskPages(documentText, pageNumbers.length), [documentText, pageNumbers.length])
+
     if (error) {
         return (
             <div className="mx-auto flex h-64 max-w-3xl flex-col items-center justify-center rounded-2xl border border-red-100 bg-white p-6 text-center text-red-600 shadow-sm">
@@ -113,6 +118,7 @@ export function PdfDocumentViewer({
                     key={pageNumber}
                     pdfDocument={pdfDocument}
                     pageNumber={pageNumber}
+                    ocrText={ocrTextPages[pageNumber - 1] || ''}
                     annotations={annotations.filter((annotation) => annotation.page_number === pageNumber)}
                     zoom={zoom}
                 />
@@ -121,14 +127,49 @@ export function PdfDocumentViewer({
     )
 }
 
+function renderOcrMaskLayer(textLayer: HTMLDivElement, text: string, width: number, height: number) {
+    const lines = text
+        .replace(/\r/g, '')
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+    if (!lines.length) return
+
+    const topPadding = height * 0.075
+    const leftPadding = width * 0.08
+    const usableHeight = height * 0.85
+    const lineHeight = Math.max(14, Math.min(34, usableHeight / Math.max(lines.length, 1)))
+    const fontSize = Math.max(11, Math.min(24, lineHeight * 0.72))
+
+    lines.slice(0, 180).forEach((line, index) => {
+        const span = document.createElement('span')
+        span.textContent = line
+        span.style.position = 'absolute'
+        span.style.left = `${leftPadding}px`
+        span.style.top = `${topPadding + index * lineHeight}px`
+        span.style.width = `${width - leftPadding * 2}px`
+        span.style.minHeight = `${lineHeight}px`
+        span.style.fontSize = `${fontSize}px`
+        span.style.lineHeight = `${lineHeight}px`
+        span.style.fontFamily = '"Noto Sans CJK SC", "Microsoft YaHei", sans-serif'
+        span.style.color = 'rgba(15, 23, 42, 0.01)'
+        span.style.whiteSpace = 'pre'
+        span.style.userSelect = 'text'
+        span.style.pointerEvents = 'auto'
+        textLayer.appendChild(span)
+    })
+}
+
 function PdfPage({
     pdfDocument,
     pageNumber,
+    ocrText = '',
     annotations,
     zoom = 100,
 }: {
     pdfDocument: any
     pageNumber: number
+    ocrText?: string
     annotations: AnnotationRecord[]
     zoom?: number
 }) {
@@ -194,8 +235,16 @@ function PdfPage({
                 const textLayer = textLayerRef.current
                 if (!textLayer || cancelled) return
                 textLayer.replaceChildren()
+                const nativePageText = textContent.items.map((item: any) => item.str || '').join('').trim()
                 if (pageRef.current) {
-                    pageRef.current.dataset.pageText = textContent.items.map((item: any) => item.str || '').join('')
+                    pageRef.current.dataset.pageText = nativePageText || ocrText
+                    pageRef.current.dataset.maskSource = nativePageText ? 'pdf-text-layer' : ocrText ? 'ocr-mask' : 'empty'
+                }
+
+                if (!nativePageText && ocrText.trim()) {
+                    renderOcrMaskLayer(textLayer, ocrText, viewport.width, viewport.height)
+                    page.cleanup()
+                    return
                 }
 
                 textContent.items.forEach((item: any) => {
@@ -227,7 +276,7 @@ function PdfPage({
             cancelled = true
             renderTask?.cancel?.()
         }
-    }, [pdfDocument, pageNumber, zoom, isVisible])
+    }, [pdfDocument, pageNumber, zoom, isVisible, ocrText])
 
     return (
         <div

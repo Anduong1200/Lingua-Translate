@@ -1,0 +1,3 @@
+data/raw/** -text -diff
+data/raw/TrungViet/**/*.dict binary
+data/raw/TrungViet/**/*.idx binary

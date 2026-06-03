@@ -40,6 +40,23 @@ def should_skip(path: Path) -> bool:
     return False
 
 
+def text_contains(pattern: re.Pattern[str], path: Path) -> bool:
+    carry = ""
+    try:
+        with path.open("rb") as handle:
+            while True:
+                chunk = handle.read(1024 * 1024)
+                if not chunk:
+                    break
+                text = carry + chunk.decode("utf-8", errors="ignore")
+                if pattern.search(text):
+                    return True
+                carry = text[-128:]
+    except OSError:
+        return False
+    return False
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     findings: list[str] = []
@@ -50,12 +67,8 @@ def main() -> int:
         relative_path = path.relative_to(root)
         if should_skip(relative_path):
             continue
-        try:
-            text = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
         for name, pattern in SECRET_PATTERNS.items():
-            if pattern.search(text):
+            if text_contains(pattern, path):
                 findings.append(f"{name}: {relative_path.as_posix()}")
 
     if findings:

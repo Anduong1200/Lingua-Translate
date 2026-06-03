@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { uploadSamplePdf } from './test-utils'
+import { completeOnboardingIfVisible, uploadSamplePdf } from './test-utils'
 
 test.describe('Layout Feature', () => {
     test.beforeEach(async ({ page }) => {
@@ -20,8 +20,9 @@ test.describe('Layout Feature', () => {
 
         // Verify experimental badges are present where required
         await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
+        await completeOnboardingIfVisible(page)
         
-        await page.getByRole('tab', { name: /Từ vựng/i }).click()
+        await page.getByRole('button', { name: /Từ vựng/i }).click()
         await expect(page.getByText('Experimental').first()).toBeVisible()
     })
 })

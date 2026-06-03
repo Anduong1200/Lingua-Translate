@@ -31,10 +31,10 @@ test.describe('Flashcard Feature', () => {
         await page.getByRole('button', { name: /Dễ|Easy/i }).first().click()
 
         // It should be removed from the immediate queue
-        await expect(page.getByText('Tuyệt vời! Bạn đã hoàn thành tất cả thẻ cần ôn hôm nay.')).toBeVisible()
+        await expect(page.getByText('Tuyệt vời! Đã hoàn thành ôn tập hôm nay')).toBeVisible()
         
         // We can reload to ensure persistence
         await page.reload()
-        await expect(page.getByText('Tuyệt vời! Bạn đã hoàn thành tất cả thẻ cần ôn hôm nay.')).toBeVisible()
+        await expect(page.getByText('Tuyệt vời! Đã hoàn thành ôn tập hôm nay')).toBeVisible()
     })
 })

@@ -231,7 +231,7 @@ export function fileNameToDocumentType(fileName: string): DocumentContent['type'
 export function splitDocumentSentences(text: string, docId: string) {
     return text
         .replace(/\r/g, '')
-        .split(/(?<=[。！？.!?])\s*|\n+/)
+        .split(/(?<=[。！？.!?])\s*|[\n\f]+/)
         .map((sentence) => sentence.trim())
         .filter(Boolean)
         .map((text, index) => ({

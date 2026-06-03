@@ -245,6 +245,7 @@ export function SavedHub({
                                     <button
                                         onClick={() => onRemoveAnnotation(grammar.id)}
                                         className="rounded-full bg-slate-50 p-1.5 text-slate-400 opacity-0 transition hover:bg-rose-50 hover:text-rose-600 group-hover:opacity-100"
+                                        title="Xóa annotation"
                                     >
                                         <Trash2 className="h-4 w-4" />
                                     </button>

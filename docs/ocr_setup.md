@@ -1,21 +1,170 @@
-# Tùy chọn: Hướng dẫn cài đặt OCR (Nhận dạng văn bản từ ảnh)
+# OCR Setup And PDF Masking
 
-Tính năng OCR (nhận dạng ký tự quang học) trên Hanora hiện tại đang là tính năng **Tùy chọn (Optional)** và ở giai đoạn thử nghiệm (Experimental). 
+Hanora supports scanned PDF reading through backend OCR plus a frontend PDF text mask. This is no longer only a roadmap item.
 
-Hanora tập trung hỗ trợ các định dạng file có text layer rõ ràng (PDF text-based, DOCX, TXT). Đối với file PDF dạng scan (chỉ là tập hợp các hình ảnh) hoặc định dạng hình ảnh trực tiếp, hệ thống cần công cụ OCR bên ngoài để trích xuất văn bản.
+## What Happens At Runtime
 
-## OCR không được bật mặc định vì:
-1. Chi phí tài nguyên lớn (CPU/RAM).
-2. Tốc độ nhận dạng tiếng Trung đôi khi chậm đối với cấu hình máy phổ thông.
-3. Độ chính xác phụ thuộc rất nhiều vào chất lượng file scan.
+```text
+Upload PDF
+-> backend saves the original PDF in backend/data/uploads
+-> backend extracts native PDF page text first
+-> if no native text is found, backend renders pages to images and runs Tesseract OCR
+-> document.content is saved with page separators as form-feed: \f
+-> PageRecord rows are recreated one row per page
+-> Reader renders the PDF canvas with PDF.js
+-> if PDF.js text layer is empty, Reader overlays invisible selectable OCR text
+-> user can highlight text, analyze, translate, save, and create review items
+```
 
-## Các giải pháp OCR có thể dùng cùng Hanora
+The invisible mask is intentionally separate from the PDF image. It does not modify the PDF file. It gives the browser selectable text so dictionary lookup can work on scanned pages.
 
-Nếu bạn cần đọc file PDF dạng scan, bạn có thể thực hiện OCR trước ở bên ngoài (ví dụ dùng Adobe Acrobat, Foxit Phantom, hoặc Tesseract OCR) để chuyển file scan thành PDF có text-layer, sau đó upload vào Hanora như một file bình thường.
+## Required Native Tools
 
-### Dự định tích hợp (Roadmap)
-Trong các bản cập nhật Q3/2026, Hanora có kế hoạch tích hợp `Tesseract.js` dạng module lazy-load.
-- Module này sẽ chỉ tải về máy client khi người dùng yêu cầu bật OCR.
-- Toàn bộ quá trình xử lý vẫn diễn ra hoàn toàn offline trên trình duyệt của bạn nhằm đảm bảo quyền riêng tư.
+Docker installs these automatically. Native host installs must provide them.
 
-Hiện tại, vui lòng ưu tiên sử dụng các file PDF chuẩn (được xuất trực tiếp từ Word/LaTeX) hoặc file DOCX/TXT để đạt trải nghiệm tốt nhất trên Hanora Context Reader.
+Required:
+
+```text
+Tesseract OCR
+Tesseract Chinese language data: chi_sim, ideally chi_tra too
+Poppler utilities
+```
+
+Python packages are included in `backend/requirements.txt`:
+
+```text
+pytesseract
+pdf2image
+Pillow
+opencv-python-headless
+numpy
+```
+
+## Docker Path
+
+From repository root:
+
+```bash
+docker compose up --build
+```
+
+The backend Dockerfile installs:
+
+```text
+tesseract-ocr
+tesseract-ocr-chi-sim
+tesseract-ocr-chi-tra
+poppler-utils
+libgl1
+libglib2.0-0
+```
+
+Use Docker when a teammate should be able to run the same OCR stack without manual Windows setup.
+
+## Windows Native Setup
+
+Install Tesseract and Poppler, then set paths in `backend/.env`.
+
+Example:
+
+```env
+TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+POPPLER_PATH=C:\poppler\Library\bin
+```
+
+Then restart backend:
+
+```powershell
+python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 3001 --reload
+```
+
+Quick checks:
+
+```powershell
+& "C:\Program Files\Tesseract-OCR\tesseract.exe" --list-langs
+Get-ChildItem "C:\poppler\Library\bin\pdfinfo.exe"
+```
+
+`--list-langs` must include `chi_sim` for simplified Chinese scanned PDFs.
+
+## Linux Native Setup
+
+Debian/Ubuntu:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-chi-tra poppler-utils
+python -m pip install -r backend/requirements.txt
+```
+
+Then use defaults:
+
+```env
+TESSERACT_CMD=tesseract
+POPPLER_PATH=
+```
+
+## macOS Native Setup
+
+```bash
+brew install tesseract tesseract-lang poppler
+python -m pip install -r backend/requirements.txt
+```
+
+If binaries are not on PATH, set:
+
+```env
+TESSERACT_CMD=/opt/homebrew/bin/tesseract
+POPPLER_PATH=/opt/homebrew/bin
+```
+
+## Refreshing OCR For An Existing Document
+
+If a PDF was uploaded before OCR dependencies were installed, call:
+
+```bash
+curl -X POST http://127.0.0.1:3001/api/documents/<document_id>/ocr
+```
+
+Expected successful response:
+
+```json
+{
+  "document_id": "<document_id>",
+  "status": "ocr_ready",
+  "content": "page 1 text\\fpage 2 text",
+  "page_count": 2
+}
+```
+
+In the Reader UI, scanned PDFs with empty content trigger this refresh automatically once per document in the current session.
+
+## Troubleshooting
+
+`TesseractNotFoundError`
+
+Tesseract is missing or `TESSERACT_CMD` is wrong. Install Tesseract or set `TESSERACT_CMD` to the executable.
+
+`PDFInfoNotInstalledError` or `Unable to get page count`
+
+Poppler is missing or `POPPLER_PATH` is wrong. Install Poppler and set `POPPLER_PATH` to the folder containing `pdfinfo` and `pdftoppm`.
+
+OCR returns empty text
+
+Check:
+
+```text
+scan resolution
+page rotation
+watermark/noise
+whether chi_sim is installed
+whether the PDF is password protected
+```
+
+Native text layer exists but selection is wrong
+
+The Reader prefers native PDF.js text when available. If the source PDF has a bad embedded text layer, re-OCR the PDF externally or remove the bad text layer before upload. The OCR mask is used only when the native text layer is empty.
+
+Tests fail with empty PDF text layer
+
+E2E uses `tests/e2e/test-utils.ts` to wait until `[data-page-text]` or text content contains the target phrase. If a new test selects text, use `selectTextInPdfPage(...)` instead of reading immediately after upload.

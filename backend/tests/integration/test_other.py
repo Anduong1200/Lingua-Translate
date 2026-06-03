@@ -55,6 +55,7 @@ from routers.documents import (
     translate_document,
     upload_document,
     create_document_auto_review_items,
+    refresh_document_ocr,
 )
 from routers.dictionary import dictionary_search
 from routers.annotations import create_annotation
@@ -191,6 +192,18 @@ def test_document_upload_persists_file_and_metadata(session) -> None:
     stored_path = Path(str(file_response.path))
     assert stored_path.exists()
     assert stored_path.read_bytes() == "市场需求下降".encode("utf-8")
+
+
+def test_document_ocr_refresh_updates_content_and_pages(session, monkeypatch) -> None:
+    payload = resolve_immediate_coroutine(upload_document(file=DummyUploadFile(), language="zh-CN", session=session))
+    monkeypatch.setattr(routers.documents, "extract_file_text", lambda _name, _data: "第一页 市场需求\f第二页 计算机系统")
+
+    refreshed = refresh_document_ocr(payload["document_id"], session)
+    saved = next(item for item in list_documents(session)["documents"] if item["id"] == payload["document_id"])
+
+    assert refreshed["status"] == "ocr_ready"
+    assert refreshed["page_count"] == 2
+    assert saved["content"] == "第一页 市场需求\f第二页 计算机系统"
 
 
 

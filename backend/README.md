@@ -24,15 +24,16 @@ SQLite is the source of truth for documents, pages, annotations, review items, s
 
 ## Runtime Files
 
-Ignored by git:
+Usually runtime/local-only:
 
 ```text
 backend/.env
-backend/data/
 backend/data/uploads/
 backend/data/backups/
 backend/data/google_api_keys.txt
 ```
+
+`backend/data/hanora.sqlite3` may be present in the repository for demo/bootstrap convenience, but it is not the canonical source for dictionary data. Test runs, upload flows, `POST /api/debug/reset-demo`, and local usage can mutate it. For release work, use `data/raw/` plus `python backend/scripts/bootstrap_data.py` as the reproducible dictionary source.
 
 ## Environment
 
@@ -73,17 +74,67 @@ For production, set `APP_ENV=production` and explicit `FRONTEND_ORIGINS`. Do not
 
 ## OCR (Scanned PDFs)
 
-The backend uses Tesseract OCR with OpenCV preprocessing to extract text from scanned PDFs. When a PDF has no text layer, the system automatically falls back to OCR.
+The backend uses Tesseract OCR with OpenCV preprocessing to extract text from scanned PDFs. The PDF service first tries native PDF text extraction page by page. If a PDF page has no usable text layer, it falls back to OCR and stores page text separated by form-feed (`\f`). The reader uses that OCR text as an invisible PDF mask layer so scanned pages can still be selected, analyzed, and looked up in the dictionary.
 
-System requirements (must be installed on the host machine):
+Relevant flow:
+
+```text
+POST /api/documents/upload
+-> save uploaded file under backend/data/uploads
+-> extract_file_text(...)
+   -> native PDF text via pypdf, joined by \f
+   -> OCR fallback via pdf2image + Tesseract if native text is empty
+-> persist document.content
+-> persist one PageRecord per form-feed page
+
+Reader opens PDF
+-> PDF.js renders page canvas
+-> native PDF text layer if available
+-> if native text layer is empty, use document.content page text as invisible OCR mask
+-> user selection goes to /api/nlp/analyze and dictionary lookup
+```
+
+Runtime refresh endpoint:
+
+```http
+POST /api/documents/{document_id}/ocr
+```
+
+Use this when a stored PDF exists but `documents.content` is empty or OCR dependencies were installed after the original upload. The endpoint validates that the stored file path remains under `UPLOAD_DIR`, re-extracts text, replaces document content, replaces page records, and returns:
+
+```json
+{
+  "document_id": "...",
+  "status": "ocr_ready",
+  "content": "page 1 text\\fpage 2 text",
+  "page_count": 2
+}
+```
+
+System requirements for native host installs:
 - **Tesseract OCR** with `chi_sim` (Simplified Chinese) language data
 - **Poppler** (for pdf2image to convert PDF pages to images)
+
+Docker installs these system packages automatically through `backend/Dockerfile`.
 
 Configure via environment variables if not on PATH:
 
 ```text
 TESSERACT_CMD=/usr/bin/tesseract
 POPPLER_PATH=/usr/bin
+```
+
+Common OCR failures:
+
+```text
+TesseractNotFoundError
+-> Install Tesseract or set TESSERACT_CMD.
+
+PDFInfoNotInstalledError / Unable to get page count
+-> Install Poppler or set POPPLER_PATH to the Poppler bin folder.
+
+OCR returns empty text
+-> Check scan quality, page rotation, watermark noise, and installed Chinese language data.
 ```
 
 ## Migrations
@@ -109,6 +160,33 @@ python backend/scripts/import_cc_cedict.py path/to/cedict_ts.u8
 python backend/scripts/import_hsk_vocab.py path/to/hsk_folder
 python backend/scripts/import_trungviet_dict.py --stardict-dir path/to/TrungViet --hsk-dir path/to/hsk --phrase-dir path/to/phrase
 python backend/scripts/bootstrap_data.py
+```
+
+The release repository includes importable raw dictionary data under `data/raw/`:
+
+```text
+data/raw/cedict/cedict_ts.u8
+data/raw/hsk/*.csv
+data/raw/phrase/*.csv
+data/raw/TrungViet/TrungViet/star_trungviet.*
+```
+
+`python backend/scripts/bootstrap_data.py` prefers those in-repo paths, so a fresh clone can rebuild CC-CEDICT, HSK vocabulary, phrase entries, and Trung-Việt enrichment without depending on `D:\exe\...` or any other local source folder.
+
+Bootstrap behavior:
+
+```text
+1. Import CC-CEDICT if dictionary table has no cc_cedict rows, or when --force is used.
+2. Import HSK CSVs if HSK source rows are missing, or when --force is used.
+3. Parse StarDict Trung-Việt if data/raw/TrungViet/... exists.
+4. Enrich existing entries whose Vietnamese definitions are missing.
+5. Import phrase CSVs as phrase_entries when missing, or when --force is used.
+```
+
+Do not use `git add .` blindly after local test runs. If `backend/data/hanora.sqlite3` changed only because e2e/reset-demo/upload ran, leave it unstaged unless the release explicitly updates the demo DB. Always stage the raw source data:
+
+```bash
+git add data/raw .gitattributes backend/scripts/bootstrap_data.py
 ```
 
 ## Operations
@@ -154,6 +232,7 @@ HSK import priority vs Vietnamese seed
 annotation/review/review-event flow
 user correction priority
 document upload persistence
+PDF page splitting and OCR refresh persistence
 document translation/vocabulary automation
 upload type/size safety
 admin backup/export without secret leakage

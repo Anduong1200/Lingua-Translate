@@ -7,7 +7,7 @@ import { useStore } from '@/store/useStore'
 import type { AnnotationRecord, ChineseAnalysis, ChineseDefinition, ChineseSentenceAnalysis, ChineseToken, DocumentContent, DocumentTranslationSentence, FlashCard, SavedWord } from '@/types'
 import { estimateHskLabel, getVietnameseDefinition } from '@/lib/chinese'
 import { generateId } from '@/lib/utils'
-import { API_BASE_URL } from '@/store/slices/types'
+import { API_BASE_URL, splitDocumentSentences } from '@/store/slices/types'
 import { primaryNavPages, workspacePageCount } from '@/config/pages'
 import { type ChatMessage, findSentenceForSelection, formatAiChatReply, isSelectableToken, messageTime, type PdfSelection, type QuizQuestion, speakChinese } from './readerUtils'
 
@@ -42,6 +42,8 @@ export default function ReaderPage() {
         handleTranslateDocument, handleScanVocabulary, handleCreateAutoReviewItems, handleUploadFile, handleCreatePastedDocument, aiContext, isGeneratingAIContext, setTextSelection, setPdfSelection, analyzeSelection, removeAnnotation,
     } = ctrl
     const { currentDocument, documents, setCurrentDocument, savedWords, annotations, flashCards, submitReview, removeSavedWord, settings, isSideBySide, toggleSideBySide, updateSettings, isTranslatingDocument, isScanningVocabulary } = store
+    const [ocrAttemptedIds, setOcrAttemptedIds] = useState<Set<string>>(() => new Set())
+    const [isRefreshingOcr, setIsRefreshingOcr] = useState(false)
 
     const toolbarTop = popupCoords ? Math.max(70, popupCoords.y - 78) : 0
     const toolbarLeft = popupCoords ? Math.min(window.innerWidth - 220, Math.max(12, popupCoords.x - 110)) : 0
@@ -50,6 +52,43 @@ export default function ReaderPage() {
         { id: 'library', label: 'Lưu trong reader' },
         { id: 'study-hub', label: 'Ôn trong reader' },
     ]
+
+    useEffect(() => {
+        const document = currentDocument
+        if (!document || document.type !== 'pdf' || !document.sourceUrl || document.content.trim() || ocrAttemptedIds.has(document.id)) return
+
+        let cancelled = false
+        setOcrAttemptedIds((current) => new Set(current).add(document.id))
+        setIsRefreshingOcr(true)
+        setSavedNotice('Đang OCR PDF scan để tạo lớp chữ chọn được...')
+
+        fetch(`${API_BASE_URL}/documents/${document.id}/ocr`, { method: 'POST' })
+            .then((response) => {
+                if (!response.ok) throw new Error(`OCR failed: ${response.status}`)
+                return response.json() as Promise<{ content: string; page_count: number }>
+            })
+            .then((result) => {
+                if (cancelled || !result.content?.trim()) return
+                const updatedDocument = {
+                    ...document,
+                    content: result.content,
+                    sentences: splitDocumentSentences(result.content, document.id),
+                }
+                store.addDocument?.(updatedDocument)
+                store.setCurrentDocument?.(updatedDocument)
+                setSavedNotice(`Đã OCR ${result.page_count || 1} trang PDF, có thể bôi chữ để tra từ.`)
+            })
+            .catch(() => {
+                if (!cancelled) setSavedNotice('Chưa OCR được PDF scan. Kiểm tra Tesseract/Poppler và thử upload lại.')
+            })
+            .finally(() => {
+                if (!cancelled) setIsRefreshingOcr(false)
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [currentDocument, ocrAttemptedIds, setSavedNotice, store])
 
     return (
         <div className="relative flex h-screen flex-col overflow-hidden bg-[#f6f8fb] text-slate-800">
@@ -248,7 +287,7 @@ export default function ReaderPage() {
 
             {savedNotice && (
                 <div className="pointer-events-none fixed left-1/2 top-20 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-teal-700 bg-teal-900 px-4 py-2.5 text-xs font-black text-white shadow-lg">
-                    <CheckCircle className="h-4 w-4 text-emerald-300" />
+                    {isRefreshingOcr ? <Loader2 className="h-4 w-4 animate-spin text-emerald-300" /> : <CheckCircle className="h-4 w-4 text-emerald-300" />}
                     <span>{savedNotice}</span>
                 </div>
             )}
@@ -281,6 +320,7 @@ export default function ReaderPage() {
                         <div className="flex-1 overflow-y-auto border-r border-teal-50/20 bg-slate-900 px-6 py-8">
                             <PdfDocumentViewer
                                 sourceUrl={currentDocument.sourceUrl}
+                                documentText={currentDocument.content}
                                 onSelection={handlePdfSelection}
                                 annotations={annotations.filter((annotation) => annotation.document_id === currentDocument.id)}
                                 zoom={zoomPercent}

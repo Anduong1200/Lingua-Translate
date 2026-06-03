@@ -1,0 +1,453 @@
+phrase,en,id
+价格,price,0
+销售量,sales volume,1
+市场调查,market survey,2
+市场份额,market share,3
+促销,promotion,4
+广告宣传,advertising,5
+售后服务,after-sale service,6
+降低成本,cost-cutting,7
+顾客,customer,8
+买方,buyer,9
+卖方,seller,10
+代理商,agent,11
+零售,retail,12
+批发,wholesale,13
+交易,deal,14
+商品交易会,trade fair,15
+电子商务,e-commerce,16
+优惠券,coupon,17
+议程,agenda,18
+出席者,attendee,19
+缺席者,absentee,20
+视频会议,video conference,21
+投票,ballot,22
+决议,decision,23
+条款,item,24
+提议,proposal,25
+任务,task,26
+总结,summary,27
+公司,company,28
+市场,market,29
+企业,enterprise,30
+投资,investment,31
+银行,bank,32
+资金,capital,33
+业务,business,34
+增长,growth,35
+产品,product,36
+价格,price,37
+管理,management,38
+经济,economy,39
+贷款,loan,40
+行业,industry,41
+金融,finance,42
+生产,production,43
+财经,finance and economics,44
+客户,customer,45
+股票,stock,46
+品牌,brand,47
+宣传,advertise,48
+贸易,business/trade,49
+目录,category,50
+成本,cost,51
+创造,create,52
+定制,customize,53
+运输,deliver,54
+需求,demand,55
+描述,description,56
+设计,design,57
+发展,develop,58
+分配,distribute,59
+出口,export,60
+著名的,famous,61
+反馈,feedback,62
+进口,import,63
+增加,increase/rising,64
+信息,information,65
+介绍,introduce,66
+商标,label,67
+发布,launch,68
+经理,manager,69
+制造,manufacture,70
+报价,offer,71
+机会,opportunity,72
+支出,outlay,73
+产量,output,74
+包装,package,75
+付钱,pay,76
+表现,perform,77
+流行,popular,78
+能力,power,79
+利润,profit,80
+促销,promote,81
+质量,quality,82
+排名,rank,83
+原材料,raw material,84
+减少,reduce,85
+偿还,refund,86
+拒绝,reject,87
+样品,sample,88
+节省,save,89
+支持,support,90
+目标,target,91
+关税,tariff,92
+税金,tax,93
+测试,test,94
+种类,type,95
+浪费,uneconomical,96
+失业,unemployment,97
+单位成本,unit cost,98
+价值,value,99
+卖主,vendor,100
+行业,vocation,101
+崩溃,collapse,102
+变动成本,variable costs,103
+边际,limit,104
+边际利润率,profit margin,105
+不平等,unequal,106
+不正当竞争,unfair competition,107
+财富,wealth,108
+财务预测,financial forecast,109
+差距,disparity,110
+出超,trade surplus,111
+贷款人,lender,112
+东盟,Association of Southeast Asian Nations,113
+东南亚国家联盟,Association of South East Asian Nations (ASEAN),114
+对冲基金,hedge fund,115
+多边,multilateral,116
+反垄断,anti-trust,117
+繁荣,prosperous,118
+发展中国家,developing country,119
+非政府组织,nongovernmental organization,120
+风险,risk,121
+分销,retail,122
+腐败,corruption,123
+复苏,recovery,124
+负增长,negative growth,125
+改革,reform,126
+供给,supply,127
+公开上市,go public (with a company),128
+公司价值,corporate value; company value,129
+公司债券,corporate bond,130
+共同市场,common market,131
+供应,provide,132
+供应商,supplier,133
+工资,wages; salary,134
+挂牌,to open up for business,135
+固定成本,Fixed cost,136
+固定收入,fixed income,137
+股东,stockholder; shareholder,138
+国际货币基金,IMF (International Monetary Fund),139
+国库券,treasure bonds,140
+国民生产总值,GNP,141
+国民收入,measures of national income and output,142
+国内生产总值,gross domestic product,143
+国债,national debt,144
+股票市场,stock market,145
+宏观经济,macro-economic,146
+红利,bonus,147
+后市,afternoon market,148
+华尔街,Wall Street,149
+黄金,gold,150
+黄金储备,gold reserve,151
+回升,rise again,152
+货币,currency,153
+货币政策,monetary policy,154
+货物,goods,155
+价格歧视,price discrimination,156
+奖金,bonus,157
+交割,complete a business transaction,158
+交易成本,transaction cost,159
+基础设施,infrastructure,160
+基金,fund,161
+经济均衡,economic equilibrium,162
+经济增长率,economic growth rate,163
+净利润,net profit,164
+景气,economic prosperity,165
+竞争,compete,166
+集团,group,167
+基准利率,base rate,168
+可支配收入,disposable income,169
+跨国公司,transnational corporation,170
+利率,interest rate,171
+零和博弈,zero-sum game,172
+毛利,gross profit,173
+垄断企业,monopoly,174
+贸易顺差,trade surplus,175
+贸易平衡,trade balance,176
+贸易逆差,trade deficit,177
+美元,U.S. dollar,178
+内需,domestic demand,179
+欧盟,the European Union; EU,180
+欧洲联盟,European Union / EU,181
+泡沫经济,bubble economy,182
+贫困率,poverty rate,183
+破产,go bankrupt,184
+期货,futures (on goods),185
+囚徒困境,(Game theory) prisoner's dilemma,186
+全球变暖,global warming,187
+全球化,globalization,188
+人均收入,per capita income,189
+上市,(said of seasonal goods or new products) go on the market,190
+上限,superior limit,191
+生产总值,gross product,192
+市场占有率,market share,193
+世界贸易组织,World Trade Organization,194
+世界银行,World Bank,195
+收益,profit,196
+收支,income and expenses,197
+双输,no-win situation,198
+双赢,win-win,199
+税,tax,200
+掏空,hollow out,201
+逃税,tax evasion,202
+替代品,substitute product,203
+通货膨胀,inflation,204
+通货紧缩,deflation,205
+通胀率,inflation rate,206
+同盟,alliance,207
+退休金计划,retirement plan,208
+外汇储备,foreign exchange reserves,209
+外汇交易,Forex trading,210
+违约,break a contract,211
+物价,(commodity) prices,212
+物品,goods; materials,213
+现金流量,cash flow,214
+消费,spending,215
+消费物价指数,consumer price index,216
+消费者,consumer,217
+效率,efficiency,218
+销售,to sell; to market; sales,219
+新兴市场,emerging market,220
+信用额度,line of credit,221
+信用评级,credit card rating,222
+薪资,salary,223
+应计,accrual (accounting),224
+营运成本,operating costs,225
+隐含成本,hidden cost,226
+由上而下,top to bottom,227
+欲望,desire,228
+增值,increase in value,229
+增值税,value added tax (VAT),230
+债票,bond (financial),231
+债务,debt,232
+涨价,increase in price,233
+折旧,depreciate,234
+折扣,discount,235
+证券,negotiable securities,236
+证券交易所,stock exchange,237
+制度,system; institution,238
+知识产权,intellectual property rights,239
+指数,index,240
+专利,patent,241
+主体,main part,242
+资本结构,capital structure,243
+自由贸易,free trade,244
+自由贸易区,free trade zone,245
+自由贸易协定,free trade agreement,246
+资源,natural resource,247
+一线城市,Tier 1 cities,248
+私营企业,private sector,249
+公共部门,public sector,250
+国有企业,state-owned enterprises(SOE),251
+国家发展计划委员会,State Development Planning Commission,252
+关系户,closely-related units,253
+可持续发展,sustainable development,254
+模范,model,255
+恪尽职守,due diligence,256
+发达国家,developed countries,257
+利益链,value chain,258
+城市化,urbanization,259
+春运,Spring Festival travel rush,260
+生产力,Productivity,261
+生产率,Productivity,262
+商业案例,business case,263
+平衡预算,balanced budget,264
+就业率,employment rate,265
+经济危机,economic crisis,266
+经济反弹,economic rebound,267
+金融危机,financial crisis,268
+债务危机,debt crisis,269
+消费者信心指数,Consumer Confidence Index,270
+消费者价格指数,Consumer Price Index,271
+降级消费,Trade down,272
+规模效益,economies of scale,273
+可支配收入,disposable income,274
+旅游业,tourist industry,275
+年增长率,annual growth rate,276
+金融服务业,financial-services industry,277
+资产管理,asset management,278
+国民生产总值,GDP,279
+董事会主席,Chairman of the Board,280
+董事长,President of the Board,281
+副董事长,Vice President of the Board,282
+董事,Board Director,283
+总裁,President,284
+执行副总裁,Executive Vice President,285
+首席执行官,CEO,286
+执行总监,CEO,287
+首席营运官,COO,288
+首席财务官,CFO,289
+首席技术官,CTO,290
+首席营销官,CMO,291
+总经理,General Manager,292
+营运经理,Operations Manager,293
+厂长,Factory Manager,294
+主管,Director,295
+顾问,Consultant,296
+分析师,Analyst,297
+技工,Mechanic,298
+普通工人,General Workers,299
+接待员,Receptionist,300
+实习生,Intern,301
+客服,Customer Service,302
+市中心,city center,303
+行李,luggage,304
+宾馆,hotel,305
+暑假,summer vacation,306
+护照,Passport,307
+身份证,ID card,308
+度假,go on holiday,309
+纪念平,souvenir,310
+名胜古迹,place of historical interest / significance,311
+住宿,accommodation,312
+市長,Mayor,313
+目前,Currently,314
+登机证,boarding pass,315
+登记,check in,316
+时刻表,timetable,317
+电邮,Email,318
+名片,Business card,319
+文件,Document,320
+打印机,Printer,321
+复印机,Photocopier,322
+谈生意,Discuss business,323
+成交交易,Make a deal,324
+处理问题,Manage problems,325
+会计,Accounting,326
+人事处,Human Resources,327
+信息管理,Information Technology,328
+营销,Marketing,329
+合同文本,a copy of the contract.,330
+国际,International,331
+尽快,As soon as possible,332
+订购,Order,333
+预算,budget,334
+确信,being confident of,335
+随信附上,Attached in the mail,336
+合同书,Contract,337
+请报价,Please report quotation,338
+博主,blogger,339
+用户,user,340
+管理员,administrator,341
+开发人员,developer,342
+互联网,the internet,343
+新浪网,Sina,344
+谷歌,Google,345
+优酷,Youku,346
+搜索引擎,search engine,347
+百度,Baidu,348
+社交网络,social network,349
+播客,podcast,350
+网页,webpage,351
+聊天室,chatroom,352
+网吧,internet cafe,353
+论坛,bbs,354
+电脑游戏,computer game,355
+网购,internet shopping,356
+发微博,"tweet (from Weibo, China's Twitter)",357
+帖子,a post (on a blog),358
+上线,online,359
+离线,offline,360
+评论,comment,361
+回复,huí fù,362
+接收,accept,363
+登录,login,364
+下载,download,365
+上传,upload,366
+点击,click,367
+双击,double-click,368
+邮箱,inbox,369
+转发,forward,370
+垃圾邮件,spam,371
+表格,chart,372
+笔记本,laptop,373
+触摸板,touchpad,374
+智能手机,smartphone,375
+设备,device,376
+摄像头,camera,377
+电池,battery,378
+充电器,charger,379
+无线,wireless,380
+数据,data,381
+滑动,swipe (on a iphone),382
+解锁,unlock,383
+主页,homepage,384
+链接,link,385
+关键字,keyword,386
+媒体,media,387
+杂志,magazine,388
+海报,poster,389
+发表,to post,390
+受众,audience,391
+平台,platform,392
+更新,to update,393
+社交媒体,social media,394
+网民,netizen,395
+视频,video,396
+货柜,Container,397
+申报,Declare,398
+公关,Public Relations,399
+挂号,Registered,400
+自动柜员机,A.T.M.,401
+战略伙伴,a strategic partner,402
+经济伦理,business ethics,403
+履行义务,to carry out responsibilities,404
+日常应用品,daily necessities,405
+参加面试,to interview,406
+搜集 数据,to collect data,407
+互惠互利,mutual benefit,408
+国际关系,international relations,409
+外事,foreign affairs,410
+外交政策,foreign policy,411
+研究,research,412
+霸权主义,hegemony,413
+准则,norms,414
+外交,diplomacy,415
+国际组织,international organizations,416
+北大西洋公约组织,North Atlantic Treaty Organization (NATO),417
+政体,regime; political system,418
+核武器,nuclear weapons,419
+内政,internal affairs,420
+难民,refugee,421
+人权,human rights,422
+国20集团,G20,423
+大使馆,embassy,424
+元首,head of state,425
+汇率,exchange rate,426
+采用,to adopt,427
+呈......趋势,to show an... tendency,428
+正直,integrity,429
+準時,punctuality,430
+保守機密,confidentiality,431
+勝任能力,competence,432
+披露信息,disclose information,433
+準確性,accuracy,434
+倡導,advocacy,435
+政治,politics,436
+劳工党,Labour party,437
+保守党,Conservative party,438
+共产党,Communist party,439
+国民党,Chinese nationalist party,440
+主席,Chairman,441
+一国两制,"'one country, two systems'",442
+爱国主义精神,patriotism,443
+国会,Congress,444
+秘书,secretary,445
+性能,function,446
+购买,purchase,447
+确认,to confirm,448
+营销策略,Marketing strategies,449
+降低成本,Cost-cutting,450
+协议,Agreement,451

@@ -87,9 +87,11 @@ export function ReaderSidebar({
         (analysis as any)?.role_analysis?.role_explanation_vi ||
         (analysis as any)?.role_analysis?.contextual_role_vi ||
         ''
-    const resolvedSentenceTranslation = contextTranslation?.sentence?.dictionary_vi || sentenceTranslation || quickVi
+    const aiNaturalTranslation = contextTranslation?.sentence?.ai_natural_vi || analysis?.translations?.ai_natural_vi || ''
+    const resolvedSentenceTranslation = aiNaturalTranslation || contextTranslation?.sentence?.dictionary_vi || sentenceTranslation || quickVi
     const resolvedLiteralTranslation = contextTranslation?.sentence?.literal_vi || literalTranslation
     const resolvedParagraphTranslation = contextTranslation?.paragraph?.dictionary_vi || ''
+    const usesDictionaryFallback = Boolean(resolvedSentenceTranslation && !aiNaturalTranslation)
 
     return (
         <aside className="flex h-[42vh] w-full shrink-0 flex-col border-t border-slate-200/50 bg-white/85 backdrop-blur-xl lg:h-full lg:w-[360px] lg:border-l lg:border-t-0">
@@ -170,6 +172,11 @@ export function ReaderSidebar({
                                     </button>
                                 ))}
                             </div>
+                            {usesDictionaryFallback && (
+                                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-800">
+                                    Đang dùng bản dịch từ điển cục bộ, chưa phải bản dịch tự nhiên.
+                                </p>
+                            )}
                             <ReaderInfoBlock label="Bản dịch câu" value={resolvedSentenceTranslation} highlight emptyText="Chưa có bản dịch câu. Bấm Dịch câu hoặc Context để phân tích lại." />
                             {resolvedLiteralTranslation && <ReaderInfoBlock label="Sát nghĩa" value={resolvedLiteralTranslation} />}
                             {resolvedParagraphTranslation && <ReaderInfoBlock label="Bản dịch đoạn" value={resolvedParagraphTranslation} highlight={contextTranslation?.scope === 'paragraph'} />}

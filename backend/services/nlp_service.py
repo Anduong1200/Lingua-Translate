@@ -76,14 +76,14 @@ def tokenize_chinese(text: str, session: Session) -> list[dict[str, Any]]:
 
 
 def split_sentences(text: str) -> list[str]:
-    return [sentence.strip() for sentence in re.split(r"(?<=[。！？!?])\s*|\n+", text or "") if sentence.strip()]
+    return [sentence.strip() for sentence in re.split(r"(?<=[。！？!?])\s*|[\n\f]+", text or "") if sentence.strip()]
 
 
 def split_paragraphs(text: str) -> list[str]:
     cleaned = (text or "").replace("\r", "").strip()
     if not cleaned:
         return []
-    paragraphs = [paragraph.strip() for paragraph in re.split(r"\n{2,}", cleaned) if paragraph.strip()]
+    paragraphs = [paragraph.strip() for paragraph in re.split(r"\n{2,}|\f+", cleaned) if paragraph.strip()]
     return paragraphs or [cleaned]
 
 
@@ -212,11 +212,12 @@ def translation_unit(text: str, session: Session, source_sentence: str | None = 
     context = "\n".join(filter(None, [source_sentence or "", source]))
     domain = detect_domain(context, domain_mode)
     tokens = tokenize_chinese(source, session)
+    dictionary_vi = dictionary_translation(source, source_sentence or source, tokens, domain)
     return {
         "source": source,
-        "dictionary_vi": dictionary_translation(source, source_sentence or source, tokens, domain),
+        "dictionary_vi": dictionary_vi,
         "ai_natural_vi": None,
-        "natural_vi": None,
+        "natural_vi": dictionary_vi,
         "literal_vi": literal_translation(tokens),
         "pinyin": pinyin_display(source),
         "domain": domain,
@@ -234,7 +235,7 @@ def translate_paragraph(paragraph: str, session: Session, domain_mode: str | Non
         "source": paragraph.strip(),
         "dictionary_vi": " ".join(item.get("dictionary_vi", "") for item in translated_sentences if item.get("dictionary_vi")).strip(),
         "ai_natural_vi": None,
-        "natural_vi": None,
+        "natural_vi": " ".join(item.get("natural_vi", "") for item in translated_sentences if item.get("natural_vi")).strip(),
         "literal_vi": " / ".join(item["literal_vi"] for item in translated_sentences if item["literal_vi"]).strip(),
         "sentences": translated_sentences,
     }
@@ -259,9 +260,10 @@ def dictionary_translation(selected_text: str, source_sentence: str, tokens: lis
 
 
 def contextual_role(selected_text: str, source_sentence: str, domain: str) -> dict[str, str]:
-    # Removed mock contextual roles. In a fully real environment, this is either parsed by LLM
-    # or returned generically.
-    return {"role_vi": "", "explanation_vi": ""}
+    return {
+        "role_vi": "Đơn vị được chọn trong câu",
+        "explanation_vi": f"Backend dùng câu chứa selection, domain {domain} và từ điển cục bộ để ưu tiên nghĩa phù hợp trước nghĩa chung.",
+    }
 
 
 def contextual_examples(selected_text: str, domain: str) -> list[str]:
@@ -330,7 +332,7 @@ def build_contextual_analysis(payload: NlpAnalyzeRequest, session: Session) -> d
             "literal_vi": literal_vi,
             "dictionary_vi": dictionary_vi,
             "ai_natural_vi": None,
-            "natural_vi": None,
+            "natural_vi": dictionary_vi,
             "natural_en": "No natural English yet",
         },
         "role_analysis": {

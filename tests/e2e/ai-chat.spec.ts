@@ -23,8 +23,7 @@ test.describe('AI Chat Feature', () => {
         await selectTextInPdfPage(pdfPage, '市场需求')
         await page.getByRole('button', { name: /Analyze/i }).click()
         
-        // Open Chat Tab
-        await page.getByRole('tab', { name: /Trợ lý AI/i }).click()
+        await page.getByTitle('Mở chat AI').click()
 
         // Assert warning messages
         await expect(page.getByText('Chưa cấu hình API Key')).toBeVisible()
@@ -45,20 +44,20 @@ test.describe('AI Chat Feature', () => {
         await page.route('**/api/ai/chat', async route => {
             await route.fulfill({
                 json: {
-                    status: 'success',
-                    reply: 'Đây là câu trả lời từ AI mock.',
+                    status: 'ok',
+                    response: { text: 'Đây là câu trả lời từ AI mock.' },
                     generated_at: new Date().toISOString()
                 }
             })
         })
 
-        // Force a re-render/re-fetch of the chat panel by going to another tab and back
-        await page.getByRole('tab', { name: /Ngữ cảnh/i }).click()
-        await page.getByRole('tab', { name: /Trợ lý AI/i }).click()
+        await page.getByTitle('Đóng chat').click()
+        await page.getByTitle('Mở chat AI').click()
+        await expect(page.getByText('Hỏi thêm về văn bản')).toBeVisible()
 
         // Input chat
-        await page.locator('textarea[placeholder*="Hỏi Hanora AI..."]').fill('Giải thích thêm về từ này')
-        await page.getByRole('button', { name: /Gửi/i }).click()
+        await page.locator('input[placeholder*="Hỏi về văn bản này"]').fill('Giải thích thêm về từ này')
+        await page.locator('form button[type="submit"]').click()
 
         // Check if mock reply is rendered
         await expect(page.getByText('Đây là câu trả lời từ AI mock.')).toBeVisible()

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { uploadSamplePdf, selectTextInPdfPage } from './test-utils'
+import { completeOnboardingIfVisible, uploadSamplePdf, selectTextInPdfPage } from './test-utils'
 
 test.describe('Vocabulary Feature', () => {
     test.beforeEach(async ({ page }) => {
@@ -26,7 +26,8 @@ test.describe('Vocabulary Feature', () => {
 
         // Go to dashboard vocabulary tab
         await page.goto('/dashboard', { waitUntil: 'domcontentloaded' })
-        await page.getByRole('tab', { name: /Từ vựng/i }).click()
+        await completeOnboardingIfVisible(page)
+        await page.getByRole('button', { name: /Từ vựng/i }).click()
 
         // The file should be listed as a source
         await page.getByText(/sample-chinese-reader.PDF/i).first().click()

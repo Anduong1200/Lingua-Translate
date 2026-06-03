@@ -21,15 +21,15 @@ test.describe('Context Translate Feature', () => {
         await expect(page.getByText('nhu cầu thị trường').first()).toBeVisible()
 
         // Now mock the API to simulate AI natural translation being successful
-        await page.route('**/api/analyze', async route => {
+        await page.route('**/api/nlp/analyze', async route => {
             await route.fulfill({
                 json: {
                     status: 'success',
-                    selection: { text: '市场需求', mode: 'phrase' },
+                    selection: { selected_text: '由于市场需求下降', source_sentence: '由于市场需求下降，该公司调整了生产计划。', mode: 'phrase' },
                     quick_meaning: {
-                        simplified: '市场需求',
-                        pinyin_display: 'shìchǎng xūqiú',
-                        definitions_vi: ['nhu cầu thị trường'],
+                        simplified: '由于市场需求下降',
+                        pinyin: 'yóu yú shì chǎng xū qiú xià jiàng',
+                        definitions_vi: ['do nhu cầu thị trường giảm'],
                         definitions_en: []
                     },
                     translations: {

@@ -46,6 +46,12 @@ export async function completeOnboardingIfVisible(page: Page) {
 }
 
 export async function selectTextInPdfPage(locator: Locator, phrase: string) {
+    await expect
+        .poll(() => locator.evaluate((pageElement) => pageElement.getAttribute('data-page-text') || pageElement.textContent || ''), {
+            timeout: 30_000,
+        })
+        .toContain(phrase)
+
     const selected = await locator.evaluate((pageElement, phraseToSelect) => {
         const textNodes: Array<{ node: Text; start: number; end: number }> = []
         const walker = document.createTreeWalker(pageElement, NodeFilter.SHOW_TEXT)

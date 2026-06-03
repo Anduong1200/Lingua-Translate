@@ -123,7 +123,7 @@ async def upload_document(
     )
     session.add(record)
     if extracted_text:
-        session.add(PageRecord(document_id=doc_id, page_number=1, text=extracted_text))
+        persist_document_text_pages(record, extracted_text, session)
     session.commit()
     return {
         "document_id": doc_id,
@@ -284,18 +284,65 @@ def document_text(document: DocumentRecord, session: Session) -> str:
     return "\n".join(page.text for page in pages if page.text.strip()).strip()
 
 
+def split_document_pages(text: str) -> list[str]:
+    pages = [page.strip() for page in (text or "").replace("\r", "").split("\f")]
+    return [page for page in pages if page]
+
+
+def persist_document_text_pages(document: DocumentRecord, text: str, session: Session) -> list[PageRecord]:
+    document.content = text
+    session.execute(delete(PageRecord).where(PageRecord.document_id == document.id))
+    pages = split_document_pages(text) or ([text.strip()] if text.strip() else [])
+    records: list[PageRecord] = []
+    for index, page_text in enumerate(pages, start=1):
+        record = PageRecord(document_id=document.id, page_number=index, text=page_text)
+        session.add(record)
+        records.append(record)
+    return records
+
+
 def document_translation_sentence(document_id: str, sentence: str, index: int, session: Session) -> dict[str, Any]:
     tokens = tokenize_chinese(sentence, session)
     domain = detect_domain(sentence, "auto")
+    dictionary_vi = dictionary_translation(sentence, sentence, tokens, domain)
     return {
         "sentence_id": f"{document_id}-sentence-{index + 1}",
         "index": index,
         "source": sentence,
-        "dictionary_vi": dictionary_translation(sentence, sentence, tokens, domain),
+        "dictionary_vi": dictionary_vi,
+        "natural_vi": dictionary_vi,
         "literal_vi": literal_translation(tokens),
         "pinyin": pinyin_display(sentence),
         "domain": domain,
         "grammar_patterns": grammar_patterns(sentence),
+    }
+
+
+@router.post("/{document_id}/ocr")
+def refresh_document_ocr(document_id: str, session: Session = Depends(db_session)) -> dict[str, Any]:
+    document = session.get(DocumentRecord, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    if not document.file_path:
+        raise HTTPException(status_code=400, detail="Document has no stored file to OCR.")
+
+    file_path = Path(document.file_path).resolve()
+    if not path_is_under(file_path, UPLOAD_DIR):
+        raise HTTPException(status_code=400, detail="Stored file path is outside upload storage.")
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Stored file is missing.")
+
+    extracted_text = extract_file_text(document.original_filename or document.file_name or file_path.name, file_path.read_bytes()).strip()
+    if not extracted_text:
+        raise HTTPException(status_code=422, detail="OCR did not return selectable text.")
+
+    pages = persist_document_text_pages(document, extracted_text, session)
+    session.commit()
+    return {
+        "document_id": document.id,
+        "status": "ocr_ready",
+        "content": extracted_text,
+        "page_count": len(pages),
     }
 
 

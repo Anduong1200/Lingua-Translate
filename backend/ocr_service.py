@@ -34,7 +34,7 @@ def ocr_chinese_pdf_bytes(pdf_bytes: bytes) -> str:
     # dpi=300 là mức tối thiểu khuyên dùng cho OCR chữ Hán
     pages = convert_from_bytes(pdf_bytes, dpi=300, poppler_path=poppler_path)
     
-    full_text = ""
+    page_texts: list[str] = []
     for i, page in enumerate(pages):
         print(f"OCR: Đang xử lý trang {i + 1}/{len(pages)}...")
         
@@ -48,9 +48,9 @@ def ocr_chinese_pdf_bytes(pdf_bytes: bytes) -> str:
         custom_config = r'-l chi_sim --oem 1 --psm 6'
         
         text = pytesseract.image_to_string(final_image, config=custom_config)
-        full_text += f"\n{text}\n"
+        page_texts.append(text.strip())
         
-    return full_text
+    return "\f".join(page_texts).strip()
 
 
 def ocr_chinese_image_bytes(image_bytes: bytes) -> str:
