@@ -25,6 +25,7 @@ export function PdfDocumentViewer({
 
     useEffect(() => {
         let cancelled = false
+        let loadedDoc: any = null
         setPdfDocument(null)
         setPageNumbers([])
         setError('')
@@ -32,7 +33,11 @@ export function PdfDocumentViewer({
         pdfjsLib
             .getDocument(sourceUrl)
             .promise.then((document) => {
-                if (cancelled) return
+                if (cancelled) {
+                    document.destroy()
+                    return
+                }
+                loadedDoc = document
                 setPdfDocument(document)
                 setPageNumbers(Array.from({ length: document.numPages }, (_, index) => index + 1))
             })
@@ -42,6 +47,9 @@ export function PdfDocumentViewer({
 
         return () => {
             cancelled = true
+            if (loadedDoc) {
+                loadedDoc.destroy()
+            }
         }
     }, [sourceUrl])
 
@@ -127,7 +135,7 @@ function PdfPage({
     const pageRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const textLayerRef = useRef<HTMLDivElement>(null)
-    const [size, setSize] = useState({ width: 1, height: 1 })
+    const [size, setSize] = useState({ width: 820, height: 1160 })
     const [isVisible, setIsVisible] = useState(false)
 
     useEffect(() => {
@@ -160,6 +168,7 @@ function PdfPage({
                         canvas.height = 0
                     }
                     textLayerRef.current?.replaceChildren()
+                    page.cleanup()
                     return
                 }
 

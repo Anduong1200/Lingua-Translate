@@ -141,13 +141,13 @@ def token_vi(token: dict[str, Any]) -> str:
         (definition["value"] for definition in token.get("definitions", []) if definition.get("lang") == "en"),
         "",
     )
-    return en_def
+    return en_def or token.get("surface", "")
 
 def token_en(token: dict[str, Any]) -> str:
     return (token.get("definitions_en") or [""])[0] or next(
         (definition["value"] for definition in token.get("definitions", []) if definition.get("lang") == "en"),
         "",
-    )
+    ) or token.get("surface", "")
 
 
 def content_tokens(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -261,7 +261,7 @@ def dictionary_translation(selected_text: str, source_sentence: str, tokens: lis
 def contextual_role(selected_text: str, source_sentence: str, domain: str) -> dict[str, str]:
     # Removed mock contextual roles. In a fully real environment, this is either parsed by LLM
     # or returned generically.
-    return {"role_vi": "Đơn vị được chọn trong câu", "explanation_vi": f"Backend dùng câu chứa selection, domain {domain} và từ điển cục bộ để ưu tiên nghĩa phù hợp trước nghĩa chung."}
+    return {"role_vi": "", "explanation_vi": ""}
 
 
 def contextual_examples(selected_text: str, domain: str) -> list[str]:

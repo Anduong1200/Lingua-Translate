@@ -120,7 +120,17 @@ export function useReaderController(fileInputRef: React.RefObject<HTMLInputEleme
         setHistoryList((items) => [trimmed, ...items.filter((item) => item !== trimmed)].slice(0, 20))
     }
 
-    useEffect(() => { setContextTranslation(null) }, [selectedSurface, sourceSentence, selectedParagraphContext])
+    useEffect(() => {
+        setContextTranslation((prev) => {
+            if (!prev) return null
+            const prevSelection = prev.selection.source.trim()
+            const currentSelection = (selectedSurface || '').trim()
+            if (prevSelection && currentSelection && !prevSelection.includes(currentSelection) && !currentSelection.includes(prevSelection)) {
+                return null
+            }
+            return prev
+        })
+    }, [selectedSurface, sourceSentence])
 
     const buildNlpPayload = (scope?: TranslateScope) => ({
         selected_text: selectedSurface || textSelection?.selectedText || pdfSelection?.selectedText || selectedSentence?.text || '',

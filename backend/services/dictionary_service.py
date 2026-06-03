@@ -139,12 +139,8 @@ def token_from_surface(surface: str, session: Session) -> dict[str, Any]:
             "pos": "punctuation" if is_punct else None,
             "hsk_level": None,
             "definitions_vi": [],
-            "definitions_en": [] if is_punct else ["No local dictionary match yet"],
-            "definitions": []
-            if is_punct
-            else [
-                {"lang": "en", "value": "No local dictionary match yet", "source": "local_fallback", "confidence": 0.25},
-            ],
+            "definitions_en": [],
+            "definitions": [],
             "domain_tags": [],
             "confidence": 1 if is_punct else 0.35,
         }
