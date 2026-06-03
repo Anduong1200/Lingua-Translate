@@ -79,6 +79,14 @@ def split_sentences(text: str) -> list[str]:
     return [sentence.strip() for sentence in re.split(r"(?<=[。！？!?])\s*|\n+", text or "") if sentence.strip()]
 
 
+def split_paragraphs(text: str) -> list[str]:
+    cleaned = (text or "").replace("\r", "").strip()
+    if not cleaned:
+        return []
+    paragraphs = [paragraph.strip() for paragraph in re.split(r"\n{2,}", cleaned) if paragraph.strip()]
+    return paragraphs or [cleaned]
+
+
 def grammar_patterns(sentence: str) -> list[dict[str, Any]]:
     patterns: list[dict[str, Any]] = []
     if "虽然" in sentence and "满足" not in sentence and "调整" not in sentence and "但是" in sentence:
@@ -88,6 +96,8 @@ def grammar_patterns(sentence: str) -> list[dict[str, Any]]:
     
     if "由于" in sentence:
         patterns.append({"pattern": "Due to / Bởi vì / Do", "meaning_vi": "do/vì, thường dùng trong văn viết, báo cáo hoặc giải thích nguyên nhân", "confidence": 0.84})
+    if "无论" in sentence and "还是" in sentence and "都" in sentence:
+        patterns.append({"pattern": "无论...还是...都...", "meaning_vi": "dù là... hay là... thì đều..., dùng để bao quát nhiều trường hợp rồi đưa ra kết luận chung", "confidence": 0.88})
     if "因为" in sentence and "所以" in sentence:
         patterns.append({"pattern": "因为...所以...", "meaning_vi": "vì... nên..., nêu nguyên nhân rồi kết quả", "confidence": 0.86})
     if "需要" in sentence:
@@ -118,11 +128,20 @@ def analyze_chinese(text: str, session: Session) -> dict[str, Any]:
 
 
 def token_vi(token: dict[str, Any]) -> str:
-    return (token.get("definitions_vi") or [""])[0] or next(
+    # First try Vietnamese
+    vi_def = (token.get("definitions_vi") or [""])[0] or next(
         (definition["value"] for definition in token.get("definitions", []) if definition.get("lang") == "vi"),
         "",
     )
-
+    if vi_def:
+        return vi_def
+    
+    # Fallback to English
+    en_def = (token.get("definitions_en") or [""])[0] or next(
+        (definition["value"] for definition in token.get("definitions", []) if definition.get("lang") == "en"),
+        "",
+    )
+    return en_def
 
 def token_en(token: dict[str, Any]) -> str:
     return (token.get("definitions_en") or [""])[0] or next(
@@ -176,53 +195,71 @@ def literal_translation(tokens: list[dict[str, Any]]) -> str:
     return " / ".join(filter(None, [token_vi(token) for token in content_tokens(tokens)]))
 
 
+def translation_unit(text: str, session: Session, source_sentence: str | None = None, domain_mode: str | None = "auto") -> dict[str, Any]:
+    source = (text or "").strip()
+    if not source:
+        return {
+            "source": "",
+            "natural_vi": "",
+            "literal_vi": "",
+            "pinyin": "",
+            "domain": "general",
+            "grammar_patterns": [],
+        }
+
+    context = "\n".join(filter(None, [source_sentence or "", source]))
+    domain = detect_domain(context, domain_mode)
+    tokens = tokenize_chinese(source, session)
+    return {
+        "source": source,
+        "natural_vi": natural_translation(source, source_sentence or source, tokens, domain),
+        "literal_vi": literal_translation(tokens),
+        "pinyin": pinyin_display(source),
+        "domain": domain,
+        "grammar_patterns": grammar_patterns(source_sentence or source),
+    }
+
+
+def translate_paragraph(paragraph: str, session: Session, domain_mode: str | None = "auto") -> dict[str, Any]:
+    sentences = split_sentences(paragraph)
+    translated_sentences = [
+        translation_unit(sentence, session, source_sentence=sentence, domain_mode=domain_mode)
+        for sentence in sentences
+    ]
+    return {
+        "source": paragraph.strip(),
+        "natural_vi": " ".join(item["natural_vi"] for item in translated_sentences if item["natural_vi"]).strip(),
+        "literal_vi": " / ".join(item["literal_vi"] for item in translated_sentences if item["literal_vi"]).strip(),
+        "sentences": translated_sentences,
+    }
+
+
+def paragraph_for_selection(selected_text: str, paragraph_context: str | None, page_context: str | None, source_sentence: str) -> str:
+    selected = (selected_text or "").strip()
+    if paragraph_context and paragraph_context.strip():
+        return paragraph_context.strip()
+    for paragraph in split_paragraphs(page_context or ""):
+        if selected and selected in paragraph:
+            return paragraph
+        if source_sentence and source_sentence in paragraph:
+            return paragraph
+    return source_sentence or selected
+
+
 def natural_translation(selected_text: str, source_sentence: str, tokens: list[dict[str, Any]], domain: str) -> str:
-    if "由于市场需求下降" in source_sentence and "调整了生产计划" in source_sentence and selected_text == source_sentence:
-        return "Do nhu cầu thị trường giảm, công ty đó đã điều chỉnh kế hoạch sản xuất."
-    if "市场需求下降" in selected_text:
-        return "nhu cầu thị trường giảm"
-    if selected_text == "市场需求":
-        return "nhu cầu thị trường"
-    if selected_text == "下降":
-        return "giảm"
-    if selected_text in {"系统", "计算机系统"} and "计算机" in source_sentence:
-        return "hệ thống máy tính"
-    if selected_text in {"处理", "处理数据"} and "数据" in source_sentence:
-        return "xử lý dữ liệu" if selected_text == "处理 data" or selected_text == "处理数据" else "xử lý"
-    if selected_text == "需要处理大量数据":
-        return "cần xử lý lượng lớn dữ liệu"
-    if domain == "computer_science" and selected_text == "系统":
-        return "hệ thống"
+    # In a real environment, this should either call an LLM (Gemini) or rely on the dictionary.
+    # Since we are operating locally without mock strings, we just use the dictionary's literal translation.
     return literal_translation(tokens) or f'{selected_text} (chưa có bản dịch tự nhiên trong từ điển cục bộ)'
 
 
 def contextual_role(selected_text: str, source_sentence: str, domain: str) -> dict[str, str]:
-    if selected_text == "市场需求下降":
-        return {"role_vi": "Cụm chủ-vị ngắn", "explanation_vi": "市场需求 là chủ thể, 下降 là vị ngữ; cả cụm nghĩa là nhu cầu thị trường giảm."}
-    if selected_text == "市场需求" and "下降" in source_sentence:
-        return {"role_vi": "Chủ thể của hành động/trạng thái", "explanation_vi": "Trong câu này, 市场需求 là chủ thể của 下降, nghĩa là phần nhu cầu thị trường đang giảm."}
-    if selected_text == "系统" and "计算机" in source_sentence:
-        return {"role_vi": "Danh từ trung tâm trong cụm danh từ", "explanation_vi": '系统 nằm trong cụm 计算机系统, nên ưu tiên nghĩa "hệ thống máy tính" thay vì một hệ thống xã hội hay tổ chức.'}
-    if selected_text == "处理" and "数据" in source_sentence:
-        return {"role_vi": "Động từ đi với tân ngữ 数据", "explanation_vi": '处理 đi với 数据, nên nghĩa phù hợp là "xử lý dữ liệu", không phải xử lý một vụ việc hay khiếu nại.'}
-    if selected_text == "由于":
-        return {"role_vi": "Từ nối nguyên nhân", "explanation_vi": "Due to mở đầu vế nguyên nhân, thường gặp trong văn viết, báo cáo hoặc giải thích logic nguyên nhân-kết quả."}
+    # Removed mock contextual roles. In a fully real environment, this is either parsed by LLM
+    # or returned generically.
     return {"role_vi": "Đơn vị được chọn trong câu", "explanation_vi": f"Backend dùng câu chứa selection, domain {domain} và từ điển cục bộ để ưu tiên nghĩa phù hợp trước nghĩa chung."}
 
 
 def contextual_examples(selected_text: str, domain: str) -> list[str]:
-    examples = {
-        "处理": ["处理 data = xử lý dữ liệu", "处理 vấn đề = xử lý vấn đề", "处理 khiếu nại = xử lý khiếu nại"],
-        "系统": ["计算机系统 = hệ thống máy tính", "管理系统 = hệ thống quản lý", "社会保障 system = hệ thống an sinh xã hội"],
-        "市场需求": ["市场需求下降 = nhu cầu thị trường giảm", "满足市场需求 = đáp ứng nhu cầu thị trường"],
-        "下降": ["价格下降 = giá giảm", "需求下降 = nhu cầu giảm"],
-    }
-    if selected_text in examples:
-        return examples[selected_text]
-    if domain == "computer_science":
-        return ["处理数据 = xử lý dữ liệu", "计算机系统 = hệ thống máy tính"]
-    if domain == "economics":
-        return ["市场需求 = nhu cầu thị trường", "生产计划 = kế hoạch sản xuất"]
+    # Removed mock contextual examples.
     return []
 
 
@@ -276,6 +313,8 @@ def build_contextual_analysis(payload: NlpAnalyzeRequest, session: Session) -> d
     return {
         "selection": {
             "text": selected_text,
+            "selected_text": selected_text,
+            "source_sentence": source_sentence,
             "mode": infer_reading_mode(selected_text, source_sentence, paragraph_context, page_context, session),
             "domain_mode": domain,
         },
@@ -289,11 +328,185 @@ def build_contextual_analysis(payload: NlpAnalyzeRequest, session: Session) -> d
             "contextual_role_vi": role["role_vi"],
             "role_explanation_vi": role["explanation_vi"],
         },
+        "context": {
+            "domain": domain,
+            "source_sentence": source_sentence,
+            "role_vi": role["role_vi"],
+            "explanation_vi": role["explanation_vi"],
+            "confidence": quick_meaning.get("confidence", 0.5),
+        },
+        "grammar": {
+            "patterns": grammar_patterns(source_sentence),
+            "explanation_vi": "; ".join(pattern["meaning_vi"] for pattern in grammar_patterns(source_sentence)) or role["explanation_vi"],
+        },
         "context_examples": contextual_examples(selected_text, domain),
         "grammar_patterns": grammar_patterns(source_sentence),
         "review_suggestions": [
             review_suggestion(selected_text, source_sentence, natural_vi, tokens)
         ],
+    }
+
+
+def translate_context_payload(payload: NlpAnalyzeRequest, session: Session) -> dict[str, Any]:
+    selected_text = (payload.selected_text or payload.text or "").strip()
+    source_sentence = find_containing_sentence(selected_text, payload.source_sentence, payload.paragraph_context, payload.page_context)
+    paragraph_context = paragraph_for_selection(selected_text, payload.paragraph_context, payload.page_context, source_sentence)
+    page_context = (payload.page_context or paragraph_context or source_sentence or selected_text).strip()
+    context_text = "\n".join(filter(None, [selected_text, source_sentence, paragraph_context]))
+    domain = detect_domain(context_text, payload.domain_mode or payload.mode)
+    contextual = build_contextual_analysis(
+        NlpAnalyzeRequest(
+            selected_text=selected_text or source_sentence,
+            source_sentence=source_sentence,
+            paragraph_context=paragraph_context,
+            page_context=page_context,
+            domain_mode=domain,
+            user_level=payload.user_level,
+        ),
+        session,
+    )
+
+    sentence = translation_unit(source_sentence, session, source_sentence=source_sentence, domain_mode=domain)
+    paragraph = translate_paragraph(paragraph_context, session, domain_mode=domain)
+    selection = translation_unit(selected_text or source_sentence, session, source_sentence=source_sentence, domain_mode=domain)
+
+    return {
+        "mode": "backend_nlp_context_translate",
+        "domain": domain,
+        "selection": selection,
+        "sentence": sentence,
+        "paragraph": paragraph,
+        "context": contextual["context"],
+        "grammar": contextual["grammar"],
+        "context_examples": contextual["context_examples"],
+        "review_suggestions": contextual["review_suggestions"],
+    }
+
+
+def unique_options(options: list[str], correct: str, limit: int = 4) -> list[str]:
+    rows: list[str] = []
+    for option in [correct, *options]:
+        clean = (option or "").strip()
+        if clean and clean not in rows:
+            rows.append(clean)
+        if len(rows) >= limit:
+            break
+    while len(rows) < limit:
+        rows.append(f"Gợi ý khác {len(rows)}")
+    return rows
+
+
+def rotate_answer(options: list[str], index: int) -> tuple[list[str], int]:
+    answer_index = index % len(options)
+    rotated = options[:]
+    rotated[0], rotated[answer_index] = rotated[answer_index], rotated[0]
+    return rotated, answer_index
+
+
+def generate_quiz_payload(payload: NlpAnalyzeRequest, session: Session, limit: int = 6) -> dict[str, Any]:
+    text = (payload.page_context or payload.paragraph_context or payload.source_sentence or payload.text or payload.selected_text or "").strip()
+    if not text:
+        return {"mode": "backend_nlp_quiz", "source": "", "questions": []}
+
+    analysis = analyze_chinese(text, session)
+    sentence_units = [
+        translation_unit(sentence["text"], session, source_sentence=sentence["text"], domain_mode=payload.domain_mode or payload.mode)
+        for sentence in analysis["sentences"]
+    ]
+    rows: list[dict[str, Any]] = []
+    for sentence in analysis["sentences"]:
+        for token in content_tokens(sentence["tokens"]):
+            meaning = token_vi(token)
+            if not meaning or "No local dictionary" in meaning:
+                continue
+            rows.append({
+                "surface": token["surface"],
+                "pinyin": token.get("pinyin", ""),
+                "meaning": meaning,
+                "sentence": sentence["text"],
+            })
+
+    deduped_rows = list({row["surface"]: row for row in rows}.values())
+    meaning_options = [row["meaning"] for row in deduped_rows]
+    pinyin_options = [row["pinyin"] for row in deduped_rows if row["pinyin"]]
+    questions: list[dict[str, Any]] = []
+
+    for row in deduped_rows:
+        if len(questions) >= limit:
+            break
+        options, answer_index = rotate_answer(unique_options([item for item in meaning_options if item != row["meaning"]], row["meaning"]), len(questions))
+        questions.append({
+            "type": "meaning",
+            "question": f'Trong câu "{row["sentence"]}", nghĩa phù hợp của "{row["surface"]}" là gì?',
+            "options": options,
+            "answerIndex": answer_index,
+            "explanation": f'{row["surface"]} ({row["pinyin"]}) = {row["meaning"]}',
+            "source_sentence": row["sentence"],
+            "target": row["surface"],
+        })
+
+        if row["pinyin"] and len(questions) < limit:
+            options, answer_index = rotate_answer(unique_options([item for item in pinyin_options if item != row["pinyin"]], row["pinyin"]), len(questions))
+            questions.append({
+                "type": "pinyin",
+                "question": f'Pinyin của "{row["surface"]}" là gì?',
+                "options": options,
+                "answerIndex": answer_index,
+                "explanation": f'{row["surface"]} đọc là {row["pinyin"]}.',
+                "source_sentence": row["sentence"],
+                "target": row["surface"],
+            })
+
+    for unit in sentence_units:
+        if len(questions) >= limit:
+            break
+        for pattern in unit["grammar_patterns"]:
+            options, answer_index = rotate_answer(
+                unique_options(
+                    [
+                        "vì... nên..., nêu nguyên nhân rồi kết quả",
+                        "mặc dù... nhưng..., nêu quan hệ nhượng bộ",
+                        "cần/cần phải làm gì đó",
+                    ],
+                    pattern["meaning_vi"],
+                ),
+                len(questions),
+            )
+            questions.append({
+                "type": "grammar",
+                "question": f'Cấu trúc "{pattern["pattern"]}" trong câu này diễn tả ý gì?',
+                "options": options,
+                "answerIndex": answer_index,
+                "explanation": pattern["meaning_vi"],
+                "source_sentence": unit["source"],
+                "target": pattern["pattern"],
+            })
+            break
+
+    for unit in sentence_units:
+        if len(questions) >= limit:
+            break
+        if not unit["natural_vi"]:
+            continue
+        options, answer_index = rotate_answer(
+            unique_options([other["natural_vi"] for other in sentence_units if other["natural_vi"] != unit["natural_vi"]], unit["natural_vi"]),
+            len(questions),
+        )
+        questions.append({
+            "type": "translation",
+            "question": f'Bản dịch tự nhiên của câu "{unit["source"]}" là gì?',
+            "options": options,
+            "answerIndex": answer_index,
+            "explanation": unit["literal_vi"] or unit["natural_vi"],
+            "source_sentence": unit["source"],
+            "target": unit["source"],
+        })
+
+    return {
+        "mode": "backend_nlp_quiz",
+        "source": text,
+        "question_count": len(questions[:limit]),
+        "questions": questions[:limit],
     }
 
 
@@ -305,8 +518,18 @@ def local_translation_payload(text: str, source_lang: str = "auto", target_lang:
         close_session = True
     try:
         analysis = analyze_chinese(text, session)
-        tokens = [token for sentence in analysis["sentences"] for token in content_tokens(sentence["tokens"])]
-        translated_text = " / ".join(filter(None, [token_vi(token) for token in tokens]))
+        sentence_translations: list[str] = []
+        literal_parts: list[str] = []
+        for sentence in analysis["sentences"]:
+            sentence_text = sentence["text"]
+            tokens = content_tokens(sentence["tokens"])
+            literal = literal_translation(tokens)
+            domain = detect_domain(sentence_text, "auto")
+            natural = natural_translation(sentence_text, sentence_text, tokens, domain)
+            sentence_translations.append(natural or literal)
+            if literal:
+                literal_parts.append(literal)
+        translated_text = " ".join(filter(None, sentence_translations)).strip() or " / ".join(literal_parts).strip()
         grammar = [pattern for sentence in analysis["sentences"] for pattern in sentence["grammar_patterns"]]
         return {
             "id": make_id("tr"),

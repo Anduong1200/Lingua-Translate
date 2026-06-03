@@ -77,6 +77,23 @@ export const CHINESE_DICTIONARY: DictionarySeed[] = [
     { simplified: '处理', pinyin: 'chǔ lǐ', vi: 'xử lý; giải quyết', en: 'to handle; to process; to deal with', pos: 'verb', hskLevel: 5, domainTags: ['general', 'computer_science'] },
     { simplified: '大量', pinyin: 'dà liàng', vi: 'lượng lớn, rất nhiều', en: 'large amount; massive', pos: 'adjective', hskLevel: 5 },
     { simplified: '数据', pinyin: 'shù jù', vi: 'dữ liệu', en: 'data', pos: 'noun', hskLevel: 5, domainTags: ['computer_science'] },
+    { simplified: '无论', pinyin: 'wú lùn', vi: 'bất kể, dù là', en: 'regardless of; no matter', pos: 'conjunction', hskLevel: 5 },
+    { simplified: '你', pinyin: 'nǐ', vi: 'bạn', en: 'you', pos: 'pronoun', hskLevel: 1 },
+    { simplified: '是', pinyin: 'shì', vi: 'là', en: 'to be', pos: 'verb', hskLevel: 1 },
+    { simplified: '经济', pinyin: 'jīng jì', vi: 'kinh tế', en: 'economy; economics', pos: 'noun', hskLevel: 4, domainTags: ['economics'] },
+    { simplified: '领域', pinyin: 'lǐng yù', vi: 'lĩnh vực', en: 'field; domain', pos: 'noun', hskLevel: 5 },
+    { simplified: '经济领域', pinyin: 'jīng jì lǐng yù', vi: 'lĩnh vực kinh tế', en: 'economic field', pos: 'noun phrase', hskLevel: 5, domainTags: ['economics'] },
+    { simplified: '的', pinyin: 'de', vi: 'trợ từ sở hữu/định ngữ', en: 'possessive/attributive particle', pos: 'particle', hskLevel: 1 },
+    { simplified: '专家', pinyin: 'zhuān jiā', vi: 'chuyên gia', en: 'expert; specialist', pos: 'noun', hskLevel: 5 },
+    { simplified: '还是', pinyin: 'hái shì', vi: 'hay là, vẫn là', en: 'or; still', pos: 'conjunction', hskLevel: 3 },
+    { simplified: '科学', pinyin: 'kē xué', vi: 'khoa học', en: 'science', pos: 'noun', hskLevel: 4 },
+    { simplified: '计算机科学', pinyin: 'jì suàn jī kē xué', vi: 'khoa học máy tính', en: 'computer science', pos: 'noun phrase', hskLevel: 5, domainTags: ['computer_science'] },
+    { simplified: '学生', pinyin: 'xué sheng', vi: 'học sinh, sinh viên', en: 'student', pos: 'noun', hskLevel: 1, domainTags: ['education'] },
+    { simplified: '可以', pinyin: 'kě yǐ', vi: 'có thể', en: 'can; may', pos: 'modal', hskLevel: 1 },
+    { simplified: '找到', pinyin: 'zhǎo dào', vi: 'tìm thấy', en: 'to find', pos: 'verb', hskLevel: 2 },
+    { simplified: '适合', pinyin: 'shì hé', vi: 'phù hợp', en: 'suitable; to fit', pos: 'verb', hskLevel: 3 },
+    { simplified: '材料', pinyin: 'cái liào', vi: 'tài liệu, vật liệu', en: 'material', pos: 'noun', hskLevel: 4 },
+    { simplified: '学习材料', pinyin: 'xué xí cái liào', vi: 'tài liệu học tập', en: 'learning materials', pos: 'noun phrase', hskLevel: 4, domainTags: ['education'] },
 ]
 
 const punctuation = new Set(['。', '，', '、', '！', '？', '；', '：', '.', ',', '!', '?', ';', ':', '\n'])
@@ -205,6 +222,14 @@ function grammarPatterns(sentence: string): ChineseGrammarPattern[] {
             pattern: '由于...',
             meaning_vi: 'do/vì, thường dùng trong văn viết, báo cáo hoặc giải thích nguyên nhân',
             confidence: 0.84,
+        })
+    }
+
+    if (sentence.includes('无论') && sentence.includes('还是') && sentence.includes('都')) {
+        patterns.push({
+            pattern: '无论...还是...都...',
+            meaning_vi: 'dù là... hay là... thì đều..., dùng để bao quát nhiều trường hợp rồi đưa ra kết luận chung',
+            confidence: 0.88,
         })
     }
 

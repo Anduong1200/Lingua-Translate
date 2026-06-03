@@ -24,6 +24,7 @@ backend/google_api_keys.txt
 __pycache__
 .pytest_cache
 .ruff_cache
+.tmp/
 .venv
 venv
 .antigravitycli

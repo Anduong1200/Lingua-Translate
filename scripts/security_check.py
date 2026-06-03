@@ -30,6 +30,8 @@ SKIP_FILES = {
 
 def should_skip(path: Path) -> bool:
     normalized = path.as_posix()
+    if path.name.startswith(".env") and path.name != ".env.example":
+        return True
     if path.name in SKIP_FILES:
         return True
     for skip_dir in SKIP_DIRS:

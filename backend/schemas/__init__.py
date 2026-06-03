@@ -100,6 +100,14 @@ class TranslateRequest(BaseModel):
     targetLang: str = "vi"
 
 
+class ContextTranslateRequest(NlpAnalyzeRequest):
+    scope: Literal["sentence", "paragraph", "context"] = "sentence"
+
+
+class QuizGenerateRequest(NlpAnalyzeRequest):
+    limit: int = Field(6, ge=1, le=20)
+
+
 class UserCorrectionCreateRequest(BaseModel):
     original_term: str
     system_translation: str = ""

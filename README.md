@@ -55,6 +55,7 @@ graph TD
     %% External
     subgraph External [External Services]
         LLM[Google Gemini API]
+        FirebaseAuth[Firebase Authentication]
     end
 
     %% Connections
@@ -66,10 +67,12 @@ graph TD
     Router <--> Dict
     Router <--> DB
     NLP <--> LLM
+    Store <--> FirebaseAuth
 ```
 
 ## 5. Tech Stack
-- **Frontend**: React 19, Vite, TypeScript, TailwindCSS, Zustand (State Management), PDF.js (Document Rendering), Framer Motion (Animations).
+- **Frontend**: React 19, Vite, TypeScript, TailwindCSS v4, Zustand (State Management), PDF.js (Document Rendering), Framer Motion (Animations).
+- **Authentication**: Firebase Authentication (Google OAuth & Email/Password).
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy, Alembic (Migrations), Jieba (Chinese Tokenization).
 - **Testing**: Vitest (Unit/Component), Playwright (End-to-End Testing).
 - **Data**: SQLite local backend, CC-CEDICT (Dictionary).
@@ -95,6 +98,28 @@ The application uses a hybrid approach to ensure speed and accuracy:
 ## 9. Data Sources & Licensing
 - **CC-CEDICT**: Core dictionary data is sourced from CC-CEDICT (Creative Commons Attribution-Share Alike 3.0).
 - **Hanora NLP**: Proprietary parsing and contextual mapping logic.
+
+## 10. Environment Variables Setup (.env)
+To run this project in a real environment (without mocks), you must configure the following API keys and settings.
+
+### Frontend (`src/.env` or `.env` at root)
+```env
+VITE_API_BASE_URL=http://127.0.0.1:3001/api
+
+# Firebase Authentication Config
+VITE_FIREBASE_API_KEY="AIzaSy..."
+VITE_FIREBASE_AUTH_DOMAIN="hanora-84d97.firebaseapp.com"
+VITE_FIREBASE_PROJECT_ID="hanora-84d97"
+VITE_FIREBASE_STORAGE_BUCKET="hanora-84d97.firebasestorage.app"
+VITE_FIREBASE_MESSAGING_SENDER_ID="172303223494"
+VITE_FIREBASE_APP_ID="1:172303223494:web:047092eb1a33bc144725c7"
+```
+
+### Backend (`backend/.env`)
+```env
+# Google Gemini API for AI Context Reading & Quiz Generation
+GOOGLE_API_KEY="AIzaSy..."
+```
 - **Sample Documents**: Provided sample texts are for educational purposes.
 
 ## 10. Current Limitations

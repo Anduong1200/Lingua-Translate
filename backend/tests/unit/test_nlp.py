@@ -29,6 +29,9 @@ from schemas import (
     ReviewItemCreateRequest,
     UserCorrectionCreateRequest,
     NlpAnalyzeRequest,
+    ContextTranslateRequest,
+    QuizGenerateRequest,
+    TranslateRequest,
     VocabularyPatchRequest,
     VocabularyUpsertRequest,
     KnownWordCreateRequest,
@@ -48,6 +51,9 @@ from routers.ai import (
 )
 from routers.nlp import (
     nlp_analyze,
+    nlp_translate_context,
+    nlp_quiz,
+    translate,
 )
 from routers.documents import (
     create_document,
@@ -158,6 +164,54 @@ def test_contextual_nlp_analyze(session) -> None:
     assert result["selection"]["domain_mode"] == "computer_science"
     assert result["translations"]["natural_vi"] == "hệ thống máy tính"
     assert result["quick_meaning"]["pinyin"] == "xì tǒng"
+
+
+def test_context_translate_returns_sentence_paragraph_and_context(session) -> None:
+    text = "无论你是经济领域的专家，还是计算机科学的学生，都可以找到适合你的学习材料。"
+    payload = ContextTranslateRequest(
+        selected_text=text,
+        source_sentence=text,
+        paragraph_context=text,
+        page_context=text,
+        domain_mode="auto",
+        user_level="HSK4",
+        scope="context",
+    )
+
+    result = nlp_translate_context(payload, session)
+
+    assert result["sentence"]["natural_vi"].startswith("Dù bạn là chuyên gia")
+    assert result["paragraph"]["sentences"][0]["source"] == text
+    assert result["context"]["role_vi"] == "Câu điều kiện bao quát nhiều đối tượng"
+    assert result["grammar"]["patterns"][0]["pattern"] == "无论...还是...都..."
+
+
+def test_translate_endpoint_prefers_natural_sentence_translation(session) -> None:
+    text = "无论你是经济领域的专家，还是计算机科学的学生，都可以找到适合你的学习材料。"
+
+    result = translate(TranslateRequest(text=text, sourceLang="zh", targetLang="vi"), session)
+
+    assert result["translatedText"].startswith("Dù bạn là chuyên gia")
+    assert " / " not in result["translatedText"]
+    assert result["grammarExplanation"].startswith("dù là")
+
+
+def test_nlp_quiz_uses_backend_dictionary_questions(session) -> None:
+    text = "计算机系统需要处理大量数据。"
+    payload = QuizGenerateRequest(
+        text=text,
+        page_context=text,
+        domain_mode="computer_science",
+        user_level="HSK4",
+        limit=4,
+    )
+
+    result = nlp_quiz(payload, session)
+
+    assert result["mode"] == "backend_nlp_quiz"
+    assert result["questions"]
+    assert any(question["type"] in {"meaning", "pinyin", "grammar", "translation"} for question in result["questions"])
+    assert all(len(question["options"]) == 4 for question in result["questions"])
 
 
 

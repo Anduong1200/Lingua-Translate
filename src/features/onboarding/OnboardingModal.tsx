@@ -203,7 +203,9 @@ export default function OnboardingModal() {
                 <ChevronLeft className="w-4 h-4" /> Quay lại
               </button>
             ) : (
-              <div /> // Spacer
+              <button onClick={() => updateSettings({ hasCompletedOnboarding: true })} className="px-6 py-2.5 rounded-xl text-slate-500 font-bold hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors flex items-center gap-2">
+                Bỏ qua hướng dẫn
+              </button>
             )}
             
             {step < 5 ? (

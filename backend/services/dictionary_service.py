@@ -134,12 +134,11 @@ def token_from_surface(surface: str, session: Session) -> dict[str, Any]:
             "pinyin": pinyin_display(surface) if contains_chinese(surface) else "",
             "pos": "punctuation" if is_punct else None,
             "hsk_level": None,
-            "definitions_vi": [] if is_punct else [f'Cần bổ sung nghĩa tiếng Việt cho "{surface}"'],
+            "definitions_vi": [],
             "definitions_en": [] if is_punct else ["No local dictionary match yet"],
             "definitions": []
             if is_punct
             else [
-                {"lang": "vi", "value": f'Cần bổ sung nghĩa tiếng Việt cho "{surface}"', "source": "local_fallback", "confidence": 0.35},
                 {"lang": "en", "value": "No local dictionary match yet", "source": "local_fallback", "confidence": 0.25},
             ],
             "domain_tags": [],

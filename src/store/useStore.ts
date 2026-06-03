@@ -5,6 +5,7 @@ import { createAnalysisSlice } from './slices/analysisSlice'
 import { createAnnotationSlice } from './slices/annotationSlice'
 import { createDocumentSlice } from './slices/documentSlice'
 import { createSettingsSlice } from './slices/settingsSlice'
+import { createAuthSlice } from './slices/authSlice'
 
 // Re-export types for external consumers that import from this file
 export type { AppState } from './slices/types'
@@ -21,4 +22,5 @@ export const useStore = create<AppState>()((...args) => ({
     ...createAnnotationSlice(...args),
     ...createDocumentSlice(...args),
     ...createSettingsSlice(...args),
+    ...createAuthSlice(...args),
 }))

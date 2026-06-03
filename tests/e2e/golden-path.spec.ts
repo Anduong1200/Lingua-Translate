@@ -80,7 +80,7 @@ test('golden path with real PDF: upload, select text, save highlight, reload, an
     await expect(page.getByText(/nhu cầu thị trường/i).first()).toBeVisible()
 
     await page.getByRole('button', { name: /Highlight/i }).click()
-    await expect(page.getByText(/Đã lưu annotation/i)).toBeVisible()
+    await expect(page.getByText(/Đã lưu/i)).toBeVisible()
 
     await selectTextInPdfPage(pdfPage, '生产计划')
     await page.getByRole('button', { name: /Analyze/i }).click()

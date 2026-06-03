@@ -112,6 +112,7 @@ export interface AnnotationSlice {
     flashCards: FlashCard[]
     learningProgress: LearningProgress
     saveChineseAnnotation: (input: ReaderAnnotationInput) => Promise<AnnotationRecord>
+    removeAnnotation: (id: string) => void
     saveUserCorrection: (input: UserCorrectionInput) => Promise<void>
     recordLookupWord: (input: VocabularyLookupInput) => Promise<void>
     markKnownWord: (word: string, confidence?: number) => Promise<void>
@@ -155,7 +156,9 @@ export interface SettingsSlice {
 
 // ─── Composite state ──────────────────────────────────────────────────────────
 
-export type AppState = TranslationSlice & AnalysisSlice & AnnotationSlice & DocumentSlice & SettingsSlice
+import type { AuthSlice } from './authSlice'
+
+export type AppState = TranslationSlice & AnalysisSlice & AnnotationSlice & DocumentSlice & SettingsSlice & AuthSlice
 
 export type SliceCreator<T> = StateCreator<AppState, [], [], T>
 

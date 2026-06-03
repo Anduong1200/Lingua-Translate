@@ -62,16 +62,14 @@ export default function StorePage() {
         if (!licenseKey.trim()) return;
         setActivationStatus('loading');
         
-        // Giả lập gọi API kiểm tra License
-        setTimeout(() => {
-            if (licenseKey.startsWith('PRO-')) {
-                setActivationStatus('success');
-                // Lưu trạng thái đã mua vào settings (mock)
-                updateSettings({ domainMode: 'economics' });
-            } else {
-                setActivationStatus('error');
-            }
-        }, 1500);
+        // MVP: Xử lý kích hoạt ngay lập tức (loại bỏ mock setTimeout)
+        if (licenseKey.startsWith('PRO-')) {
+            setActivationStatus('success');
+            // Lưu trạng thái đã mua vào settings
+            updateSettings({ domainMode: 'economics' });
+        } else {
+            setActivationStatus('error');
+        }
     };
 
     return (

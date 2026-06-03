@@ -6,11 +6,12 @@ type ReaderTopBarProps = {
     onZoomOut: () => void
     onZoomIn: () => void
     documentTitle: string
+    onUpload?: (file: File) => void
 }
 
-export default function ReaderTopBar({ pdfZoom, onZoomOut, onZoomIn, documentTitle }: ReaderTopBarProps) {
+export default function ReaderTopBar({ pdfZoom, onZoomOut, onZoomIn, documentTitle, onUpload }: ReaderTopBarProps) {
     return (
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/50 dark:border-slate-800/40 bg-white/70 dark:bg-slate-900/60 px-6 backdrop-blur-xl z-20">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200/50 dark:border-slate-800/40 bg-white/95 dark:bg-slate-900/95 px-6 z-20">
             <div className="flex items-center gap-8">
                 <Link to="/" className="flex items-center gap-2 hover:opacity-85 transition-all group">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#006b5f] to-[#0060ac] text-white shadow-md shadow-[#006b5f]/25 group-hover:scale-105 duration-200">
@@ -35,9 +36,20 @@ export default function ReaderTopBar({ pdfZoom, onZoomOut, onZoomIn, documentTit
                         {documentTitle || 'Giáo trình Hán ngữ.pdf'}
                     </span>
                 </div>
-            </div>
 
-            <div className="flex items-center gap-4">
+                <label className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-250 transition-all border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800 cursor-pointer" title="Load PDF/TXT">
+                    <input 
+                        type="file" 
+                        accept=".pdf,.txt,.docx" 
+                        className="hidden" 
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file && onUpload) onUpload(file);
+                            e.target.value = '';
+                        }}
+                    />
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                </label>
                 <Link to="/settings" className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-250 transition-all border border-transparent hover:border-slate-200/50 dark:hover:border-slate-800">
                     <Settings className="h-5 w-5" />
                 </Link>

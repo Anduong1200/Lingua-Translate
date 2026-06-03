@@ -4,6 +4,9 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Header from '@/components/layout/Header'
 import { useStore } from '@/store/useStore'
 import OnboardingModal from '@/features/onboarding/OnboardingModal'
+import ProtectedRoute from '@/components/auth/ProtectedRoute'
+import AuthModal from '@/components/auth/AuthModal'
+import { getPageByPath } from '@/config/pages'
 
 const LandingPage = lazy(() => import('@/features/dashboard/LandingPage'))
 const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPage'))
@@ -38,44 +41,46 @@ function PageTransition({ children, isReader }: { children: React.ReactNode, isR
 }
 
 export default function App() {
-    const { hydrateFromBackend, isDarkMode } = useStore()
+    const { hydrateFromBackend, isDarkMode, initAuthListener } = useStore()
     const location = useLocation()
 
     useEffect(() => {
         void hydrateFromBackend()
-    }, [hydrateFromBackend])
+        initAuthListener()
+    }, [hydrateFromBackend, initAuthListener])
 
     useEffect(() => {
         document.documentElement.classList.toggle('dark', isDarkMode)
         document.body.classList.toggle('dark', isDarkMode)
     }, [isDarkMode])
 
-    const isReader = location.pathname === '/reader';
-    const isLanding = location.pathname === '/';
-    const isDashboard = location.pathname === '/dashboard';
+    const currentPage = getPageByPath(location.pathname)
+    const isReader = currentPage?.key === 'reader'
+    const isLanding = currentPage?.key === 'landing'
+    const isDashboard = currentPage?.key === 'dashboard'
 
     return (
-        <div className="min-h-screen w-full bg-gradient-to-br from-[#eef0ff] via-[#d4e3ff]/60 to-[#faf8ff] dark:from-[#0b0f19] dark:via-[#090d16] dark:to-[#020617] text-slate-800 dark:text-slate-200 transition-colors selection:bg-[#006b5f]/20 relative overflow-x-hidden flex flex-col items-center">
-
-            {/* Absolute top decorative design spots */}
-            <div className="absolute top-[-10%] left-[-10%] w-[45vw] h-[45vw] bg-teal-200/20 dark:bg-teal-500/5 rounded-full filter blur-[120px] pointer-events-none" />
-            <div className="absolute top-[-5%] right-[-5%] w-[35vw] h-[35vw] bg-sky-200/20 dark:bg-sky-500/5 rounded-full filter blur-[100px] pointer-events-none" />
-
-            {/* Conditionally render Header on non-reader pages */}
+        <div className={`w-full bg-[#f6f8fb] text-slate-800 transition-colors selection:bg-[#006b5f]/20 dark:bg-[#07111f] dark:text-slate-200 relative flex flex-col items-center ${isReader ? 'h-screen overflow-hidden' : 'min-h-screen overflow-x-hidden'}`}>
             {!isReader && !isLanding && <Header />}
             {isDashboard && <OnboardingModal />}
+            <AuthModal />
 
-            <main className={`flex-1 w-full mx-auto font-sans relative z-10 ${isReader ? 'p-0 h-[calc(100vh-64px)]' : isLanding ? 'p-0 max-w-full' : 'max-w-7xl px-6 py-6'}`}>
+            <main className={`flex-1 w-full mx-auto font-sans relative z-10 ${isReader ? 'p-0 h-full overflow-hidden' : isLanding ? 'p-0 max-w-full' : 'max-w-[1440px] px-4 py-5 sm:px-6'}`}>
                 <Suspense fallback={<RouteFallback />}>
                     <AnimatePresence mode="wait">
                         <Routes location={location} key={location.pathname}>
+                            {/* Public Route */}
                             <Route path="/" element={<PageTransition><LandingPage /></PageTransition>} />
-                            <Route path="/dashboard" element={<PageTransition><DashboardPage /></PageTransition>} />
-                            <Route path="/reader" element={<PageTransition isReader={isReader}><ReaderPage /></PageTransition>} />
-                            <Route path="/vocabulary" element={<PageTransition><VocabularyPage /></PageTransition>} />
-                            <Route path="/flashcards" element={<PageTransition><FlashCardsPage /></PageTransition>} />
-                            <Route path="/store" element={<PageTransition><StorePage /></PageTransition>} />
-                            <Route path="/settings" element={<PageTransition><SettingsPage /></PageTransition>} />
+                            
+                            {/* Protected Routes (User Space) */}
+                            <Route element={<ProtectedRoute />}>
+                                <Route path="/dashboard" element={<PageTransition><DashboardPage /></PageTransition>} />
+                                <Route path="/reader" element={<PageTransition isReader={isReader}><ReaderPage /></PageTransition>} />
+                                <Route path="/vocabulary" element={<PageTransition><VocabularyPage /></PageTransition>} />
+                                <Route path="/flashcards" element={<PageTransition><FlashCardsPage /></PageTransition>} />
+                                <Route path="/store" element={<PageTransition><StorePage /></PageTransition>} />
+                                <Route path="/settings" element={<PageTransition><SettingsPage /></PageTransition>} />
+                            </Route>
                         </Routes>
                     </AnimatePresence>
                 </Suspense>

@@ -146,6 +146,24 @@ export const createAnnotationSlice: SliceCreator<AnnotationSlice> = (set, get) =
         return annotation
     },
 
+    removeAnnotation: (id) => {
+        void fetch(`${API_BASE_URL}/annotations/${id}`, { method: 'DELETE' }).catch(() => undefined)
+        set((state) => {
+            const removedReviewIds = new Set(state.reviewItems.filter((item) => item.annotation_id === id).map((item) => item.id))
+            const annotations = state.annotations.filter((annotation) => annotation.id !== id)
+            const reviewItems = state.reviewItems.filter((item) => item.annotation_id !== id)
+            const flashCards = state.flashCards.filter((card) => !removedReviewIds.has(card.id))
+            syncLearningState({
+                savedWords: state.savedWords,
+                documents: state.documents,
+                annotations,
+                reviewItems,
+                flashCards,
+            })
+            return { annotations, reviewItems, flashCards }
+        })
+    },
+
     saveUserCorrection: async (input) => {
         await postJson(`${API_BASE_URL}/user/corrections`, input)
         const correctionsResponse = await getJson<{ corrections: UserCorrection[] }>(`${API_BASE_URL}/user/corrections`)

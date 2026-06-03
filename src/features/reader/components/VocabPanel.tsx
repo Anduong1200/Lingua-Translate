@@ -1,4 +1,4 @@
-import { FileText, Volume2, Sparkles, AlertCircle } from 'lucide-react'
+import { FileText, Volume2, Sparkles, AlertCircle, BookmarkPlus } from 'lucide-react'
 import type { AIContextPayload, ChineseAnalysis } from '@/types'
 import { speakChinese } from '../readerUtils'
 
@@ -10,6 +10,7 @@ type VocabPanelProps = {
     sourceSentence: string
     aiContext: AIContextPayload | null
     activeAnalysis: ChineseAnalysis | null
+    onSaveToken?: (token?: any) => void
 }
 
 export default function VocabPanel({
@@ -20,6 +21,7 @@ export default function VocabPanel({
     sourceSentence,
     aiContext,
     activeAnalysis,
+    onSaveToken,
 }: VocabPanelProps) {
     if (!selectedSurface) {
         return (
@@ -51,38 +53,77 @@ export default function VocabPanel({
                                 </p>
                             )}
                         </div>
-                        <button
-                            onClick={() => speakChinese(selectedSurface)}
-                            className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-[#006b5f] hover:text-white transition-colors"
-                        >
-                            <Volume2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => speakChinese(selectedSurface)}
+                                className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-[#006b5f] hover:text-white transition-colors"
+                            >
+                                <Volume2 className="w-4 h-4" />
+                            </button>
+                            {onSaveToken && (
+                                <button
+                                    onClick={() => onSaveToken()}
+                                    className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-teal-600 hover:text-white transition-colors"
+                                    title="Lưu Flashcard"
+                                >
+                                    <BookmarkPlus className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="space-y-4">
                         {quickVi && (
                             <div className="bg-[#006b5f]/5 dark:bg-[#006b5f]/10 rounded-xl p-3 border border-[#006b5f]/20 dark:border-[#006b5f]/40">
-                                <h3 className="text-[10px] font-bold text-[#006b5f] uppercase tracking-wider mb-1">Nghĩa tiếng Việt</h3>
+                                <h3 className="text-[10px] font-bold text-[#006b5f] uppercase tracking-wider mb-1">Dịch (Local)</h3>
                                 <p className="text-sm text-slate-700 dark:text-slate-300">{quickVi}</p>
                             </div>
                         )}
 
-                        {quickEn && (
+                        {quickEn && !quickVi && (
                             <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800">
                                 <div className="flex items-center gap-2 mb-1">
                                     <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nghĩa tiếng Anh</h3>
                                     <span className="text-[9px] px-1.5 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded font-semibold">CC-CEDICT</span>
                                 </div>
-                                {!quickVi && (
-                                    <p className="text-xs text-amber-600 dark:text-amber-500 mb-2 font-medium flex items-center gap-1.5">
-                                        <AlertCircle className="w-3.5 h-3.5" /> Chưa có nghĩa Việt đáng tin. Hiển thị English fallback.
-                                    </p>
-                                )}
+                                <p className="text-xs text-amber-600 dark:text-amber-500 mb-2 font-medium flex items-center gap-1.5">
+                                    <AlertCircle className="w-3.5 h-3.5" /> Chưa có nghĩa Việt. Hiển thị English fallback.
+                                </p>
                                 <p className="text-sm text-slate-600 dark:text-slate-400">{quickEn}</p>
                             </div>
                         )}
                     </div>
                 </div>
+
+                {activeAnalysis?.sentences?.[0]?.tokens && activeAnalysis.sentences[0].tokens.length > 1 && (
+                    <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-5 shadow-sm">
+                        <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">Phân tích từ vựng</h3>
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+                            {activeAnalysis.sentences[0].tokens.filter((t: any) => t.pos !== 'punctuation').map((token: any, i: number) => {
+                                const vi = token.definitions_vi?.[0]?.split(';')[0] || '';
+                                const en = token.definitions_en?.[0] || '';
+                                return (
+                                    <div key={i} className="flex gap-3 text-sm pb-3 border-b border-slate-100 dark:border-slate-800 last:border-0 last:pb-0">
+                                        <div className="font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">{token.surface}</div>
+                                        <div className="flex-1">
+                                            <div className="text-xs text-slate-500">{token.pinyin}</div>
+                                            <div className="text-slate-600 dark:text-slate-400 mt-0.5">{vi || en}</div>
+                                        </div>
+                                        {onSaveToken && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onSaveToken(token) }}
+                                                className="self-center p-1.5 text-slate-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 hover:text-teal-600 dark:hover:text-teal-400 rounded-full transition-colors"
+                                                title="Lưu từ này vào Flashcard"
+                                            >
+                                                <BookmarkPlus className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {/* Google AI Context Layer */}
                 <div className="rounded-2xl border border-amber-100 dark:border-amber-900/30 bg-gradient-to-br from-amber-50 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10 p-5 shadow-sm">
@@ -93,7 +134,7 @@ export default function VocabPanel({
                         </h3>
                     </div>
                     <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                        {aiContext?.response?.context_explanation_vi || sourceSentence}
+                        {aiContext?.response?.context_explanation_vi || (aiContext?.status === 'disabled_by_consent' ? 'Chưa bật chia sẻ text cho AI (bật trong Settings).' : 'AI đang tải hoặc chưa cấu hình API Key.')}
                     </p>
                 </div>
             </div>

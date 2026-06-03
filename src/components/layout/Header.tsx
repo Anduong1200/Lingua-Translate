@@ -1,153 +1,222 @@
-import { useState } from 'react';
-import { Bell, HelpCircle, Activity, Star, Award, Sparkles, Moon, Sun } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useLocation } from 'react-router-dom';
-import { useStore } from '@/store/useStore';
-import BugReportModal from '@/components/BugReportModal';
+import { useState } from 'react'
+import { Bell, Bug, HelpCircle, LogOut, Moon, Sparkles, Sun, UserCircle } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Link, useLocation } from 'react-router-dom'
+import { useStore } from '@/store/useStore'
+import BugReportModal from '@/components/BugReportModal'
+import { getPageByPath, primaryNavPages, utilityNavPages, workspacePageCount } from '@/config/pages'
 
 export default function Header() {
-  const [showNotification, setShowNotification] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showBugReport, setShowBugReport] = useState(false);
-  const { isDarkMode, toggleDarkMode } = useStore();
-  const location = useLocation();
+    const [showNotification, setShowNotification] = useState(false)
+    const [showProfileMenu, setShowProfileMenu] = useState(false)
+    const [showBugReport, setShowBugReport] = useState(false)
+    const { isDarkMode, toggleDarkMode, user, setAuthModalOpen, logout } = useStore()
+    const location = useLocation()
+    const currentPage = getPageByPath(location.pathname)
+    const CurrentIcon = currentPage?.icon ?? Sparkles
+    const userInitials = user ? user.name.slice(0, 2).toUpperCase() : 'G'
+    const userName = user ? user.name : 'Guest'
 
-  const userInitials = "TL";
-  const userName = "Tuấn Lê";
-
-  const navLinks = [
-    { path: '/dashboard', label: 'Dashboard' },
-    { path: '/reader', label: 'Reader' },
-    { path: '/vocabulary', label: 'Library' },
-    { path: '/flashcards', label: 'Study Hub' },
-    { path: '/store', label: 'Store' }
-  ];
-
-  return (
-    <header className="w-full flex items-center justify-between px-6 py-4 bg-transparent relative z-30">
-      {/* Brand logo */}
-      <Link to="/" className="flex items-center gap-x-2 cursor-pointer">
-        <div className="text-[#006b5f] dark:text-teal-400 font-black text-2xl md:text-3xl tracking-tight flex items-center select-none font-sans">
-          <Sparkles className="w-6 h-6 mr-1.5 text-[#006b5f] dark:text-teal-400 stroke-[2.5]" />
-          <span>Hanora</span>
-        </div>
-      </Link>
-
-      {/* Primary Desktop Navigation Links */}
-      <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-400 transition-colors">
-        {navLinks.map((link) => {
-          const isActive = location.pathname.startsWith(link.path);
-          return (
-            <Link
-              key={link.path}
-              to={link.path}
-              className={`transition-colors ${isActive ? 'text-[#006b5f] dark:text-teal-400 font-bold bg-[#006b5f]/10 px-3 py-1 rounded-full' : 'hover:text-[#006b5f] dark:hover:text-teal-400'}`}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Action panel (Notification & Avatar) */}
-      <div className="flex items-center gap-4 relative">
-        <button
-          onClick={toggleDarkMode}
-          className="relative p-2.5 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 hover:border-[#006b5f]/40 text-slate-700 dark:text-slate-300 transition-all cursor-pointer focus:outline-none"
-        >
-          {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
-
-        {/* Notification Bell */}
-        <button
-          onClick={() => setShowNotification(!showNotification)}
-          className="relative p-2.5 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 hover:border-[#006b5f]/40 text-slate-700 dark:text-slate-300 transition-all cursor-pointer focus:outline-none"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#fda4af] rounded-full border border-white dark:border-slate-800 animate-pulse" />
-        </button>
-
-        {/* User initials circle */}
-        <button
-          onClick={() => setShowProfileMenu(!showProfileMenu)}
-          className="w-10 h-10 rounded-full bg-[#006b5f] hover:bg-[#005048] text-white flex items-center justify-center font-bold text-sm shadow-md cursor-pointer transition-all border-2 border-white dark:border-slate-800 focus:outline-none"
-        >
-          {userInitials}
-        </button>
-
-        {/* Notifications Dropdown Overlay */}
-        <AnimatePresence>
-          {showNotification && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowNotification(false)} />
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute right-12 top-14 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 p-4 z-50 overflow-hidden"
-              >
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2 mb-2">
-                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">Notifications</h3>
-                  <span className="text-xs text-[#006b5f] dark:text-teal-400 font-semibold cursor-pointer">Mark all read</span>
-                </div>
-                <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
-                  <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer">
-                    <div className="p-1 rounded-full bg-teal-50 dark:bg-teal-900/50 text-teal-600 dark:text-teal-400 mt-0.5">
-                      <Star className="w-3.5 h-3.5" />
+    return (
+        <header className="sticky top-0 z-40 w-full border-b border-slate-200/70 bg-white/88 backdrop-blur-xl shadow-sm dark:border-slate-800 dark:bg-slate-950/86">
+            <div className="mx-auto flex min-h-[68px] w-full max-w-[1440px] items-center gap-4 px-4 sm:px-6">
+                <Link to="/dashboard" className="flex shrink-0 items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#006b5f] text-white shadow-sm shadow-teal-700/20">
+                        <Sparkles className="h-4.5 w-4.5" />
                     </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Streak Achieved!</p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">You maintained your 14-day study streak. Keep it up!</p>
+                    <div className="leading-tight">
+                        <p className="text-lg font-black tracking-tight text-[#006b5f] dark:text-teal-300">Hanora</p>
+                        <p className="hidden text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 sm:block">{workspacePageCount} workspace pages</p>
                     </div>
-                  </div>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+                </Link>
 
-        {/* Profile Menu Dropdown Overlay */}
-        <AnimatePresence>
-          {showProfileMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute right-0 top-14 w-60 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 p-4 z-50 overflow-hidden"
-              >
-                <div className="text-center pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
-                  <div className="w-12 h-12 bg-[#006b5f] text-white font-bold text-lg rounded-full flex items-center justify-center mx-auto mb-2 shadow-inner">
-                    {userInitials}
-                  </div>
-                  <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">{userName}</h3>
-                  <p className="text-xs text-slate-400">andumong1200@gmail.com</p>
+                <div className="hidden min-w-0 flex-1 items-center justify-center lg:flex">
+                    <nav className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-slate-50 p-1 text-xs font-black text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+                        {primaryNavPages.map((page) => {
+                            const isActive = location.pathname.startsWith(page.path)
+                            const PageIcon = page.icon
+                            return (
+                                <Link
+                                    key={page.key}
+                                    to={page.path}
+                                    className={`flex items-center gap-2 rounded-xl px-3.5 py-2 transition ${
+                                        isActive
+                                            ? 'bg-white text-[#006b5f] shadow-sm dark:bg-slate-950 dark:text-teal-300'
+                                            : 'hover:bg-white/80 hover:text-[#006b5f] dark:hover:bg-slate-950/80 dark:hover:text-teal-300'
+                                    }`}
+                                >
+                                    <PageIcon className="h-3.5 w-3.5" />
+                                    {page.shortLabel}
+                                </Link>
+                            )
+                        })}
+                    </nav>
                 </div>
-                <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                  <Link to="/settings" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-2 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
-                    <Activity className="w-4 h-4 text-[#006b5f] dark:text-teal-400" />
-                    <span>Settings</span>
-                  </Link>
-                  <div className="flex items-center gap-2 p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg cursor-pointer">
-                    <HelpCircle className="w-4 h-4 text-[#006b5f] dark:text-teal-400" />
-                    <span>How to Use Hanora</span>
-                  </div>
-                  <div
-                    onClick={() => { setShowProfileMenu(false); setShowBugReport(true); }}
-                    className="flex items-center gap-2 p-2 hover:bg-amber-50 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-500 rounded-lg cursor-pointer"
-                  >
-                    <HelpCircle className="w-4 h-4 text-amber-600 dark:text-amber-500" />
-                    <span>Góp ý & Báo lỗi</span>
-                  </div>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </div>
 
-      <BugReportModal isOpen={showBugReport} onClose={() => setShowBugReport(false)} />
-    </header>
-  );
+                <div className="hidden min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50/80 px-3 py-2 md:flex lg:max-w-sm lg:flex-none dark:border-slate-800 dark:bg-slate-900/70">
+                    <CurrentIcon className="h-4.5 w-4.5 shrink-0 text-[#006b5f] dark:text-teal-300" />
+                    <div className="min-w-0">
+                        <p className="truncate text-xs font-black text-slate-900 dark:text-slate-100">{currentPage?.label}</p>
+                        <p className="truncate text-[10px] font-semibold text-slate-500 dark:text-slate-400">{currentPage?.description}</p>
+                    </div>
+                </div>
+
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                    {utilityNavPages.map((page) => {
+                        const PageIcon = page.icon
+                        const isActive = location.pathname.startsWith(page.path)
+                        return (
+                            <Link
+                                key={page.key}
+                                to={page.path}
+                                className={`hidden h-10 w-10 items-center justify-center rounded-xl border transition sm:flex ${
+                                    isActive
+                                        ? 'border-teal-200 bg-teal-50 text-[#006b5f] dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300'
+                                        : 'border-slate-200 bg-white text-slate-500 hover:border-teal-200 hover:text-[#006b5f] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400'
+                                }`}
+                                title={page.label}
+                            >
+                                <PageIcon className="h-4.5 w-4.5" />
+                            </Link>
+                        )
+                    })}
+
+                    <button
+                        onClick={toggleDarkMode}
+                        className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-teal-200 hover:text-[#006b5f] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:text-teal-300"
+                        title={isDarkMode ? 'Chuyển sang sáng' : 'Chuyển sang tối'}
+                    >
+                        {isDarkMode ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
+                    </button>
+
+                    <button
+                        onClick={() => setShowNotification((value) => !value)}
+                        className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-teal-200 hover:text-[#006b5f] dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300"
+                        title="Thông báo"
+                    >
+                        <Bell className="h-4.5 w-4.5" />
+                        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-400 ring-2 ring-white dark:ring-slate-950" />
+                    </button>
+
+                    {user ? (
+                        <button
+                            onClick={() => setShowProfileMenu((value) => !value)}
+                            className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#006b5f] text-xs font-black text-white shadow-sm transition hover:bg-[#005048]"
+                            title={userName}
+                        >
+                            {userInitials}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => setAuthModalOpen(true)}
+                            className="rounded-xl bg-[#006b5f] px-4 py-2.5 text-xs font-black text-white shadow-sm transition hover:bg-[#005048]"
+                        >
+                            Đăng nhập
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="border-t border-slate-100 px-3 py-2 lg:hidden dark:border-slate-800">
+                <nav className="mx-auto flex max-w-[1440px] gap-2 overflow-x-auto scrollbar-hide">
+                    {primaryNavPages.map((page) => {
+                        const isActive = location.pathname.startsWith(page.path)
+                        const PageIcon = page.icon
+                        return (
+                            <Link
+                                key={page.key}
+                                to={page.path}
+                                className={`flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black ${
+                                    isActive
+                                        ? 'border-teal-200 bg-teal-50 text-[#006b5f] dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-300'
+                                        : 'border-slate-200 bg-white text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400'
+                                }`}
+                            >
+                                <PageIcon className="h-3.5 w-3.5" />
+                                {page.shortLabel}
+                            </Link>
+                        )
+                    })}
+                </nav>
+            </div>
+
+            <AnimatePresence>
+                {showNotification && (
+                    <>
+                        <button className="fixed inset-0 z-40 cursor-default" onClick={() => setShowNotification(false)} />
+                        <motion.div
+                            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                            className="absolute right-20 top-[58px] z-50 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-800 dark:bg-slate-950"
+                        >
+                            <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+                                <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">Thông báo</h3>
+                                <span className="text-[11px] font-bold text-[#006b5f] dark:text-teal-300">Đã đọc</span>
+                            </div>
+                            <div className="rounded-xl bg-teal-50 p-3 dark:bg-teal-950/30">
+                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100">Workspace đã thống nhất menu.</p>
+                                <p className="mt-1 text-[11px] leading-5 text-slate-500 dark:text-slate-400">Header dùng chung registry cho tất cả trang.</p>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {showProfileMenu && user && (
+                    <>
+                        <button className="fixed inset-0 z-40 cursor-default" onClick={() => setShowProfileMenu(false)} />
+                        <motion.div
+                            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                            className="absolute right-4 top-[58px] z-50 w-64 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-800 dark:bg-slate-950"
+                        >
+                            <div className="mb-3 border-b border-slate-100 pb-3 text-center dark:border-slate-800">
+                                <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-[#006b5f] text-sm font-black text-white">
+                                    {userInitials}
+                                </div>
+                                <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">{userName}</h3>
+                                <p className="truncate text-xs text-slate-400">{user.email}</p>
+                            </div>
+                            <div className="space-y-1 text-xs font-bold text-slate-600 dark:text-slate-300">
+                                <Link to="/settings" onClick={() => setShowProfileMenu(false)} className="flex items-center gap-2 rounded-xl p-2 hover:bg-slate-50 dark:hover:bg-slate-900">
+                                    <UserCircle className="h-4 w-4 text-[#006b5f]" />
+                                    Cài đặt tài khoản
+                                </Link>
+                                <button className="flex w-full items-center gap-2 rounded-xl p-2 text-left hover:bg-slate-50 dark:hover:bg-slate-900">
+                                    <HelpCircle className="h-4 w-4 text-[#006b5f]" />
+                                    Hướng dẫn sử dụng
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowProfileMenu(false)
+                                        setShowBugReport(true)
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-xl p-2 text-left text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/20"
+                                >
+                                    <Bug className="h-4 w-4" />
+                                    Góp ý & báo lỗi
+                                </button>
+                                <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                                <button
+                                    onClick={() => {
+                                        setShowProfileMenu(false)
+                                        logout()
+                                    }}
+                                    className="flex w-full items-center gap-2 rounded-xl p-2 text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                    Đăng xuất
+                                </button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            <BugReportModal isOpen={showBugReport} onClose={() => setShowBugReport(false)} />
+        </header>
+    )
 }

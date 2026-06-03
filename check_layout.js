@@ -4,9 +4,9 @@ import { chromium } from 'playwright';
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   
-  console.log("Navigating to http://127.0.0.1:3000...");
+  console.log("Navigating to http://localhost:3000...");
   try {
-    await page.goto('http://127.0.0.1:3000');
+    await page.goto('http://localhost:3000');
     // Wait a bit for React to render and Tailwind CSS to apply
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
@@ -58,7 +58,7 @@ import { chromium } from 'playwright';
 
   console.log("\n--- Checking 3: Paragraph and Tags ---");
   const paraText = page.locator('text=/Hanora được thiết kế để đồng hành/').first();
-  const tagDiv = page.locator('text="Offline-First Capability"').first();
+  const tagDiv = page.locator('text="Local-First Storage"').first();
   
   if (await paraText.isVisible() && await tagDiv.isVisible()) {
     const pBox = await paraText.boundingBox();
