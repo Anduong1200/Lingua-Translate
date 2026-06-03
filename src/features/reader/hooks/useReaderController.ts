@@ -104,7 +104,7 @@ export function useReaderController(fileInputRef: React.RefObject<HTMLInputEleme
     const selectedSurface = activeAnalysis?.selection?.selected_text || activeAnalysis?.selection?.text || candidateSelection
     const sourceSentence = activeAnalysis?.selection?.source_sentence || pdfSelection?.sourceSentence || textSelection?.sourceSentence || selectedSentence?.text || ''
     const contextualQuickVi = cleanDictionaryText(activeAnalysis?.quick_meaning?.definitions_vi?.join('; '))
-    const contextualTranslationVi = !isMissingTranslation(activeAnalysis?.translations?.natural_vi) ? activeAnalysis?.translations?.natural_vi || '' : ''
+    const contextualTranslationVi = !isMissingTranslation(activeAnalysis?.translations?.dictionary_vi) ? activeAnalysis?.translations?.dictionary_vi || '' : ''
     const quickVi = contextualQuickVi || tokenVietnamese(selectedToken) || contextualTranslationVi
     const quickEn = cleanDictionaryText(activeAnalysis?.quick_meaning?.definitions_en?.join('; ')) || tokenEnglish(selectedToken)
     const quickPinyin = activeAnalysis?.quick_meaning?.pinyin || selectedToken?.pinyin || tokenPinyin(activeAnalysis?.sentences?.[0]?.tokens ?? [])
@@ -173,7 +173,7 @@ export function useReaderController(fileInputRef: React.RefObject<HTMLInputEleme
         pushHistory(selection.selectedText)
         void recordLookupWord({
             word: selection.selectedText,
-            translation: analysis.quick_meaning?.definitions_vi?.[0] || analysis.translations?.natural_vi || '',
+            translation: analysis.quick_meaning?.definitions_vi?.[0] || analysis.translations?.dictionary_vi || '',
             pinyin: analysis.quick_meaning?.pinyin || tokenPinyin(firstSentence?.tokens ?? []),
             context: selection.sourceSentence,
             source_file: currentDocument?.title || '',

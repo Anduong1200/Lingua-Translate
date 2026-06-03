@@ -56,7 +56,7 @@ export function formatAiChatReply(result: AIContextReadingResult | null) {
     const ai = result.ai
     const response = ai.response
     if (ai.status !== 'ok' || !response) {
-        const fallback = result.rule_based.context?.explanation_vi || result.rule_based.translations?.natural_vi || result.rule_based.text
+        const fallback = result.rule_based.context?.explanation_vi || result.rule_based.translations?.dictionary_vi || result.rule_based.text
         return [
             ai.message || 'AI chưa sẵn sàng hoặc chưa cấu hình API key.',
             fallback ? `Phân tích local: ${fallback}` : '',
@@ -64,7 +64,7 @@ export function formatAiChatReply(result: AIContextReadingResult | null) {
     }
 
     return [
-        response.natural_vi ? `Dịch tự nhiên: ${response.natural_vi}` : '',
+        response.ai_natural_vi ? `Dịch tự nhiên (AI): ${response.ai_natural_vi}` : response.dictionary_vi ? `Dịch từ điển (Fallback): ${response.dictionary_vi}` : '',
         response.context_explanation_vi ? `Ngữ cảnh: ${response.context_explanation_vi}` : '',
         response.grammar_notes?.length
             ? `Ngữ pháp: ${response.grammar_notes.map((note) => `${note.pattern} - ${note.meaning_vi}`).join('; ')}`

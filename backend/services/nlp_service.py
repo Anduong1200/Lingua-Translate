@@ -200,7 +200,9 @@ def translation_unit(text: str, session: Session, source_sentence: str | None = 
     if not source:
         return {
             "source": "",
-            "natural_vi": "",
+            "dictionary_vi": "",
+            "ai_natural_vi": None,
+            "natural_vi": None,
             "literal_vi": "",
             "pinyin": "",
             "domain": "general",
@@ -212,7 +214,9 @@ def translation_unit(text: str, session: Session, source_sentence: str | None = 
     tokens = tokenize_chinese(source, session)
     return {
         "source": source,
-        "natural_vi": natural_translation(source, source_sentence or source, tokens, domain),
+        "dictionary_vi": dictionary_translation(source, source_sentence or source, tokens, domain),
+        "ai_natural_vi": None,
+        "natural_vi": None,
         "literal_vi": literal_translation(tokens),
         "pinyin": pinyin_display(source),
         "domain": domain,
@@ -228,7 +232,9 @@ def translate_paragraph(paragraph: str, session: Session, domain_mode: str | Non
     ]
     return {
         "source": paragraph.strip(),
-        "natural_vi": " ".join(item["natural_vi"] for item in translated_sentences if item["natural_vi"]).strip(),
+        "dictionary_vi": " ".join(item.get("dictionary_vi", "") for item in translated_sentences if item.get("dictionary_vi")).strip(),
+        "ai_natural_vi": None,
+        "natural_vi": None,
         "literal_vi": " / ".join(item["literal_vi"] for item in translated_sentences if item["literal_vi"]).strip(),
         "sentences": translated_sentences,
     }
@@ -246,7 +252,7 @@ def paragraph_for_selection(selected_text: str, paragraph_context: str | None, p
     return source_sentence or selected
 
 
-def natural_translation(selected_text: str, source_sentence: str, tokens: list[dict[str, Any]], domain: str) -> str:
+def dictionary_translation(selected_text: str, source_sentence: str, tokens: list[dict[str, Any]], domain: str) -> str:
     # In a real environment, this should either call an LLM (Gemini) or rely on the dictionary.
     # Since we are operating locally without mock strings, we just use the dictionary's literal translation.
     return literal_translation(tokens) or f'{selected_text} (chưa có bản dịch tự nhiên trong từ điển cục bộ)'
@@ -286,7 +292,7 @@ def build_contextual_analysis(payload: NlpAnalyzeRequest, session: Session) -> d
 
     tokens = tokenize_chinese(selected_text, session)
     literal_vi = literal_translation(tokens)
-    natural_vi = natural_translation(selected_text, source_sentence, tokens, domain)
+    dictionary_vi = dictionary_translation(selected_text, source_sentence, tokens, domain)
     role = contextual_role(selected_text, source_sentence, domain)
 
     entry = find_dictionary_entry(selected_text, session)
@@ -295,7 +301,7 @@ def build_contextual_analysis(payload: NlpAnalyzeRequest, session: Session) -> d
         "traditional": selected_text,
         "pinyin": pinyin_display(selected_text),
         "pinyin_display": pinyin_display(selected_text),
-        "definitions_vi": [natural_vi] if natural_vi else [],
+        "definitions_vi": [dictionary_vi] if dictionary_vi else [],
         "definitions_en": [],
         "hsk_level": None,
         "domain_tags": [domain],
@@ -308,9 +314,10 @@ def build_contextual_analysis(payload: NlpAnalyzeRequest, session: Session) -> d
         quick_meaning["definitions_vi"] = [corr.user_translation]
         quick_meaning["source"] = "user_corrections"
         quick_meaning["confidence"] = 0.95
-        natural_vi = corr.user_translation
+        dictionary_vi = corr.user_translation
 
     return {
+        "status": "dictionary_fallback_only",
         "selection": {
             "text": selected_text,
             "selected_text": selected_text,
@@ -320,8 +327,10 @@ def build_contextual_analysis(payload: NlpAnalyzeRequest, session: Session) -> d
         },
         "quick_meaning": quick_meaning,
         "translations": {
-            "natural_vi": natural_vi,
             "literal_vi": literal_vi,
+            "dictionary_vi": dictionary_vi,
+            "ai_natural_vi": None,
+            "natural_vi": None,
             "natural_en": "No natural English yet",
         },
         "role_analysis": {
@@ -342,7 +351,7 @@ def build_contextual_analysis(payload: NlpAnalyzeRequest, session: Session) -> d
         "context_examples": contextual_examples(selected_text, domain),
         "grammar_patterns": grammar_patterns(source_sentence),
         "review_suggestions": [
-            review_suggestion(selected_text, source_sentence, natural_vi, tokens)
+            review_suggestion(selected_text, source_sentence, dictionary_vi, tokens)
         ],
     }
 
@@ -486,18 +495,19 @@ def generate_quiz_payload(payload: NlpAnalyzeRequest, session: Session, limit: i
     for unit in sentence_units:
         if len(questions) >= limit:
             break
-        if not unit["natural_vi"]:
+        if not unit.get("dictionary_vi") and not unit.get("natural_vi"):
             continue
+        valid_vi = unit.get("dictionary_vi") or unit.get("natural_vi")
         options, answer_index = rotate_answer(
-            unique_options([other["natural_vi"] for other in sentence_units if other["natural_vi"] != unit["natural_vi"]], unit["natural_vi"]),
+            unique_options([other.get("dictionary_vi") or other.get("natural_vi") for other in sentence_units if (other.get("dictionary_vi") or other.get("natural_vi")) != valid_vi], valid_vi),
             len(questions),
         )
         questions.append({
             "type": "translation",
-            "question": f'Bản dịch tự nhiên của câu "{unit["source"]}" là gì?',
+            "question": f'Bản dịch phù hợp của câu "{unit["source"]}" là gì?',
             "options": options,
             "answerIndex": answer_index,
-            "explanation": unit["literal_vi"] or unit["natural_vi"],
+            "explanation": unit["literal_vi"] or valid_vi,
             "source_sentence": unit["source"],
             "target": unit["source"],
         })
@@ -525,8 +535,8 @@ def local_translation_payload(text: str, source_lang: str = "auto", target_lang:
             tokens = content_tokens(sentence["tokens"])
             literal = literal_translation(tokens)
             domain = detect_domain(sentence_text, "auto")
-            natural = natural_translation(sentence_text, sentence_text, tokens, domain)
-            sentence_translations.append(natural or literal)
+            dictionary_vi = dictionary_translation(sentence_text, sentence_text, tokens, domain)
+            sentence_translations.append(dictionary_vi or literal)
             if literal:
                 literal_parts.append(literal)
         translated_text = " ".join(filter(None, sentence_translations)).strip() or " / ".join(literal_parts).strip()

@@ -123,7 +123,7 @@ GOOGLE_API_KEY="AIzaSy..."
 - **Sample Documents**: Provided sample texts are for educational purposes.
 
 ## 10. Current Limitations
-- **PDF Scans**: OCR is currently experimental. Scanned PDFs without a valid text layer cannot be reliably highlighted.
+- **PDF Scans**: OCR is an **optional** feature and is currently experimental. Scanned PDFs without a valid text layer cannot be reliably highlighted out of the box. You will need external dependencies to enable OCR (see [docs/ocr_setup.md](docs/ocr_setup.md) for more details).
 - **Mobile Support**: The reader interface is currently optimized for Desktop/Tablet. Mobile responsiveness is functional but not ideal for complex PDF rendering.
 - **Sync Conflict Resolution**: Multi-device cloud sync is not implemented in MVP 0.1. Backup/restore is local and explicit.
 

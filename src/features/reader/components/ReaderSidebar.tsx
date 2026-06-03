@@ -87,9 +87,9 @@ export function ReaderSidebar({
         (analysis as any)?.role_analysis?.role_explanation_vi ||
         (analysis as any)?.role_analysis?.contextual_role_vi ||
         ''
-    const resolvedSentenceTranslation = contextTranslation?.sentence?.natural_vi || sentenceTranslation || quickVi
+    const resolvedSentenceTranslation = contextTranslation?.sentence?.dictionary_vi || sentenceTranslation || quickVi
     const resolvedLiteralTranslation = contextTranslation?.sentence?.literal_vi || literalTranslation
-    const resolvedParagraphTranslation = contextTranslation?.paragraph?.natural_vi || ''
+    const resolvedParagraphTranslation = contextTranslation?.paragraph?.dictionary_vi || ''
 
     return (
         <aside className="flex h-[42vh] w-full shrink-0 flex-col border-t border-slate-200/50 bg-white/85 backdrop-blur-xl lg:h-full lg:w-[360px] lg:border-l lg:border-t-0">
@@ -249,7 +249,11 @@ export function ReaderSidebar({
                                 </h3>
                                 <div className="rounded-2xl border border-teal-100 bg-gradient-to-br from-white to-slate-50/70 p-4 shadow-sm">
                                     <div className="space-y-3 text-xs font-semibold leading-relaxed text-slate-700">
-                                        {analysis?.translations?.natural_vi && <p><span className="font-black text-teal-700">Dịch tự nhiên:</span> {analysis.translations.natural_vi}</p>}
+                                        {analysis?.translations?.ai_natural_vi ? (
+                                            <p><span className="font-black text-teal-700">Dịch tự nhiên (AI):</span> {analysis.translations.ai_natural_vi}</p>
+                                        ) : analysis?.translations?.dictionary_vi ? (
+                                            <p><span className="font-black text-teal-700 opacity-80">Dịch từ điển (Fallback):</span> {analysis.translations.dictionary_vi}</p>
+                                        ) : null}
                                         {analysis?.translations?.literal_vi && <p><span className="font-black text-teal-700">Sát nghĩa:</span> {analysis.translations.literal_vi}</p>}
                                         {roleExplanation && <p>{roleExplanation}</p>}
                                         {grammarPatterns.length > 0 ? (

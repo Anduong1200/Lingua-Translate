@@ -162,7 +162,7 @@ def test_contextual_nlp_analyze(session) -> None:
     result = nlp_analyze(payload, session)
 
     assert result["selection"]["domain_mode"] == "computer_science"
-    assert "hệ thống" in result["translations"]["natural_vi"]
+    assert "hệ thống" in result["translations"]["dictionary_vi"]
     assert result["quick_meaning"]["pinyin"] == "xì tǒng"
 
 
@@ -180,7 +180,7 @@ def test_context_translate_returns_sentence_paragraph_and_context(session) -> No
 
     result = nlp_translate_context(payload, session)
 
-    assert "bất kể" in result["sentence"]["natural_vi"]
+    assert "bất kể" in result["sentence"]["dictionary_vi"]
     assert result["paragraph"]["sentences"][0]["source"] == text
     assert result["context"]["role_vi"] == "Đơn vị được chọn trong câu"
     assert result["grammar"]["patterns"][0]["pattern"] == "无论...还是...都..."

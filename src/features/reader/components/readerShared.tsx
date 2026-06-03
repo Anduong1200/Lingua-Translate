@@ -76,7 +76,7 @@ export type FloatingCoords = { x: number; y: number } | null
 
 export type BackendTranslationUnit = {
     source: string
-    natural_vi: string
+    dictionary_vi: string
     literal_vi: string
     pinyin?: string
     domain?: string
@@ -91,7 +91,7 @@ export type ContextTranslationResult = {
     sentence: BackendTranslationUnit
     paragraph: {
         source: string
-        natural_vi: string
+        dictionary_vi: string
         literal_vi: string
         sentences: BackendTranslationUnit[]
     }
@@ -219,9 +219,9 @@ export function bestSentenceTranslation({
     translation?: DocumentTranslationSentence
 }) {
     const candidates = [
-        analysis?.translations?.natural_vi,
+        analysis?.translations?.dictionary_vi,
         knownSentenceTranslation(selectedSentence?.text || ''),
-        translation?.natural_vi,
+        translation?.dictionary_vi,
         analysis?.quick_meaning?.definitions_vi?.join('; '),
         selectedSentence ? sentenceFallbackTranslation(selectedSentence) : '',
     ]
@@ -231,7 +231,7 @@ export function bestSentenceTranslation({
 
 export function buildContextualToken(surface: string, analysis: ChineseAnalysis | null, fallbackToken?: ChineseToken | null): ChineseToken {
     const quick = analysis?.quick_meaning
-    const vi = quick?.definitions_vi?.[0] || tokenVietnamese(fallbackToken) || analysis?.translations?.natural_vi || ''
+    const vi = quick?.definitions_vi?.[0] || tokenVietnamese(fallbackToken) || analysis?.translations?.dictionary_vi || ''
     const en = quick?.definitions_en?.[0] || tokenEnglish(fallbackToken)
     const definitions: ChineseDefinition[] = [...(fallbackToken?.definitions ?? [])]
 

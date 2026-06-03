@@ -2,6 +2,66 @@ import { type FormEvent } from 'react'
 import { Loader2, MessageSquare, Send, X } from 'lucide-react'
 import { type ChatMessage } from '../readerUtils'
 
+import { useState, useEffect } from 'react'
+import { API_BASE_URL } from '@/store/slices/types'
+import { Link } from 'react-router-dom'
+import { AlertCircle, CheckCircle2 } from 'lucide-react'
+
+function AiChecklist() {
+    const [status, setStatus] = useState<{ enabled: boolean, mode: string, message: string } | null>(null)
+    const [consent, setConsent] = useState<{ allow_send_selected_text: boolean, allow_send_page_context: boolean, allow_send_notes: boolean } | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        Promise.all([
+            fetch(`${API_BASE_URL}/ai/status`).then(res => res.json()),
+            fetch(`${API_BASE_URL}/ai/consent`).then(res => res.json())
+        ]).then(([statusData, consentData]) => {
+            setStatus(statusData as { enabled: boolean, mode: string, message: string })
+            setConsent(consentData.consent as { allow_send_selected_text: boolean, allow_send_page_context: boolean, allow_send_notes: boolean })
+        }).catch(() => {
+            // ignore
+        }).finally(() => {
+            setLoading(false)
+        })
+    }, [])
+
+    if (loading) return <div className="p-4 text-center text-xs text-slate-500">Đang kiểm tra AI...</div>
+
+    const isKeyReady = status?.enabled
+    const isConsentReady = consent?.allow_send_selected_text || consent?.allow_send_page_context
+
+    if (isKeyReady && isConsentReady) {
+        return (
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 text-center">
+                <MessageSquare className="mx-auto h-6 w-6 text-teal-600" />
+                <p className="mt-2 text-xs font-semibold text-slate-500">Hỏi thêm về văn bản, sắc thái nghĩa hoặc cách dùng từ đang chọn.</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
+            <div className="mb-3 flex items-center gap-2 text-amber-700">
+                <AlertCircle className="h-5 w-5" />
+                <h4 className="font-bold text-sm">AI chưa sẵn sàng</h4>
+            </div>
+            <div className="space-y-2 text-xs text-slate-600">
+                <div className="flex items-start gap-2">
+                    {isKeyReady ? <CheckCircle2 className="h-4 w-4 text-teal-500 shrink-0 mt-0.5" /> : <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />}
+                    <span>{isKeyReady ? 'Đã cấu hình API Key' : 'Chưa cấu hình API Key (hoặc dùng key hệ thống)'}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                    {isConsentReady ? <CheckCircle2 className="h-4 w-4 text-teal-500 shrink-0 mt-0.5" /> : <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />}
+                    <span>{isConsentReady ? 'Đã cấp quyền chia sẻ nội dung' : 'Cần cấp quyền chia sẻ văn bản để AI phân tích'}</span>
+                </div>
+            </div>
+            <div className="mt-4">
+                <Link to="/settings" className="inline-block rounded-lg bg-white px-4 py-2 text-xs font-bold text-amber-700 shadow-sm border border-amber-200 hover:bg-amber-100 transition">Mở Cài đặt AI</Link>
+            </div>
+        </div>
+    )
+}
 
 export function ChatPanel({
     chatMessages,
@@ -19,12 +79,7 @@ export function ChatPanel({
     return (
         <div className="flex h-full min-h-[320px] flex-col">
             <div className="mb-4 flex-1 space-y-3 overflow-y-auto pr-1">
-                {chatMessages.length === 0 && (
-                    <div className="rounded-2xl border border-slate-100 bg-white p-5 text-center">
-                        <MessageSquare className="mx-auto h-6 w-6 text-teal-600" />
-                        <p className="mt-2 text-xs font-semibold text-slate-500">Hỏi thêm về văn bản, sắc thái nghĩa hoặc cách dùng từ đang chọn.</p>
-                    </div>
-                )}
+                {chatMessages.length === 0 && <AiChecklist />}
                 {chatMessages.map((message) => {
                     const isUser = message.role === 'user'
                     return (

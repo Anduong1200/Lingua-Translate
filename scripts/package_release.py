@@ -94,12 +94,6 @@ def iter_release_files(root: Path, artifact: Path) -> list[Path]:
 def create_release_zip(root: Path, artifact: Path) -> None:
     artifact = artifact.resolve()
     release_dir = artifact.parent
-    default_release_dir = (root / "release").resolve()
-    
-    # Safe cleanup only for the default release directory
-    if release_dir == default_release_dir and release_dir.parent == root:
-        if release_dir.exists():
-            shutil.rmtree(release_dir)
             
     release_dir.mkdir(parents=True, exist_ok=True)
     if artifact.exists():

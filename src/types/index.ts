@@ -164,7 +164,9 @@ export interface DocumentTranslationSentence {
     sentence_id: string
     index: number
     source: string
-    natural_vi: string
+    dictionary_vi: string
+    ai_natural_vi?: string
+    natural_vi?: string
     literal_vi: string
     pinyin: string
     domain: string
@@ -235,7 +237,9 @@ export interface ContextualQuickMeaning {
 }
 
 export interface ContextualTranslations {
-    natural_vi: string
+    dictionary_vi: string
+    ai_natural_vi?: string
+    natural_vi?: string
     literal_vi: string
 }
 
@@ -281,6 +285,8 @@ export interface AIReviewSuggestion {
 }
 
 export interface AIContextStructuredResponse {
+    dictionary_vi?: string
+    ai_natural_vi?: string
     natural_vi?: string
     literal_vi?: string
     context_explanation_vi?: string
