@@ -80,8 +80,8 @@ graph TD
 ## 6. Dictionary & NLP Pipeline
 The application uses a hybrid approach to ensure speed and accuracy:
 1. **Tokenization**: `Jieba` segments the Chinese sentence into tokens.
-2. **Local Lookup (O(1))**: Tokens are mapped against the local CC-CEDICT database to instantly fetch basic English/Vietnamese meanings and Pinyin.
-3. **Contextual Enrichment**: For complex sentences or user requests, the selected text can be sent to the LLM (Gemini) after the local AI consent gate. Cloud AI sharing is off by default and must be explicitly enabled.
+2. **Local Lookup (O(1))**: Tokens are mapped against the local CC-CEDICT database to instantly fetch literal dictionary meanings (English/Vietnamese) and Pinyin.
+3. **Contextual Enrichment (Optional)**: For natural, fluent translations and grammar explanations, the selected text can be sent to the LLM (Gemini) after the local AI consent gate. Cloud AI sharing is off by default and must be explicitly enabled. If disabled or if the API key is not configured, the system gracefully falls back to the deterministic local dictionary literal translations.
 
 ## 7. Local-First Design
 - **Why?** Language learners should be able to keep documents, annotations, flashcards, and dictionary data on their own machine.

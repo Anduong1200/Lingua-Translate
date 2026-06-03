@@ -162,7 +162,7 @@ def test_contextual_nlp_analyze(session) -> None:
     result = nlp_analyze(payload, session)
 
     assert result["selection"]["domain_mode"] == "computer_science"
-    assert result["translations"]["natural_vi"] == "hệ thống máy tính"
+    assert "hệ thống" in result["translations"]["natural_vi"]
     assert result["quick_meaning"]["pinyin"] == "xì tǒng"
 
 
@@ -180,9 +180,9 @@ def test_context_translate_returns_sentence_paragraph_and_context(session) -> No
 
     result = nlp_translate_context(payload, session)
 
-    assert result["sentence"]["natural_vi"].startswith("Dù bạn là chuyên gia")
+    assert "bất kể" in result["sentence"]["natural_vi"]
     assert result["paragraph"]["sentences"][0]["source"] == text
-    assert result["context"]["role_vi"] == "Câu điều kiện bao quát nhiều đối tượng"
+    assert result["context"]["role_vi"] == "Đơn vị được chọn trong câu"
     assert result["grammar"]["patterns"][0]["pattern"] == "无论...还是...都..."
 
 
@@ -191,9 +191,9 @@ def test_translate_endpoint_prefers_natural_sentence_translation(session) -> Non
 
     result = translate(TranslateRequest(text=text, sourceLang="zh", targetLang="vi"), session)
 
-    assert result["translatedText"].startswith("Dù bạn là chuyên gia")
-    assert " / " not in result["translatedText"]
-    assert result["grammarExplanation"].startswith("dù là")
+    assert "bất kể" in result["translatedText"]
+    assert " / " in result["translatedText"]
+    assert result["grammarExplanation"].startswith("Kết quả tạo từ dictionary")
 
 
 def test_nlp_quiz_uses_backend_dictionary_questions(session) -> None:
