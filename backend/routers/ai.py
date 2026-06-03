@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Body, Request
 from sqlalchemy.orm import Session
 
 from db.config import ai_rate_limit_per_minute, current_request, db_session, rate_limiter
-from schemas import NlpAnalyzeRequest, AIContextRequest
+from schemas import NlpAnalyzeRequest, AIContextRequest, AIChatRequest
 from services.nlp_service import build_contextual_analysis
 from services.ai.orchestrator import handle_context_reading
 from services.ai.client import google_key_status
@@ -42,6 +42,20 @@ def ai_context_reading(
         "rule_based": rule_based,
         "ai": result,
     }
+
+
+@router.post("/chat")
+def ai_chat_endpoint(
+    payload: AIChatRequest = Body(...),
+    db: Session = Depends(db_session),
+    request: Request | None = Depends(current_request),
+):
+    if isinstance(request, Request):
+        rate_limiter.check(request, name="ai", limit=ai_rate_limit_per_minute())
+    
+    from services.ai.orchestrator import handle_chat
+    result = handle_chat(payload, {}, db)
+    return result
 
 @router.get("/status")
 def ai_status():

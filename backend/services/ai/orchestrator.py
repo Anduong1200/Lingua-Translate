@@ -132,3 +132,95 @@ def handle_context_reading(payload: AIContextRequest | NlpAnalyzeRequest, rule_b
         "usage": usage,
         "request_id": request_id
     }
+
+
+def handle_chat(payload, rule_based, session):
+    import time
+    start_time = time.time()
+    task_type = "chat"
+    
+    model = getattr(payload, "model", None) or "gemini-2.5-flash"
+    temperature = getattr(payload, "temperature", None) or 0.5
+
+    consent = get_ai_user_consent(session)
+    if not consent.allow_send_selected_text:
+        return {
+            "enabled": False,
+            "provider": "google_gemini",
+            "status": "disabled_by_consent",
+            "message": "AI chat is disabled because selected text sharing is not allowed."
+        }
+
+    question = getattr(payload, "question", "") or ""
+    chat_history = getattr(payload, "chat_history", []) or []
+    
+    paragraph_context = getattr(payload, "paragraph_context", "") or ""
+    
+    prompt = "You are an expert AI tutor for Chinese learning.\n"
+    if paragraph_context and consent.allow_send_page_context:
+        prompt += f"Context:\n{paragraph_context}\n\n"
+    
+    for msg in chat_history:
+        role = "User" if msg.get("role") == "user" else "Assistant"
+        prompt += f"{role}: {msg.get('content')}\n"
+        
+    prompt += f"User: {question}\nAssistant:"
+
+    request_id = make_id("ai_chat")
+    model_name = validate_model(model)
+    budget_result = check_ai_budget(prompt, session)
+    if not budget_result["allowed"]:
+        return {
+            "enabled": False,
+            "status": budget_result["status"],
+            "message": budget_result["message"],
+        }
+
+    try:
+        api_key, key_index = get_google_api_key()
+    except ValueError as e:
+        return {
+            "enabled": False,
+            "status": "missing_api_key",
+            "message": str(e),
+        }
+
+    req_record = AiRequestRecord(
+        id=request_id,
+        task_type=task_type,
+        model=model_name,
+        status="pending",
+        latency_ms=0,
+        input_token_estimate=budget_result["estimated_prompt_tokens"],
+    )
+    session.add(req_record)
+    session.commit()
+
+    try:
+        response_json = post_google_generate_content(api_key, req_record.model, prompt, temperature)
+        text = extract_gemini_text(response_json)
+        
+        usage = response_json.get("usageMetadata", {})
+        req_record.status = "ok"
+        req_record.input_token_estimate = usage.get("promptTokenCount")
+        req_record.output_token_estimate = usage.get("candidatesTokenCount")
+        
+    except Exception as e:
+        req_record.status = "error"
+        session.commit()
+        return {
+            "enabled": True,
+            "status": "error",
+            "message": str(e)
+        }
+    finally:
+        req_record.latency_ms = int((time.time() - start_time) * 1000)
+        session.commit()
+
+    return {
+        "enabled": True,
+        "status": "ok",
+        "response": {"text": text},
+        "usage": usage,
+        "request_id": request_id
+    }

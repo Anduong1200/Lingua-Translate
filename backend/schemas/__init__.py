@@ -20,6 +20,13 @@ class AIContextRequest(NlpAnalyzeRequest):
     temperature: float = Field(default=0.2, ge=0, le=2)
 
 
+class AIChatRequest(NlpAnalyzeRequest):
+    chat_history: list[dict[str, str]] | None = None
+    question: str | None = None
+    model: str | None = None
+    temperature: float = Field(default=0.5, ge=0, le=2)
+
+
 class TextRequest(BaseModel):
     text: str
 

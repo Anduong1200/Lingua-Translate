@@ -1,0 +1,92 @@
+[
+    {
+        "id": "ling_001",
+        "category": "idiom",
+        "sentence": "他虽然犯了错，但亡羊补牢，为时未晚。",
+        "target_token": "亡羊补牢",
+        "expected_meaning_vi": "mất bò mới lo làm chuồng",
+        "context_hint": "idiom indicating it is never too late to take action after a mistake",
+        "difficulty": "HSK5"
+    },
+    {
+        "id": "ling_002",
+        "category": "metaphor",
+        "sentence": "这个项目现在是烫手山芋，谁也不敢接。",
+        "target_token": "烫手山芋",
+        "expected_meaning_vi": "củ khoai lang nóng (vấn đề nan giải)",
+        "context_hint": "metaphor for a hot potato, a difficult problem",
+        "difficulty": "HSK6"
+    },
+    {
+        "id": "ling_003",
+        "category": "domain_tech",
+        "sentence": "系统使用了分布式哈希表来保证高可用性。",
+        "target_token": "分布式哈希表",
+        "expected_meaning_vi": "bảng băm phân tán (DHT)",
+        "context_hint": "computer science term: distributed hash table",
+        "difficulty": "Domain"
+    },
+    {
+        "id": "ling_004",
+        "category": "domain_finance",
+        "sentence": "由于美联储的量化宽松政策，市场流动性增加。",
+        "target_token": "量化宽松",
+        "expected_meaning_vi": "nới lỏng định lượng (QE)",
+        "context_hint": "finance term: quantitative easing",
+        "difficulty": "Domain"
+    },
+    {
+        "id": "ling_005",
+        "category": "slang",
+        "sentence": "昨天加班到凌晨，今天整个人都摸鱼了。",
+        "target_token": "摸鱼",
+        "expected_meaning_vi": "lười biếng, làm việc riêng trong giờ",
+        "context_hint": "internet slang: slacking off at work",
+        "difficulty": "Slang"
+    },
+    {
+        "id": "ling_006",
+        "category": "idiom",
+        "sentence": "我们不能拔苗助长，必须要循序渐进。",
+        "target_token": "拔苗助长",
+        "expected_meaning_vi": "đốt cháy giai đoạn, dục tốc bất đạt",
+        "context_hint": "idiom: pulling shoots to help them grow, spoiling things through excessive enthusiasm",
+        "difficulty": "HSK5"
+    },
+    {
+        "id": "ling_007",
+        "category": "homophone_pun",
+        "sentence": "这家店的谐音梗太冷了，什么叫“无可救药”？",
+        "target_token": "谐音梗",
+        "expected_meaning_vi": "trò đùa chơi chữ (đồng âm)",
+        "context_hint": "pun based on homophones",
+        "difficulty": "Slang"
+    },
+    {
+        "id": "ling_008",
+        "category": "literary",
+        "sentence": "落霞与孤鹜齐飞，秋水共长天一色。",
+        "target_token": "落霞",
+        "expected_meaning_vi": "ráng chiều",
+        "context_hint": "classic poem from Wang Bo",
+        "difficulty": "Literary"
+    },
+    {
+        "id": "ling_009",
+        "category": "domain_medical",
+        "sentence": "患者的核磁共振成像显示大脑前动脉有异常堵塞。",
+        "target_token": "核磁共振成像",
+        "expected_meaning_vi": "chụp cộng hưởng từ (MRI)",
+        "context_hint": "medical term: Magnetic Resonance Imaging",
+        "difficulty": "Domain"
+    },
+    {
+        "id": "ling_010",
+        "category": "polysemy",
+        "sentence": "他今天吃错药了，脾气那么大。",
+        "target_token": "吃错药",
+        "expected_meaning_vi": "có vấn đề (nghĩa bóng, không phải uống nhầm thuốc)",
+        "context_hint": "figurative meaning: acting crazy/weird",
+        "difficulty": "HSK4"
+    }
+]

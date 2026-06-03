@@ -199,3 +199,6 @@ Demo screenshots and video should be generated from the current build before pub
 - [ ] **Q3 2026**: Native mobile application (React Native) for on-the-go flashcard reviews.
 - [ ] **Q4 2026**: Peer-to-peer vocabulary deck sharing and community translation upvoting.
 - [ ] **Q4 2026**: Advanced SRS algorithm (FSRS integration).
+
+## Kiến trúc (Architecture)
+Chi tiết kiến trúc MVP và sơ đồ hệ thống xem tại: [docs/architecture.md](docs/architecture.md).
