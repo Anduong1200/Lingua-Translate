@@ -193,7 +193,7 @@ def test_translate_endpoint_prefers_natural_sentence_translation(session) -> Non
 
     assert "bất kể" in result["translatedText"]
     assert " / " in result["translatedText"]
-    assert result["grammarExplanation"].startswith("Kết quả tạo từ dictionary")
+    assert result["grammarExplanation"].startswith("dù là")
 
 
 def test_nlp_quiz_uses_backend_dictionary_questions(session) -> None:
