@@ -67,11 +67,14 @@ def db_entry(surface: str, session: Session) -> DictionaryEntryRecord | None:
         )
     ).scalars().all()
     source_priority = {
-        "custom_vi": 0,
-        "domain_dictionary": 1,
-        "phrase_entries": 2,
-        "hsk_vocab": 3,
-        "cc-cedict": 4,
+        "user_corrections": 0,
+        "custom_vi": 1,
+        "curated_vi": 2,
+        "hanora_seed_vi": 3,
+        "domain_dictionary": 4,
+        "phrase_entries": 5,
+        "hsk_vocab": 6,
+        "cc-cedict": 7,
     }
     return sorted(matches, key=lambda entry: source_priority.get(entry.source, 10))[0] if matches else None
 
@@ -80,11 +83,12 @@ def dictionary_source_priority(source: str | None) -> int:
     return {
         "user_corrections": 0,
         "custom_vi": 1,
-        "hanora_seed_vi": 2,
-        "domain_dictionary": 3,
-        "phrase_entries": 4,
-        "hsk_vocab": 5,
-        "cc-cedict": 6,
+        "curated_vi": 2,
+        "hanora_seed_vi": 3,
+        "domain_dictionary": 4,
+        "phrase_entries": 5,
+        "hsk_vocab": 6,
+        "cc-cedict": 7,
     }.get(source or "", 10)
 
 
